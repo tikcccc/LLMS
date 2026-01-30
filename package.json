@@ -1,0 +1,11 @@
+{
+  "name": "llms",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:doc": "npm --prefix doc run dev",
+    "dev:portal": "npm --prefix portal run dev",
+    "dev:web": "npm --prefix web run dev"
+  }
+}

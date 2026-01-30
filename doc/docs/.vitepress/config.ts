@@ -5,7 +5,7 @@ import { figure } from '@mdit/plugin-figure'
 import { attrs } from '@mdit/plugin-attrs'
 import { Transformer } from 'markmap-lib'
 
-const title = '地块作业管理系统'
+const title = 'LLMS'
 const description = '集成 CSDI 官方地理数据的地块/作业管理平台，包含 Web 管理端与移动端任务执行。'
 const base = '/llms/'
 const transformer = new Transformer()
@@ -53,7 +53,8 @@ export default withMermaid(
     },
 
     themeConfig: {
-      logo: '/llms-logo.svg',
+      logo: '/llms-mark.svg',
+      siteTitle: 'LLMS',
       nav: [
         { text: '首页', link: '/' },
         { text: '项目概览', link: '/项目概览/项目介绍' },
@@ -65,10 +66,12 @@ export default withMermaid(
       sidebar: [
         {
           text: '文档架构',
+          collapsed: false,
           items: [{ text: '文档架构', link: '/文档架构' }]
         },
         {
           text: '项目概览',
+          collapsed: false,
           items: [
             { text: '项目介绍', link: '/项目概览/项目介绍' },
             { text: '目标与范围', link: '/项目概览/目标与范围' },
@@ -77,6 +80,7 @@ export default withMermaid(
         },
         {
           text: '需求分析',
+          collapsed: false,
           items: [
             { text: '需求总览', link: '/需求分析/需求总览' },
             { text: '用户故事与验收', link: '/需求分析/用户故事与验收' },
@@ -85,6 +89,7 @@ export default withMermaid(
         },
         {
           text: '技术方案',
+          collapsed: false,
           items: [
             { text: '总体架构', link: '/技术方案/总体架构' },
             { text: '数据与GIS', link: '/技术方案/数据与GIS' },
@@ -94,10 +99,12 @@ export default withMermaid(
         },
         {
           text: '接口文档',
+          collapsed: false,
           items: [
             { text: '接口总览与规范', link: '/接口文档/接口总览与规范' },
             {
               text: 'API文档',
+              collapsed: false,
               items: [
                 { text: 'API 文档总览', link: '/接口文档/API文档/' },
                 { text: '地图与图层接口', link: '/接口文档/API文档/地图与图层接口' },
@@ -112,9 +119,11 @@ export default withMermaid(
         },
         {
           text: '附录',
+          collapsed: false,
           items: [
             {
               text: '会议纪要',
+              collapsed: false,
               items: [
                 { text: '会议清单', link: '/附录/会议纪要' },
                 { text: 'Kick-off', link: '/附录/会议纪要/kick-off' }

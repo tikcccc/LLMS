@@ -1,0 +1,5 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LLMS">
+  <rect width="32" height="32" rx="9" fill="#0E4F4F" />
+  <path d="M9 8h3v13h8v3H9z" fill="#EAF7F5" />
+  <rect x="20" y="8" width="3" height="16" rx="1.5" fill="#EAF7F5" />
+</svg>
