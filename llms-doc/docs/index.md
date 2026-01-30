@@ -1,0 +1,27 @@
+---
+layout: home
+title: "地块作业管理系统"
+
+hero:
+  name: "地块作业管理系统"
+  text: "Land Lot Management System"
+  tagline: "集成 CSDI 官方地图的数据型地块/作业管理平台（Web + 移动端）"
+  image:
+    src: /llms-logo.svg
+    alt: 地块作业管理系统
+  actions:
+    - theme: brand
+      text: 开始阅读
+      link: /项目概览/项目介绍
+    - theme: alt
+      text: 需求概览
+      link: /需求分析/用户故事
+
+features:
+  - title: 权威地图数据
+    details: 直连香港政府 CSDI 官方图层与底图，保证准确性并降低授权成本。
+  - title: 地块与任务闭环
+    details: 以 WORK LOT 为核心，派工、追踪、预警一体化。
+  - title: Web + Mobile 协同
+    details: 管理端看板与现场端执行联动，缩短现场协作链路。
+---

@@ -1,0 +1,5 @@
+<svg width="320" height="80" viewBox="0 0 320 80" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LLMS">
+  <rect width="320" height="80" rx="12" fill="#0E4F4F" />
+  <text x="24" y="52" font-family="Arial, sans-serif" font-size="32" fill="#FFFFFF">LLMS</text>
+  <text x="120" y="52" font-family="Arial, sans-serif" font-size="18" fill="#D9F0F0">Land Lot Management</text>
+</svg>
