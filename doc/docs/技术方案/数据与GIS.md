@@ -1,3 +1,71 @@
-# 数据与GIS
+﻿# 数据与GIS
 
-> TODO: 补充内容。
+## 1. 核心实体关系
+
+### 1.1 实体定义
+
+根据业务需求和实际场景，LLMS 系统包含以下核心实体：
+
+#### LandLot（法律地界）
+- **定义**：法律地界参考层，代表地政/测绘数据中的正式地块边界
+- **维护方**：Site Admin（测量/IT人员）
+- **特点**：通常预置或由管理员维护，不由现场运营人员随意修改
+- **在地图上**：显示为蓝框参考层
+
+#### Operator（经营者）
+- **定义**：受影响经营者主体，代表实际的经营单位、公司或个人
+- **来源**：来自清册、调查、登记等业务数据
+- **特点**：可预置或维护，是业务管理的核心主体
+- **关系**：一个 Operator 可以有多个运营范围（WorkLot）
+
+#### WorkLot（运营范围）
+- **定义**：Operator 的实际占用/作业范围
+- **维护方**：Site Officer（现场人员）
+- **特点**：由前线人员绘制和维护，反映实际占用情况
+- **在地图上**：显示为彩色面，可点击查看详情和任务
+- **关系**：
+  - 属于某个 Operator
+  - 可能跨越或包含多个 LandLot
+  - 可以关联多个 Task
+
+#### Task（任务）
+- **定义**：挂在 WorkLot 上的执行事项
+- **类型**：核对、交接、清场、测量等工作
+- **维护方**：由管理人员创建和分配
+- **执行方**：Field Staff（只读/打卡）
+- **关系**：每个 Task 关联到一个 WorkLot
+
+### 1.2 实体关系图
+
+```
+Operator (1) ──→ (N) WorkLot
+                    │
+                    ├──→ (N) Task
+                    │
+                    └──→ (M:N) LandLot
+```
+
+**关系说明**：
+
+1. **Operator → WorkLot (1:N)**
+   - 一个 Operator 可以有多个 WorkLot（不同位置的作业范围）
+   - 每个 WorkLot 属于一个 Operator
+
+2. **WorkLot ↔ LandLot (M:N)**
+   - 一个 WorkLot 可能跨越多个 LandLot（法律地界）
+   - 一个 LandLot 内可能包含多个 WorkLot（多个经营单位）
+   - 通过关联表或 `relatedLandLots` 字段表达
+
+3. **WorkLot → Task (1:N)**
+   - 一个 WorkLot 可以有多个 Task
+   - 每个 Task 关联到一个 WorkLot（通过 `workLotId`）
+
+### 1.3 数据维护权限
+
+| 实体 | 创建/维护 | 查看 | 说明 |
+|------|----------|------|------|
+| LandLot | Site Admin | 所有角色 | 法律地界，通常预置 |
+| Operator | Site Admin | 所有角色 | 经营者主体，可预置 |
+| WorkLot | Site Officer | 所有角色 | 运营范围，现场绘制 |
+| Task | Site Officer | 所有角色 | 任务，Field Staff 可执行 |
+

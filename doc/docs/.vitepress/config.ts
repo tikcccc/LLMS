@@ -3,6 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 import { configureDiagramsPlugin } from 'vitepress-plugin-diagrams'
 import { figure } from '@mdit/plugin-figure'
 import { attrs } from '@mdit/plugin-attrs'
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 import { Transformer } from 'markmap-lib'
 
 const title = 'LLMS'
@@ -41,13 +42,14 @@ export default withMermaid(
       config: (md) => {
         configureDiagramsPlugin(md, {
           diagramsDir: 'docs/public/diagrams',
-          publicPath: '/diagrams',
+          publicPath: `${base}diagrams`,
           krokiServerUrl: 'https://kroki.io',
           excludedDiagramTypes: ['mermaid']
         })
 
         md.use(figure)
         md.use(attrs)
+        md.use(tabsMarkdownPlugin)
         md.use(markdownItMarkmap)
       }
     },
@@ -60,6 +62,7 @@ export default withMermaid(
         { text: '项目概览', link: '/项目概览/项目介绍' },
         { text: '需求分析', link: '/需求分析/需求总览' },
         { text: '技术方案', link: '/技术方案/总体架构' },
+        { text: '数据结构', link: '/数据结构/Web端点数据结构' },
         { text: '接口文档', link: '/接口文档/接口总览与规范' },
         { text: '附录', link: '/附录/会议纪要' }
       ],
@@ -75,6 +78,7 @@ export default withMermaid(
           items: [
             { text: '项目介绍', link: '/项目概览/项目介绍' },
             { text: '目标与范围', link: '/项目概览/目标与范围' },
+            { text: '里程碑与交付物', link: '/项目概览/里程碑与交付物' },
             { text: '角色与权限', link: '/项目概览/角色与权限' }
           ]
         },
@@ -95,6 +99,14 @@ export default withMermaid(
             { text: '数据与GIS', link: '/技术方案/数据与GIS' },
             { text: 'Web端设计', link: '/技术方案/Web端设计' },
             { text: 'Mobile端设计', link: '/技术方案/Mobile端设计' }
+          ]
+        },
+        {
+          text: '数据结构',
+          collapsed: false,
+          items: [
+            { text: 'Web 端点数据结构', link: '/数据结构/Web端点数据结构' },
+            { text: 'Mobile 端点数据结构', link: '/数据结构/Mobile端点数据结构' }
           ]
         },
         {

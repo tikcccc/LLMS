@@ -49,6 +49,13 @@ figure > figcaption {
   height: 420px;
 }
 
+/* Hide Mermaid Gantt "today" marker line */
+.mermaid .today,
+.mermaid line.today,
+.mermaid g.today {
+  display: none !important;
+}
+
 /* Topbar layout + icon */
 .VPNavBar {
   background-color: var(--vp-nav-bg-color);

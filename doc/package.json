@@ -12,11 +12,12 @@
     "@mdit/plugin-figure": "^0.12.0",
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
-    "mermaid": "^10.9.0",
     "medium-zoom": "^1.1.0",
+    "mermaid": "^10.9.0",
     "typescript": "^5.4.0",
     "vitepress": "^1.2.0",
     "vitepress-plugin-diagrams": "^1.1.2",
-    "vitepress-plugin-mermaid": "^2.0.17"
+    "vitepress-plugin-mermaid": "^2.0.17",
+    "vitepress-plugin-tabs": "^0.7.3"
   }
 }

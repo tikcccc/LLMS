@@ -1,8 +1,10 @@
+import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import './custom.css'
 import mediumZoom from 'medium-zoom'
 import { nextTick, onMounted, watch } from 'vue'
 import { useRoute } from 'vitepress'
+import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 
 let zoom: ReturnType<typeof mediumZoom> | null = null
 
@@ -30,6 +32,9 @@ async function renderMarkmap() {
 
 export default {
   extends: DefaultTheme,
+  enhanceApp({ app }) {
+    enhanceAppWithTabs(app)
+  },
   setup() {
     const route = useRoute()
     const enhance = () => {
@@ -43,4 +48,4 @@ export default {
       () => nextTick(() => enhance())
     )
   }
-}
+} satisfies Theme
