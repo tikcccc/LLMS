@@ -52,7 +52,10 @@ figure > figcaption {
 /* Hide Mermaid Gantt "today" marker line */
 .mermaid .today,
 .mermaid line.today,
-.mermaid g.today {
+.mermaid g.today,
+.vp-doc svg .today,
+.vp-doc svg line.today,
+.vp-doc svg g.today {
   display: none !important;
 }
 
