@@ -96,7 +96,8 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: '总体架构', link: '/技术方案/总体架构' },
-            { text: '数据与GIS', link: '/技术方案/数据与GIS' },
+            { text: '领域模型', link: '/技术方案/领域模型' },
+            { text: 'GIS方案', link: '/技术方案/GIS方案' },
             { text: 'Web端设计', link: '/技术方案/Web端设计' },
             { text: 'Mobile端设计', link: '/技术方案/Mobile端设计' }
           ]

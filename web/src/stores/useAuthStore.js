@@ -4,6 +4,7 @@ import { roleLabel } from "../shared/utils/role";
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     role: "SITE_ADMIN",
+    timeRange: "12M",
   }),
   getters: {
     roleName: (state) => roleLabel(state.role),

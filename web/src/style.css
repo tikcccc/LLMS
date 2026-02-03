@@ -38,3 +38,8 @@ textarea {
 .el-form-item {
   margin-bottom: 12px;
 }
+
+/* Remove drawer modal overlay */
+.el-overlay {
+  background-color: transparent !important;
+}

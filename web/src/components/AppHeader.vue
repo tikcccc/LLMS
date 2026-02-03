@@ -2,36 +2,17 @@
   <header class="app-header">
     <div class="brand">
       <div class="title">Land Lot Management Demo</div>
-      <div class="subtitle">HK80 | CSDI Topographic Map (PNG + Label)</div>
     </div>
 
-    <nav class="nav">
-      <el-button
-        size="small"
-        :type="isActive('/map') ? 'primary' : 'default'"
-        @click="go('/map')"
-      >
-        Map
-      </el-button>
-      <el-button
-        size="small"
-        :type="isActive('/admin/land-lots') ? 'primary' : 'default'"
-        :disabled="!isAdmin"
-        @click="go('/admin/land-lots', true)"
-      >
-        Admin Land Lots
-      </el-button>
-      <el-button
-        size="small"
-        :type="isActive('/admin/work-lots') ? 'primary' : 'default'"
-        :disabled="!isAdmin"
-        @click="go('/admin/work-lots', true)"
-      >
-        Admin Work Lots
-      </el-button>
-    </nav>
-
     <div class="actions">
+      <el-button size="small" @click="resetDemoData">Reset Demo</el-button>
+      <button class="notif" type="button" aria-label="Notifications">
+        <span class="dot"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 3a4 4 0 0 0-4 4v3.5l-1.4 2.8A1 1 0 0 0 7.5 15h9a1 1 0 0 0 .9-1.4L16 10.5V7a4 4 0 0 0-4-4z"/>
+          <path d="M9.5 18a2.5 2.5 0 0 0 5 0"/>
+        </svg>
+      </button>
       <el-tag v-if="authStore.role === 'FIELD_STAFF'" type="info" effect="plain">Read-only</el-tag>
       <span class="role-label">Role</span>
       <el-select v-model="selectedRole" size="small" style="width: 160px">
@@ -43,14 +24,13 @@
 
 <script setup>
 import { computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
+import { ElMessageBox, ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/useAuthStore";
 import { ROLE_OPTIONS } from "../shared/utils/role";
 
 const authStore = useAuthStore();
 const route = useRoute();
-const router = useRouter();
-
 const roleOptions = ROLE_OPTIONS;
 
 const selectedRole = computed({
@@ -58,20 +38,34 @@ const selectedRole = computed({
   set: (value) => authStore.switchRole(value),
 });
 
-const isAdmin = computed(() => authStore.role === "SITE_ADMIN");
-
 const isActive = (path) => route.path.startsWith(path);
 
-const go = (path, requiresAdmin = false) => {
-  if (requiresAdmin && !isAdmin.value) return;
-  router.push(path);
+const resetDemoData = () => {
+  ElMessageBox.confirm("Reset all demo data? This will clear local data and reload.", "Reset Demo", {
+    type: "warning",
+    confirmButtonText: "Reset",
+    cancelButtonText: "Cancel",
+  })
+    .then(() => {
+      [
+        "ND_LLM_V1_auth",
+        "ND_LLM_V1_landlots",
+        "ND_LLM_V1_worklots",
+        "ND_LLM_V1_tasks",
+        "ND_LLM_V1_ui",
+        "ND_LLM_V1_relations",
+      ].forEach((key) => localStorage.removeItem(key));
+      ElMessage.success("Demo data reset. Reloading...");
+      window.location.reload();
+    })
+    .catch(() => {});
 };
 </script>
 
 <style scoped>
 .app-header {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: 16px;
   align-items: center;
   padding: 16px 24px;
@@ -89,16 +83,39 @@ const go = (path, requiresAdmin = false) => {
   color: var(--muted);
 }
 
-.nav {
-  display: flex;
-  gap: 8px;
-}
-
 .actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   justify-self: end;
+}
+
+.notif {
+  position: relative;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 12px;
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.notif svg {
+  width: 18px;
+  height: 18px;
+}
+
+.notif .dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border: 2px solid white;
+  border-radius: 50%;
 }
 
 .role-label {

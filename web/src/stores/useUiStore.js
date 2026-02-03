@@ -6,6 +6,7 @@ export const useUiStore = defineStore("ui", {
     selectedWorkLotId: null,
     selectedLandLotId: null,
     editTarget: "land",
+    sidebarCollapsed: false,
     showBasemap: true,
     showLabels: true,
     showLandLots: true,
@@ -29,6 +30,9 @@ export const useUiStore = defineStore("ui", {
     },
     setEditTarget(target) {
       this.editTarget = target;
+    },
+    toggleSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
     },
     setLayerVisibility(layerKey, value) {
       this[layerKey] = value;

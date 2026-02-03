@@ -6,7 +6,7 @@
         <p class="muted">Legal boundary reference layer.</p>
       </div>
       <div class="admin-actions">
-        <el-button type="primary" @click="exportCsv">Export CSV</el-button>
+        <el-button type="primary" @click="exportExcel">Export Excel</el-button>
       </div>
     </div>
 
@@ -14,7 +14,11 @@
       <el-table-column prop="id" label="ID" width="140" />
       <el-table-column prop="lotNumber" label="Lot Number" min-width="220" />
       <el-table-column prop="status" label="Status" width="120" />
-      <el-table-column prop="updatedAt" label="Updated At" min-width="180" />
+      <el-table-column label="Updated At" min-width="180">
+        <template #default="{ row }">
+          <TimeText :value="row.updatedAt" />
+        </template>
+      </el-table-column>
       <el-table-column prop="updatedBy" label="Updated By" min-width="140" />
     </el-table>
   </section>
@@ -23,14 +27,15 @@
 <script setup>
 import { computed } from "vue";
 import { useLandLotStore } from "../../stores/useLandLotStore";
-import { exportLandLots } from "../../shared/utils/csv";
+import { exportLandLots } from "../../shared/utils/excel";
+import TimeText from "../../components/TimeText.vue";
 
 const landLotStore = useLandLotStore();
 landLotStore.seedIfEmpty();
 
 const landLots = computed(() => landLotStore.landLots);
 
-const exportCsv = () => {
+const exportExcel = () => {
   exportLandLots(landLots.value);
 };
 </script>

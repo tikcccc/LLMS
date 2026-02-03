@@ -6,7 +6,7 @@
         <p class="muted">Operational management layer.</p>
       </div>
       <div class="admin-actions">
-        <el-button type="primary" @click="exportCsv">Export CSV</el-button>
+        <el-button type="primary" @click="exportExcel">Export Excel</el-button>
       </div>
     </div>
 
@@ -15,7 +15,11 @@
       <el-table-column prop="operatorName" label="Operator" min-width="200" />
       <el-table-column prop="type" label="Type" width="120" />
       <el-table-column prop="status" label="Status" width="140" />
-      <el-table-column prop="updatedAt" label="Updated At" min-width="180" />
+      <el-table-column label="Updated At" min-width="180">
+        <template #default="{ row }">
+          <TimeText :value="row.updatedAt" />
+        </template>
+      </el-table-column>
       <el-table-column prop="updatedBy" label="Updated By" min-width="140" />
     </el-table>
   </section>
@@ -24,14 +28,15 @@
 <script setup>
 import { computed } from "vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
-import { exportWorkLots } from "../../shared/utils/csv";
+import { exportWorkLots } from "../../shared/utils/excel";
+import TimeText from "../../components/TimeText.vue";
 
 const workLotStore = useWorkLotStore();
 workLotStore.seedIfEmpty();
 
 const workLots = computed(() => workLotStore.workLots);
 
-const exportCsv = () => {
+const exportExcel = () => {
   exportWorkLots(workLots.value);
 };
 </script>

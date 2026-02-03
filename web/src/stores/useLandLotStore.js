@@ -40,6 +40,44 @@ const seedLandLots = () => [
     updatedBy: "Site Admin",
     updatedAt: nowIso(),
   },
+  {
+    id: "LL-003",
+    lotNumber: "D.D. 100 Lot 201 RP",
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [835800, 815500],
+          [836250, 815500],
+          [836250, 815900],
+          [835800, 815900],
+          [835800, 815500],
+        ],
+      ],
+    },
+    status: "Active",
+    updatedBy: "Site Admin",
+    updatedAt: nowIso(),
+  },
+  {
+    id: "LL-004",
+    lotNumber: "D.D. 100 Lot 205 RP",
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [834200, 816050],
+          [834650, 816050],
+          [834650, 816450],
+          [834200, 816450],
+          [834200, 816050],
+        ],
+      ],
+    },
+    status: "Inactive",
+    updatedBy: "Site Admin",
+    updatedAt: nowIso(),
+  },
 ];
 
 export const useLandLotStore = defineStore("landLots", {

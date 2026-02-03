@@ -3,207 +3,41 @@
     <main class="map-shell">
       <div ref="mapEl" class="map-container"></div>
 
-      <div class="toolbar">
-        <el-button
-          size="small"
-          :type="uiStore.tool === 'PAN' ? 'primary' : 'default'"
-          @click="setTool('PAN')"
-        >
-          Pan
-        </el-button>
-        <el-button
-          size="small"
-          :type="uiStore.tool === 'DRAW' ? 'primary' : 'default'"
-          :disabled="!canEditLayer"
-          @click="setTool('DRAW')"
-        >
-          Draw
-        </el-button>
-        <el-button
-          size="small"
-          :type="uiStore.tool === 'MODIFY' ? 'primary' : 'default'"
-          :disabled="!canEditLayer"
-          @click="setTool('MODIFY')"
-        >
-          Modify
-        </el-button>
-        <el-button
-          size="small"
-          :type="uiStore.tool === 'DELETE' ? 'primary' : 'default'"
-          :disabled="!canEditLayer"
-          @click="setTool('DELETE')"
-        >
-          Delete
-        </el-button>
-        <el-button size="small" :disabled="uiStore.tool === 'PAN' && !hasDraft" @click="cancelTool">
-          Cancel
-        </el-button>
-        <div class="edit-target" v-if="canEditLayer">
-          <span>Edit Target</span>
-          <el-segmented
-            v-model="uiStore.editTarget"
-            size="small"
-            :options="editTargetOptions"
-            @change="onEditTargetChange"
-          />
-        </div>
-      </div>
+      <MapToolbar
+        :tool="uiStore.tool"
+        :can-edit-layer="canEditLayer"
+        :has-draft="hasDraft"
+        :edit-target="uiStore.editTarget"
+        :edit-target-options="editTargetOptions"
+        @set-tool="setTool"
+        @cancel-tool="cancelTool"
+        @update:editTarget="uiStore.setEditTarget"
+        @edit-target-change="onEditTargetChange"
+      />
 
-      <aside class="left-panel">
-        <el-tabs v-model="leftTab" class="panel-tabs">
-          <el-tab-pane label="Layers" name="layers">
-            <div class="panel-section">
-              <div class="panel-row">
-                <span>Basemap</span>
-                <el-switch v-model="uiStore.showBasemap" />
-              </div>
-              <div class="panel-row">
-                <span>Labels (EN)</span>
-                <el-switch v-model="uiStore.showLabels" />
-              </div>
-              <div class="panel-row">
-                <span>Land Lots</span>
-                <el-switch v-model="uiStore.showLandLots" />
-              </div>
-              <div class="panel-row">
-                <span>Work Lots</span>
-                <el-switch v-model="uiStore.showWorkLots" />
-              </div>
-            </div>
-
-            <div class="legend">
-              <div class="legend-title">Work Lot Status</div>
-              <div class="legend-item">
-                <span class="swatch pending"></span>
-                Pending
-              </div>
-              <div class="legend-item">
-                <span class="swatch progress"></span>
-                In-Progress
-              </div>
-              <div class="legend-item">
-                <span class="swatch handover"></span>
-                Handover
-              </div>
-              <div class="legend-item">
-                <span class="swatch difficult"></span>
-                Difficult
-              </div>
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="Tasks" name="tasks">
-            <div class="panel-section">
-              <el-select v-model="taskFilter" size="small" style="width: 140px">
-                <el-option label="All" value="All" />
-                <el-option label="Open" value="Open" />
-                <el-option label="Done" value="Done" />
-              </el-select>
-            </div>
-            <div class="task-list-global">
-              <button
-                v-for="task in filteredTasks"
-                :key="task.id"
-                class="task-card"
-                type="button"
-                @click="focusTask(task)"
-              >
-                <div class="task-card-top">
-                  <span class="task-title">{{ task.title }}</span>
-                  <el-tag size="small" :type="task.status === 'Done' ? 'success' : 'info'">
-                    {{ task.status }}
-                  </el-tag>
-                </div>
-                <div class="task-card-meta">
-                  <span>{{ workLotName(task.workLotId) }}</span>
-                  <span>{{ task.assignee }}</span>
-                </div>
-              </button>
-              <el-empty v-if="filteredTasks.length === 0" description="No tasks" />
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="Land Lots" name="landlots">
-            <div class="panel-section">
-              <el-input
-                v-model="landSearchQuery"
-                placeholder="Search land lots"
-                clearable
-              />
-            </div>
-            <div class="list-scroll">
-              <button
-                v-for="lot in landLotResults"
-                :key="lot.id"
-                class="list-item"
-                type="button"
-                @click="focusLandLot(lot.id)"
-              >
-                <div class="list-title-row">
-                  <span class="list-title">{{ lot.lotNumber }}</span>
-                  <el-tag size="small" effect="plain" :style="landStatusStyle(lot.status)">
-                    {{ lot.status }}
-                  </el-tag>
-                </div>
-                <div class="list-meta">{{ lot.id }}</div>
-              </button>
-              <el-empty v-if="landLotResults.length === 0" description="No land lots" />
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="Work Lots" name="worklots">
-            <div class="panel-section">
-              <el-input
-                v-model="workSearchQuery"
-                placeholder="Search work lots"
-                clearable
-              />
-            </div>
-            <div class="list-scroll">
-              <button
-                v-for="lot in workLotResults"
-                :key="lot.id"
-                class="list-item"
-                type="button"
-                @click="zoomToWorkLot(lot.id)"
-              >
-                <div class="list-title-row">
-                  <span class="list-title">{{ lot.operatorName }}</span>
-                  <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
-                    {{ lot.status }}
-                  </el-tag>
-                </div>
-                <div class="list-meta">{{ lot.id }}</div>
-              </button>
-              <el-empty v-if="workLotResults.length === 0" description="No work lots" />
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="Search" name="search">
-            <div class="panel-section">
-              <el-input
-                v-model="searchQuery"
-                placeholder="Search work lots"
-                clearable
-                @keyup.enter="onSearchEnter"
-              />
-            </div>
-            <div class="search-results">
-              <button
-                v-for="result in searchResults"
-                :key="result.id"
-                class="search-item"
-                type="button"
-                @click="zoomToWorkLot(result.id)"
-              >
-                <div class="search-title">{{ result.operatorName }}</div>
-                <div class="search-meta">{{ result.id }}</div>
-              </button>
-              <el-empty v-if="searchResults.length === 0" description="No results" />
-            </div>
-          </el-tab-pane>
-        </el-tabs>
-      </aside>
+      <MapSidePanel
+        v-model:leftTab="leftTab"
+        v-model:taskFilter="taskFilter"
+        v-model:searchQuery="searchQuery"
+        v-model:landSearchQuery="landSearchQuery"
+        v-model:workSearchQuery="workSearchQuery"
+        v-model:showBasemap="uiStore.showBasemap"
+        v-model:showLabels="uiStore.showLabels"
+        v-model:showLandLots="uiStore.showLandLots"
+        v-model:showWorkLots="uiStore.showWorkLots"
+        :filtered-tasks="filteredTasks"
+        :land-lot-results="landLotResults"
+        :work-lot-results="workLotResults"
+        :search-results="searchResults"
+        :work-lot-name="workLotName"
+        :is-overdue="isOverdue"
+        :land-status-style="landStatusStyle"
+        :work-status-style="workStatusStyle"
+        @focus-task="focusTask"
+        @focus-work="zoomToWorkLot"
+        @focus-land="focusLandLot"
+        @search-enter="onSearchEnter"
+      />
 
       <div class="attribution">
         <img class="logo" src="/landsd_logo.svg" alt="Lands Department logo" />
@@ -211,102 +45,36 @@
       </div>
     </main>
 
-    <el-drawer
-      :model-value="!!selectedWorkLot || !!selectedLandLot"
-      size="360px"
+    <MapDrawer
+      :selected-work-lot="selectedWorkLot"
+      :selected-land-lot="selectedLandLot"
+      :related-land-lots="relatedLandLots"
+      :related-work-lots="relatedWorkLots"
+      :selected-tasks="selectedTasks"
+      :selected-task="selectedTask"
+      :task-form="taskForm"
+      :work-status-style="workStatusStyle"
+      :land-status-style="landStatusStyle"
+      :is-overdue="isOverdue"
       @close="uiStore.clearSelection()"
-    >
-      <template #header>
-        <div class="drawer-header" v-if="selectedWorkLot">
-          <div class="drawer-title">{{ selectedWorkLot.operatorName }}</div>
-          <el-tag effect="plain" :style="workStatusStyle(selectedWorkLot.status)">
-            {{ selectedWorkLot.status }}
-          </el-tag>
-        </div>
-        <div class="drawer-header" v-else-if="selectedLandLot">
-          <div class="drawer-title">{{ selectedLandLot.lotNumber }}</div>
-          <el-tag effect="plain" :style="landStatusStyle(selectedLandLot.status)">
-            {{ selectedLandLot.status }}
-          </el-tag>
-        </div>
-      </template>
+      @focus-land="focusLandLot"
+      @focus-work="zoomToWorkLot"
+      @open-add-task="openAddTaskDialog"
+      @toggle-task="taskStore.toggleDone"
+      @select-task="selectTask"
+      @clear-task="clearTaskSelection"
+      @save-task="saveTaskDetail"
+      @delete-task="deleteTask"
+    />
 
-      <div v-if="selectedWorkLot" class="drawer-body">
-        <div class="info-block">
-          <div class="info-row"><span>ID</span><strong>{{ selectedWorkLot.id }}</strong></div>
-          <div class="info-row"><span>Type</span><strong>{{ selectedWorkLot.type }}</strong></div>
-          <div class="info-row"><span>Updated</span><strong>{{ selectedWorkLot.updatedAt }}</strong></div>
-          <div class="info-row"><span>Updated By</span><strong>{{ selectedWorkLot.updatedBy }}</strong></div>
-        </div>
-
-        <div class="info-block">
-          <div class="info-row">
-            <span>Related Land Lots</span>
-            <strong>{{ relatedLandLots.map((lot) => lot.lotNumber).join(", ") || "-" }}</strong>
-          </div>
-          <div class="related-list">
-            <button
-              v-for="lot in relatedLandLots"
-              :key="lot.id"
-              type="button"
-              class="chip"
-              @click="focusLandLot(lot.id)"
-            >
-              {{ lot.lotNumber }}
-            </button>
-          </div>
-        </div>
-
-        <div class="task-block">
-          <div class="task-header">Tasks</div>
-          <el-input
-            v-model="newTaskTitle"
-            placeholder="Add task and press Enter"
-            size="small"
-            @keyup.enter="addTask"
-          />
-          <div v-if="selectedTasks.length" class="task-list">
-            <div v-for="task in selectedTasks" :key="task.id" class="task-item">
-              <el-checkbox
-                :model-value="task.status === 'Done'"
-                @change="() => taskStore.toggleDone(task.id)"
-              >
-                {{ task.title }}
-              </el-checkbox>
-              <div class="task-meta">{{ task.assignee }}</div>
-            </div>
-          </div>
-          <el-empty v-else description="No tasks" />
-        </div>
-      </div>
-
-      <div v-else-if="selectedLandLot" class="drawer-body">
-        <div class="info-block">
-          <div class="info-row"><span>ID</span><strong>{{ selectedLandLot.id }}</strong></div>
-          <div class="info-row"><span>Status</span><strong>{{ selectedLandLot.status }}</strong></div>
-          <div class="info-row"><span>Updated</span><strong>{{ selectedLandLot.updatedAt }}</strong></div>
-          <div class="info-row"><span>Updated By</span><strong>{{ selectedLandLot.updatedBy }}</strong></div>
-        </div>
-
-        <div class="info-block">
-          <div class="info-row">
-            <span>Related Work Lots</span>
-            <strong>{{ relatedWorkLots.map((lot) => lot.operatorName).join(", ") || "-" }}</strong>
-          </div>
-          <div class="related-list">
-            <button
-              v-for="lot in relatedWorkLots"
-              :key="lot.id"
-              type="button"
-              class="chip"
-              @click="zoomToWorkLot(lot.id)"
-            >
-              {{ lot.operatorName }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </el-drawer>
+    <AddTaskDialog
+      v-model="showTaskDialog"
+      v-model:title="newTaskTitle"
+      v-model:assignee="newTaskAssignee"
+      v-model:dueDate="newTaskDueDate"
+      @confirm="confirmAddTask"
+      @cancel="clearNewTask"
+    />
 
     <el-dialog v-model="showLandDialog" title="Create Land Lot" width="420px">
       <el-form :model="landForm" label-width="120px">
@@ -364,14 +132,12 @@ import VectorLayer from "ol/layer/Vector";
 import XYZ from "ol/source/XYZ";
 import VectorSource from "ol/source/Vector";
 import Feature from "ol/Feature";
-import Point from "ol/geom/Point";
 import Draw from "ol/interaction/Draw";
 import Modify from "ol/interaction/Modify";
 import Select from "ol/interaction/Select";
 import Snap from "ol/interaction/Snap";
 import GeoJSON from "ol/format/GeoJSON";
 import { defaults as defaultControls } from "ol/control";
-import { getCenter } from "ol/extent";
 import { ElMessageBox, ElMessage } from "element-plus";
 
 import { BASEMAP_URL, LABEL_URL, MAP_MIN_ZOOM } from "../../shared/config/mapApi";
@@ -380,11 +146,13 @@ import { createHK80TileGrid, HK80_RESOLUTIONS, HK80_MAX_ZOOM } from "./ol/tilegr
 import {
   landLotStyle,
   workLotStyle,
-  landLotIconStyle,
-  workLotIconStyle,
   highlightLandLotStyle,
   highlightWorkLotStyle,
 } from "./ol/styles";
+import MapToolbar from "./components/MapToolbar.vue";
+import MapSidePanel from "./components/MapSidePanel.vue";
+import MapDrawer from "./components/MapDrawer.vue";
+import AddTaskDialog from "./components/AddTaskDialog.vue";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useLandLotStore } from "../../stores/useLandLotStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
@@ -392,7 +160,7 @@ import { useTaskStore } from "../../stores/useTaskStore";
 import { useUiStore } from "../../stores/useUiStore";
 import { useRelationStore } from "../../stores/useRelationStore";
 import { generateId } from "../../shared/utils/id";
-import { nowIso } from "../../shared/utils/time";
+import { nowIso, todayHongKong } from "../../shared/utils/time";
 
 const mapEl = ref(null);
 const mapRef = ref(null);
@@ -451,6 +219,14 @@ const searchQuery = ref("");
 const landSearchQuery = ref("");
 const workSearchQuery = ref("");
 const hasDraft = ref(false);
+const selectedTaskId = ref(null);
+const showTaskDialog = ref(false);
+const taskForm = ref({
+  title: "",
+  assignee: "",
+  dueDate: "",
+  status: "Open",
+});
 
 const editTargetOptions = [
   { label: "Land", value: "land" },
@@ -473,15 +249,13 @@ const workForm = ref({
 });
 
 const newTaskTitle = ref("");
+const newTaskAssignee = ref("");
+const newTaskDueDate = ref("");
 
 let landSource;
 let workSource;
 let landLayer;
 let workLayer;
-let landIconSource;
-let workIconSource;
-let landIconLayer;
-let workIconLayer;
 let landHighlightSource;
 let workHighlightSource;
 let landHighlightLayer;
@@ -509,18 +283,12 @@ const updateLayerOpacity = () => {
   if (authStore.role === "SITE_ADMIN") {
     landLayer.setOpacity(1);
     workLayer.setOpacity(0.45);
-    if (landIconLayer) landIconLayer.setOpacity(1);
-    if (workIconLayer) workIconLayer.setOpacity(0.45);
   } else if (authStore.role === "SITE_OFFICER") {
     landLayer.setOpacity(0.45);
     workLayer.setOpacity(1);
-    if (landIconLayer) landIconLayer.setOpacity(0.45);
-    if (workIconLayer) workIconLayer.setOpacity(1);
   } else {
     landLayer.setOpacity(0.35);
     workLayer.setOpacity(0.7);
-    if (landIconLayer) landIconLayer.setOpacity(0.35);
-    if (workIconLayer) workIconLayer.setOpacity(0.7);
   }
 };
 
@@ -529,8 +297,6 @@ const updateLayerVisibility = () => {
   if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
   if (landLayer) landLayer.setVisible(uiStore.showLandLots);
   if (workLayer) workLayer.setVisible(uiStore.showWorkLots);
-  if (landIconLayer) landIconLayer.setVisible(uiStore.showLandLots);
-  if (workIconLayer) workIconLayer.setVisible(uiStore.showWorkLots);
   if (landHighlightLayer) landHighlightLayer.setVisible(uiStore.showLandLots);
   if (workHighlightLayer) workHighlightLayer.setVisible(uiStore.showWorkLots);
 };
@@ -634,6 +400,9 @@ const searchResults = computed(() => {
 
 const filteredTasks = computed(() => {
   if (taskFilter.value === "All") return taskStore.tasks;
+  if (taskFilter.value === "Overdue") {
+    return taskStore.tasks.filter((task) => isOverdue(task));
+  }
   return taskStore.tasks.filter((task) => task.status === taskFilter.value);
 });
 
@@ -704,6 +473,22 @@ const workLotName = (id) => {
 const focusTask = (task) => {
   zoomToWorkLot(task.workLotId);
   leftTab.value = "tasks";
+  selectedTaskId.value = task.id;
+};
+
+const isOverdue = (task) => {
+  if (!task?.dueDate) return false;
+  if (task.status === "Done") return false;
+  const today = todayHongKong();
+  return task.dueDate < today;
+};
+
+const getWorkLotTaskAlert = (workLotId) => {
+  const tasks = taskStore.tasks.filter((task) => task.workLotId === workLotId);
+  if (tasks.length === 0) return null;
+  if (tasks.some((task) => isOverdue(task))) return "overdue";
+  if (tasks.some((task) => task.status !== "Done")) return "inProgress";
+  return "completed";
 };
 
 const createLandFeature = (lot) => {
@@ -727,6 +512,7 @@ const createLandFeature = (lot) => {
 
 const createWorkFeature = (lot) => {
   if (!lot?.geometry) return null;
+  const taskAlert = getWorkLotTaskAlert(lot.id);
   const feature = format.readFeature(
     {
       type: "Feature",
@@ -734,6 +520,7 @@ const createWorkFeature = (lot) => {
       properties: {
         operatorName: lot.operatorName,
         status: lot.status,
+        taskAlert,
       },
     },
     { dataProjection: EPSG_2326, featureProjection: EPSG_2326 }
@@ -741,24 +528,10 @@ const createWorkFeature = (lot) => {
   feature.setId(lot.id);
   feature.set("layerType", "work");
   feature.set("refId", lot.id);
+  feature.set("taskAlert", taskAlert);
   return feature;
 };
 
-const createIconFeature = (lot, type) => {
-  if (!lot?.geometry) return null;
-  const geometry = geojsonToGeometry(lot.geometry);
-  if (!geometry) return null;
-  const interiorPoint = geometry.getInteriorPoint ? geometry.getInteriorPoint() : null;
-  const pointGeometry = interiorPoint ?? new Point(getCenter(geometry.getExtent()));
-  const feature = new Feature({
-    geometry: pointGeometry,
-    status: lot.status,
-  });
-  feature.setId(`${type}-icon-${lot.id}`);
-  feature.set("layerType", type);
-  feature.set("refId", lot.id);
-  return feature;
-};
 
 const refreshLandSource = () => {
   if (!landSource) return;
@@ -767,7 +540,6 @@ const refreshLandSource = () => {
     .map(createLandFeature)
     .filter(Boolean)
     .forEach((feature) => landSource.addFeature(feature));
-  refreshLandIcons();
 };
 
 const refreshWorkSource = () => {
@@ -777,25 +549,6 @@ const refreshWorkSource = () => {
     .map(createWorkFeature)
     .filter(Boolean)
     .forEach((feature) => workSource.addFeature(feature));
-  refreshWorkIcons();
-};
-
-const refreshLandIcons = () => {
-  if (!landIconSource) return;
-  landIconSource.clear(true);
-  landLotStore.landLots
-    .map((lot) => createIconFeature(lot, "land"))
-    .filter(Boolean)
-    .forEach((feature) => landIconSource.addFeature(feature));
-};
-
-const refreshWorkIcons = () => {
-  if (!workIconSource) return;
-  workIconSource.clear(true);
-  workLotStore.workLots
-    .map((lot) => createIconFeature(lot, "work"))
-    .filter(Boolean)
-    .forEach((feature) => workIconSource.addFeature(feature));
 };
 
 const refreshHighlights = () => {
@@ -803,15 +556,15 @@ const refreshHighlights = () => {
   landHighlightSource.clear(true);
   workHighlightSource.clear(true);
 
-  relatedLandLots.value
-    .map(createLandFeature)
-    .filter(Boolean)
-    .forEach((feature) => landHighlightSource.addFeature(feature));
+  if (selectedLandLot.value) {
+    const feature = createLandFeature(selectedLandLot.value);
+    if (feature) landHighlightSource.addFeature(feature);
+  }
 
-  relatedWorkLots.value
-    .map(createWorkFeature)
-    .filter(Boolean)
-    .forEach((feature) => workHighlightSource.addFeature(feature));
+  if (selectedWorkLot.value) {
+    const feature = createWorkFeature(selectedWorkLot.value);
+    if (feature) workHighlightSource.addFeature(feature);
+  }
 };
 
 const restoreModifyBackup = () => {
@@ -875,6 +628,7 @@ const handleSelect = (event) => {
   const refId = selected.get("refId") || selected.getId();
   if (layerType === "land") {
     uiStore.selectLandLot(refId);
+    selectedTaskId.value = null;
   } else {
     uiStore.selectWorkLot(refId);
   }
@@ -931,7 +685,7 @@ const rebuildInteractions = () => {
   clearInteractions();
 
   if (uiStore.tool === "PAN") {
-    const selectLayers = [workLayer, landLayer, workIconLayer, landIconLayer].filter(Boolean);
+    const selectLayers = [workLayer, landLayer].filter(Boolean);
     selectInteraction = new Select({ layers: selectLayers });
     selectInteraction.set("managed", true);
     selectInteraction.on("select", handleSelect);
@@ -1038,8 +792,56 @@ const addTask = () => {
   if (!selectedWorkLot.value) return;
   const title = newTaskTitle.value.trim();
   if (!title) return;
-  taskStore.addTask(selectedWorkLot.value.id, title, authStore.roleName);
+  taskStore.addTask(selectedWorkLot.value.id, title, newTaskAssignee.value || authStore.roleName);
+  const latestTask = taskStore.tasks[taskStore.tasks.length - 1];
+  if (latestTask && newTaskDueDate.value) {
+    taskStore.updateTask(latestTask.id, { dueDate: newTaskDueDate.value });
+  }
   newTaskTitle.value = "";
+  newTaskAssignee.value = "";
+  newTaskDueDate.value = "";
+};
+
+const clearNewTask = () => {
+  newTaskTitle.value = "";
+  newTaskAssignee.value = "";
+  newTaskDueDate.value = "";
+};
+
+const openAddTaskDialog = () => {
+  if (!selectedWorkLot.value) return;
+  if (!newTaskAssignee.value) {
+    newTaskAssignee.value = authStore.roleName;
+  }
+  showTaskDialog.value = true;
+};
+
+const confirmAddTask = () => {
+  addTask();
+  showTaskDialog.value = false;
+};
+
+const selectTask = (taskId) => {
+  selectedTaskId.value = taskId;
+};
+
+const clearTaskSelection = () => {
+  selectedTaskId.value = null;
+};
+
+const selectedTask = computed(() =>
+  taskStore.tasks.find((task) => task.id === selectedTaskId.value) || null
+);
+
+const saveTaskDetail = () => {
+  if (!selectedTask.value) return;
+  taskStore.updateTask(selectedTask.value.id, { ...taskForm.value });
+};
+
+const deleteTask = () => {
+  if (!selectedTask.value) return;
+  taskStore.removeTask(selectedTask.value.id);
+  selectedTaskId.value = null;
 };
 
 const updateRelationsForWorkLot = (workLotId, geometry) => {
@@ -1083,8 +885,6 @@ const initMap = () => {
 
   landSource = new VectorSource();
   workSource = new VectorSource();
-  landIconSource = new VectorSource();
-  workIconSource = new VectorSource();
   landHighlightSource = new VectorSource();
   workHighlightSource = new VectorSource();
 
@@ -1092,15 +892,11 @@ const initMap = () => {
   workLayer = new VectorLayer({ source: workSource, style: workLotStyle });
   landHighlightLayer = new VectorLayer({ source: landHighlightSource, style: highlightLandLotStyle });
   workHighlightLayer = new VectorLayer({ source: workHighlightSource, style: highlightWorkLotStyle });
-  landIconLayer = new VectorLayer({ source: landIconSource, style: landLotIconStyle });
-  workIconLayer = new VectorLayer({ source: workIconSource, style: workLotIconStyle });
 
   landLayer.setZIndex(10);
   workLayer.setZIndex(20);
   landHighlightLayer.setZIndex(25);
   workHighlightLayer.setZIndex(26);
-  landIconLayer.setZIndex(30);
-  workIconLayer.setZIndex(31);
 
   mapRef.value = new Map({
     target: mapEl.value,
@@ -1111,8 +907,6 @@ const initMap = () => {
       workLayer,
       landHighlightLayer,
       workHighlightLayer,
-      landIconLayer,
-      workIconLayer,
     ],
     view: new View({
       projection: EPSG_2326,
@@ -1148,6 +942,14 @@ watch(
   () => {
     refreshWorkSource();
     refreshHighlights();
+  },
+  { deep: true }
+);
+
+watch(
+  () => taskStore.tasks,
+  () => {
+    refreshWorkSource();
   },
   { deep: true }
 );
@@ -1202,14 +1004,41 @@ watch(
 );
 
 watch(
+  () => uiStore.selectedWorkLotId,
+  () => {
+    selectedTaskId.value = null;
+  }
+);
+
+watch(
   () => [uiStore.selectedWorkLotId, uiStore.selectedLandLotId],
-  () => refreshHighlights()
+  ([workId, landId]) => {
+    refreshHighlights();
+    if (!workId && !landId && selectInteraction?.getFeatures) {
+      selectInteraction.getFeatures().clear();
+    }
+  }
 );
 
 watch(
   () => relationStore.relations,
   () => refreshHighlights(),
   { deep: true }
+);
+
+watch(
+  () => selectedTaskId.value,
+  (value) => {
+    if (!value) return;
+    const task = taskStore.tasks.find((item) => item.id === value);
+    if (!task) return;
+    taskForm.value = {
+      title: task.title,
+      assignee: task.assignee,
+      dueDate: task.dueDate,
+      status: task.status,
+    };
+  }
 );
 
 const handleKeydown = (event) => {
@@ -1254,251 +1083,6 @@ onBeforeUnmount(() => {
   inset: 0;
 }
 
-.toolbar {
-  position: absolute;
-  top: 20px;
-  left: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  background: var(--panel);
-  padding: 8px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-}
-
-.edit-target {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.edit-target :deep(.el-segmented) {
-  background: #f8fafc;
-}
-
-.left-panel {
-  position: absolute;
-  top: 78px;
-  left: 24px;
-  width: 320px;
-  max-height: calc(100% - 140px);
-  background: var(--panel);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-tabs :deep(.el-tabs__header) {
-  margin: 0;
-  padding: 8px 12px 0 12px;
-}
-
-.panel-tabs :deep(.el-tabs__content) {
-  padding: 8px 12px 16px 12px;
-}
-
-.panel-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.panel-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-}
-
-.legend {
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.legend-title {
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  border: 1px solid rgba(15, 23, 42, 0.2);
-}
-
-.swatch.pending {
-  background: rgba(148, 163, 184, 0.5);
-}
-
-.swatch.progress {
-  background: rgba(250, 204, 21, 0.5);
-}
-
-.swatch.handover {
-  background: rgba(34, 197, 94, 0.5);
-}
-
-.swatch.difficult {
-  background: rgba(239, 68, 68, 0.5);
-}
-
-.task-list-global {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 280px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.task-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  text-align: left;
-  cursor: pointer;
-}
-
-.task-card:hover {
-  border-color: rgba(15, 118, 110, 0.4);
-  background: #f1f5f9;
-}
-
-.task-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.task-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.task-card-meta {
-  font-size: 11px;
-  color: var(--muted);
-  display: flex;
-  justify-content: space-between;
-}
-
-.search-results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.list-scroll {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.list-item {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  text-align: left;
-  background: #f8fafc;
-  cursor: pointer;
-}
-
-.list-item:hover {
-  border-color: rgba(15, 118, 110, 0.4);
-  background: #f1f5f9;
-}
-
-.list-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.list-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.list-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.search-item {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  text-align: left;
-  background: #f8fafc;
-  cursor: pointer;
-}
-
-.search-item:hover {
-  border-color: rgba(15, 118, 110, 0.4);
-  background: #f1f5f9;
-}
-
-.search-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.search-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.related-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.chip {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: #ffffff;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.chip:hover {
-  border-color: rgba(15, 118, 110, 0.4);
-  background: #f1f5f9;
-}
-
 .attribution {
   position: absolute;
   bottom: 22px;
@@ -1516,77 +1100,5 @@ onBeforeUnmount(() => {
 .attribution .logo {
   height: 22px;
   width: auto;
-}
-
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.drawer-title {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.drawer-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.info-block {
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-}
-
-.info-row span {
-  color: var(--muted);
-}
-
-.task-block {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.task-header {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.task-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.task-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-@media (max-width: 900px) {
-  .left-panel {
-    width: calc(100% - 48px);
-  }
 }
 </style>
