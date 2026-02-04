@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { shallowRef } from "vue";
 import Draw from "ol/interaction/Draw";
 import Modify from "ol/interaction/Modify";
 import Select from "ol/interaction/Select";
@@ -28,18 +28,18 @@ export const useMapInteractions = ({
   hasDraft,
   clearTaskSelection,
 }) => {
-  const drawInteraction = ref(null);
-  const modifyInteraction = ref(null);
-  const selectInteraction = ref(null);
-  const snapInteraction = ref(null);
+  let drawInteraction = null;
+  let modifyInteraction = null;
+  const selectInteraction = shallowRef(null);
+  let snapInteraction = null;
 
   let draftFeature = null;
   let draftSource = null;
   const modifyBackup = new Map();
 
   const abortDrawing = () => {
-    if (drawInteraction.value) {
-      drawInteraction.value.abortDrawing();
+    if (drawInteraction) {
+      drawInteraction.abortDrawing();
     }
   };
 
@@ -163,6 +163,7 @@ export const useMapInteractions = ({
     } else {
       uiStore.selectWorkLot(refId);
     }
+    refreshHighlights();
   };
 
   const handleDeleteSelect = (event) => {
@@ -203,10 +204,10 @@ export const useMapInteractions = ({
         }
         mapRef.value.removeInteraction(interaction);
       });
-    drawInteraction.value = null;
-    modifyInteraction.value = null;
+    drawInteraction = null;
+    modifyInteraction = null;
     selectInteraction.value = null;
-    snapInteraction.value = null;
+    snapInteraction = null;
   };
 
   const rebuildInteractions = () => {
@@ -229,21 +230,21 @@ export const useMapInteractions = ({
     const targetLayer = layerType === "land" ? landLayer : workLayer;
 
     if (uiStore.tool === "DRAW") {
-      drawInteraction.value = new Draw({ source: targetSource, type: "Polygon" });
-      drawInteraction.value.set("managed", true);
-      drawInteraction.value.on("drawstart", (event) => {
+      drawInteraction = new Draw({ source: targetSource, type: "Polygon" });
+      drawInteraction.set("managed", true);
+      drawInteraction.on("drawstart", (event) => {
         draftFeature = event.feature;
         draftSource = targetSource;
         hasDraft.value = true;
       });
-      drawInteraction.value.on("drawend", handleDrawEnd);
-      mapRef.value.addInteraction(drawInteraction.value);
+      drawInteraction.on("drawend", handleDrawEnd);
+      mapRef.value.addInteraction(drawInteraction);
     }
 
     if (uiStore.tool === "MODIFY") {
-      modifyInteraction.value = new Modify({ source: targetSource });
-      modifyInteraction.value.set("managed", true);
-      modifyInteraction.value.on("modifystart", (event) => {
+      modifyInteraction = new Modify({ source: targetSource });
+      modifyInteraction.set("managed", true);
+      modifyInteraction.on("modifystart", (event) => {
         modifyBackup.clear();
         event.features.forEach((feature) => {
           const geometry = feature.getGeometry();
@@ -252,8 +253,8 @@ export const useMapInteractions = ({
           }
         });
       });
-      modifyInteraction.value.on("modifyend", handleModifyEnd);
-      mapRef.value.addInteraction(modifyInteraction.value);
+      modifyInteraction.on("modifyend", handleModifyEnd);
+      mapRef.value.addInteraction(modifyInteraction);
     }
 
     if (uiStore.tool === "DELETE") {
@@ -269,9 +270,9 @@ export const useMapInteractions = ({
       ["DRAW", "MODIFY"].includes(uiStore.tool)
     ) {
       if (uiStore.showLandLots) {
-        snapInteraction.value = new Snap({ source: landSource });
-        snapInteraction.value.set("managed", true);
-        mapRef.value.addInteraction(snapInteraction.value);
+        snapInteraction = new Snap({ source: landSource });
+        snapInteraction.set("managed", true);
+        mapRef.value.addInteraction(snapInteraction);
       }
     }
   };

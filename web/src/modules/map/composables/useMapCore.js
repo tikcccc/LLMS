@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
@@ -15,9 +15,9 @@ import {
 
 export const useMapCore = () => {
   const mapEl = ref(null);
-  const mapRef = ref(null);
-  const basemapLayer = ref(null);
-  const labelLayer = ref(null);
+  const mapRef = shallowRef(null);
+  const basemapLayer = shallowRef(null);
+  const labelLayer = shallowRef(null);
 
   const initMap = (layers = []) => {
     registerHK80();
