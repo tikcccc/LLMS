@@ -10,7 +10,7 @@
         <el-input v-model="titleProxy" placeholder="Task title" />
       </el-form-item>
       <el-form-item label="Assignee">
-        <el-input v-model="assigneeProxy" placeholder="Assignee" />
+        <UserSelect v-model="assigneeProxy" :options="assigneeOptions" />
       </el-form-item>
       <el-form-item label="Due Date">
         <el-date-picker
@@ -43,6 +43,7 @@
 
 <script setup>
 import { computed } from "vue";
+import UserSelect from "../../../components/UserSelect.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, required: true },
@@ -50,6 +51,7 @@ const props = defineProps({
   assignee: { type: String, default: "" },
   dueDate: { type: String, default: "" },
   description: { type: String, default: "" },
+  assigneeOptions: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits([

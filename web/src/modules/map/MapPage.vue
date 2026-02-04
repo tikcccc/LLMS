@@ -51,14 +51,15 @@
       :selected-tasks="selectedTasks"
       :selected-task="selectedTask"
       :task-form="taskForm"
+      :assignee-options="assigneeOptions"
       :work-status-style="workStatusStyle"
       :land-status-style="landStatusStyle"
       :is-overdue="isOverdue"
       @close="uiStore.clearSelection()"
       @open-add-task="openAddTaskDialog"
-      @toggle-task="taskStore.toggleDone"
-      @select-task="selectTask"
+      @view-task="selectTask"
       @clear-task="clearTaskSelection"
+      @reset-task-form="resetTaskForm"
       @save-task="saveTaskDetail"
       @delete-task="deleteTask"
     />
@@ -69,6 +70,7 @@
       v-model:assignee="newTaskAssignee"
       v-model:dueDate="newTaskDueDate"
       v-model:description="newTaskDescription"
+      :assignee-options="assigneeOptions"
       @confirm="confirmAddTask"
       @cancel="clearNewTask"
     />
@@ -188,10 +190,6 @@ const selectedLandLot = computed(() =>
   landLotStore.landLots.find((lot) => lot.id === uiStore.selectedLandLotId) || null
 );
 
-const selectedTasks = computed(() =>
-  taskStore.tasks.filter((task) => task.workLotId === uiStore.selectedWorkLotId)
-);
-
 const leftTab = ref("layers");
 const taskFilter = ref("All");
 const searchQuery = ref("");
@@ -199,6 +197,12 @@ const landSearchQuery = ref("");
 const workSearchQuery = ref("");
 const hasDraft = ref(false);
 const selectedTaskId = ref(null);
+const selectedTasks = computed(() =>
+  taskStore.tasks.filter((task) => task.workLotId === uiStore.selectedWorkLotId)
+);
+const selectedTask = computed(() =>
+  taskStore.tasks.find((task) => task.id === selectedTaskId.value) || null
+);
 const showTaskDialog = ref(false);
 const taskForm = ref({
   title: "",
@@ -206,6 +210,14 @@ const taskForm = ref({
   dueDate: "",
   description: "",
   status: "Open",
+});
+
+const assigneeOptions = computed(() => {
+  const values = new Set(
+    taskStore.tasks.map((task) => task.assignee).filter(Boolean)
+  );
+  if (authStore.roleName) values.add(authStore.roleName);
+  return Array.from(values);
 });
 
 const editTargetOptions = [
@@ -800,9 +812,16 @@ const clearTaskSelection = () => {
   selectedTaskId.value = null;
 };
 
-const selectedTask = computed(() =>
-  taskStore.tasks.find((task) => task.id === selectedTaskId.value) || null
-);
+const resetTaskForm = () => {
+  if (!selectedTask.value) return;
+  taskForm.value = {
+    title: selectedTask.value.title,
+    assignee: selectedTask.value.assignee,
+    dueDate: selectedTask.value.dueDate,
+    description: selectedTask.value.description || "",
+    status: selectedTask.value.status,
+  };
+};
 
 const saveTaskDetail = () => {
   if (!selectedTask.value) return;
@@ -979,15 +998,7 @@ watch(
   () => selectedTaskId.value,
   (value) => {
     if (!value) return;
-    const task = taskStore.tasks.find((item) => item.id === value);
-    if (!task) return;
-    taskForm.value = {
-      title: task.title,
-      assignee: task.assignee,
-      dueDate: task.dueDate,
-      description: task.description || "",
-      status: task.status,
-    };
+    resetTaskForm();
   }
 );
 

@@ -77,17 +77,16 @@
 
         <!-- Task List -->
         <div v-if="selectedTasks.length" class="task-list">
-          <div v-for="task in selectedTasks" :key="task.id" class="task-card">
+          <div
+            v-for="task in selectedTasks"
+            :key="task.id"
+            class="task-card"
+            @click="handleViewTask(task.id)"
+          >
             <div class="task-card-main">
-              <el-checkbox
-                :model-value="task.status === 'Done'"
-                @change="() => emit('toggle-task', task.id)"
-                class="task-checkbox"
-              >
-                <span :class="{ 'task-done': task.status === 'Done' }">
-                  {{ task.title }}
-                </span>
-              </el-checkbox>
+              <div class="task-title" :class="{ 'task-done': task.status === 'Done' }">
+                {{ task.title }}
+              </div>
               <div class="task-card-meta">
                 <span class="task-assignee">{{ task.assignee }}</span>
                 <span class="task-date">
@@ -105,9 +104,9 @@
               link 
               type="primary" 
               size="small" 
-              @click="emit('select-task', task.id)"
+              @click.stop="handleViewTask(task.id)"
             >
-              Edit
+              View
             </el-button>
           </div>
         </div>
@@ -115,20 +114,71 @@
       </div>
 
       <!-- Task Detail Modal -->
-      <el-dialog 
-        :model-value="showTaskDetail" 
-        title="Edit Task" 
-        width="90%"
-        :modal="false"
+      <el-dialog
+        :model-value="showTaskDetail"
+        title="Task Details"
+        width="420px"
+        :modal="true"
         :close-on-press-escape="true"
-        @close="emit('clear-task')"
+        @close="handleCloseDetail"
+      >
+        <div v-if="selectedTask" class="task-detail">
+          <div class="detail-row">
+            <span class="detail-label">Title</span>
+            <span class="detail-value">{{ selectedTask.title }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Assignee</span>
+            <span class="detail-value">{{ selectedTask.assignee }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Due Date</span>
+            <span class="detail-value">
+              <TimeText :value="selectedTask.dueDate" mode="date" />
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">
+              <el-tag size="small" :type="selectedTask.status === 'Done' ? 'success' : 'info'" effect="plain">
+                {{ selectedTask.status }}
+              </el-tag>
+              <el-tag v-if="isOverdue(selectedTask)" size="small" type="danger" effect="plain">
+                Overdue
+              </el-tag>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value detail-description">
+              {{ selectedTask.description || "—" }}
+            </span>
+          </div>
+        </div>
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="handleCloseDetail">Close</el-button>
+            <el-button type="primary" @click="openEditTask">Edit</el-button>
+          </div>
+        </template>
+      </el-dialog>
+
+      <!-- Task Edit Modal -->
+      <el-dialog
+        :model-value="showTaskEdit"
+        title="Edit Task"
+        width="420px"
+        :modal="true"
+        :show-close="false"
+        :close-on-click-modal="false"
+        :close-on-press-escape="false"
       >
         <el-form :model="taskForm" label-width="100px" label-position="top">
           <el-form-item label="Title">
             <el-input v-model="taskForm.title" />
           </el-form-item>
           <el-form-item label="Assignee">
-            <el-input v-model="taskForm.assignee" />
+            <UserSelect v-model="taskForm.assignee" :options="assigneeOptions" />
           </el-form-item>
           <el-form-item label="Due Date">
             <el-date-picker 
@@ -155,12 +205,42 @@
         </el-form>
         <template #footer>
           <div class="dialog-footer">
-            <el-button @click="emit('clear-task')">Cancel</el-button>
-            <el-button type="danger" @click="emit('delete-task')">Delete</el-button>
-            <el-button type="primary" @click="handleSaveTask">Save</el-button>
+            <el-button @click="requestCancelEdit">Cancel</el-button>
+            <el-button type="danger" @click="requestDeleteTask">Delete</el-button>
+            <el-button type="primary" @click="requestSaveTask">Save</el-button>
           </div>
         </template>
       </el-dialog>
+
+      <ConfirmDialog
+        v-model="showSaveConfirm"
+        title="Save Changes"
+        message="Save updates to this task?"
+        description="Your changes will be applied immediately."
+        confirm-text="Save"
+        confirm-type="primary"
+        @confirm="handleConfirmSave"
+      />
+
+      <ConfirmDialog
+        v-model="showCancelConfirm"
+        title="Discard Changes"
+        message="Discard your edits?"
+        description="Your unsaved changes will be lost."
+        confirm-text="Discard"
+        confirm-type="warning"
+        @confirm="handleConfirmCancel"
+      />
+
+      <ConfirmDialog
+        v-model="showDeleteConfirm"
+        title="Delete Task"
+        message="Delete this task?"
+        description="This action cannot be undone."
+        confirm-text="Delete"
+        confirm-type="danger"
+        @confirm="handleConfirmDelete"
+      />
     </div>
 
     <div v-else-if="selectedLandLot" class="drawer-body">
@@ -194,6 +274,8 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import TimeText from "../../../components/TimeText.vue";
+import UserSelect from "../../../components/UserSelect.vue";
+import ConfirmDialog from "../../../components/ConfirmDialog.vue";
 
 const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
@@ -201,6 +283,7 @@ const props = defineProps({
   selectedTasks: { type: Array, required: true },
   selectedTask: { type: Object, default: null },
   taskForm: { type: Object, required: true },
+  assigneeOptions: { type: Array, default: () => [] },
   workStatusStyle: { type: Function, required: true },
   landStatusStyle: { type: Function, required: true },
   isOverdue: { type: Function, required: true },
@@ -209,23 +292,71 @@ const props = defineProps({
 const emit = defineEmits([
   "close",
   "open-add-task",
-  "toggle-task",
-  "select-task",
+  "view-task",
   "clear-task",
+  "reset-task-form",
   "save-task",
   "delete-task",
 ]);
 
 const isOpen = computed(() => !!props.selectedWorkLot || !!props.selectedLandLot);
 const activeCollapse = ref(["basic"]);
-const showTaskDetail = computed(() => !!props.selectedTask);
+const showTaskDetail = ref(false);
+const showTaskEdit = ref(false);
+const showSaveConfirm = ref(false);
+const showCancelConfirm = ref(false);
+const showDeleteConfirm = ref(false);
 const openTasks = computed(() => props.selectedTasks.filter((task) => task.status !== "Done").length);
 const doneTasks = computed(() => props.selectedTasks.filter((task) => task.status === "Done").length);
 const overdueTasks = computed(() => props.selectedTasks.filter((task) => props.isOverdue(task)).length);
 
-const handleSaveTask = () => {
-  emit("save-task");
+const handleViewTask = (taskId) => {
+  emit("view-task", taskId);
+};
+
+const handleCloseDetail = () => {
+  showTaskDetail.value = false;
   emit("clear-task");
+};
+
+const openEditTask = () => {
+  emit("reset-task-form");
+  showTaskDetail.value = false;
+  showTaskEdit.value = true;
+};
+
+const requestCancelEdit = () => {
+  showCancelConfirm.value = true;
+};
+
+const handleConfirmCancel = () => {
+  emit("reset-task-form");
+  showTaskEdit.value = false;
+  if (props.selectedTask) {
+    showTaskDetail.value = true;
+  }
+};
+
+const requestSaveTask = () => {
+  showSaveConfirm.value = true;
+};
+
+const handleConfirmSave = () => {
+  emit("save-task");
+  showTaskEdit.value = false;
+  if (props.selectedTask) {
+    showTaskDetail.value = true;
+  }
+};
+
+const requestDeleteTask = () => {
+  showDeleteConfirm.value = true;
+};
+
+const handleConfirmDelete = () => {
+  emit("delete-task");
+  showTaskEdit.value = false;
+  showTaskDetail.value = false;
 };
 
 // Reset collapse state when drawer opens
@@ -234,6 +365,19 @@ watch(isOpen, (value) => {
     activeCollapse.value = ["basic"];
   }
 });
+
+watch(
+  () => props.selectedTask,
+  (task) => {
+    if (task) {
+      showTaskDetail.value = true;
+      showTaskEdit.value = false;
+    } else {
+      showTaskDetail.value = false;
+      showTaskEdit.value = false;
+    }
+  }
+);
 </script>
 
 <style scoped>
@@ -389,6 +533,7 @@ watch(isOpen, (value) => {
   align-items: flex-start;
   gap: 12px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
 }
 
 .task-card:hover {
@@ -405,13 +550,9 @@ watch(isOpen, (value) => {
   gap: 8px;
 }
 
-.task-checkbox {
-  width: 100%;
-}
-
-.task-checkbox :deep(.el-checkbox__label) {
+.task-title {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.4;
 }
 
@@ -435,6 +576,37 @@ watch(isOpen, (value) => {
 }
 
 .task-date {
+  color: var(--muted);
+}
+
+/* Task Detail */
+.task-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.detail-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-value {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.detail-description {
+  white-space: pre-line;
   color: var(--muted);
 }
 
