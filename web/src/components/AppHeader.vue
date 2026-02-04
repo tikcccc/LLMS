@@ -68,8 +68,9 @@ const resetDemoData = () => {
   gap: 16px;
   align-items: center;
   padding: 16px 24px;
-  background: linear-gradient(120deg, #fefce8, #ecfdf3);
+  background: #ffffff;
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 }
 
 .brand .title {

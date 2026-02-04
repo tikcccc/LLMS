@@ -1,12 +1,7 @@
 import GeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
-import {
-  highlightLandLotStyle,
-  highlightWorkLotStyle,
-  landLotStyle,
-  workLotStyle,
-} from "../ol/styles";
+import { landLotStyle, workLotStyle } from "../ol/styles";
 import { EPSG_2326 } from "../ol/projection";
 import { getWorkLotTaskAlert } from "../utils/taskUtils";
 
@@ -14,8 +9,6 @@ export const useMapLayers = ({
   landLotStore,
   workLotStore,
   taskStore,
-  selectedLandLot,
-  selectedWorkLot,
   authStore,
   uiStore,
 }) => {
@@ -23,24 +16,12 @@ export const useMapLayers = ({
 
   const landSource = new VectorSource();
   const workSource = new VectorSource();
-  const landHighlightSource = new VectorSource();
-  const workHighlightSource = new VectorSource();
 
   const landLayer = new VectorLayer({ source: landSource, style: landLotStyle });
   const workLayer = new VectorLayer({ source: workSource, style: workLotStyle });
-  const landHighlightLayer = new VectorLayer({
-    source: landHighlightSource,
-    style: highlightLandLotStyle,
-  });
-  const workHighlightLayer = new VectorLayer({
-    source: workHighlightSource,
-    style: highlightWorkLotStyle,
-  });
 
   landLayer.setZIndex(10);
   workLayer.setZIndex(20);
-  landHighlightLayer.setZIndex(25);
-  workHighlightLayer.setZIndex(26);
 
   const updateLayerOpacity = () => {
     if (authStore.role === "SITE_ADMIN") {
@@ -60,8 +41,6 @@ export const useMapLayers = ({
     if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
     landLayer.setVisible(uiStore.showLandLots);
     workLayer.setVisible(uiStore.showWorkLots);
-    landHighlightLayer.setVisible(uiStore.showLandLots);
-    workHighlightLayer.setVisible(uiStore.showWorkLots);
   };
 
   const createLandFeature = (lot) => {
@@ -121,37 +100,17 @@ export const useMapLayers = ({
       .forEach((feature) => workSource.addFeature(feature));
   };
 
-  const refreshHighlights = () => {
-    landHighlightSource.clear(true);
-    workHighlightSource.clear(true);
-
-    if (selectedLandLot.value) {
-      const feature = createLandFeature(selectedLandLot.value);
-      if (feature) landHighlightSource.addFeature(feature);
-    }
-
-    if (selectedWorkLot.value) {
-      const feature = createWorkFeature(selectedWorkLot.value);
-      if (feature) workHighlightSource.addFeature(feature);
-    }
-  };
-
   return {
     format,
     landSource,
     workSource,
-    landHighlightSource,
-    workHighlightSource,
     landLayer,
     workLayer,
-    landHighlightLayer,
-    workHighlightLayer,
     updateLayerOpacity,
     updateLayerVisibility,
     createLandFeature,
     createWorkFeature,
     refreshLandSource,
     refreshWorkSource,
-    refreshHighlights,
   };
 };

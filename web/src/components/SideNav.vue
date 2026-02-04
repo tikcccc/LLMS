@@ -1,10 +1,10 @@
 <template>
   <aside :class="['side-nav', { collapsed: uiStore.sidebarCollapsed }]">
-    <div class="brand">
-      <div class="logo">Geo</div>
-      <div v-if="!uiStore.sidebarCollapsed" class="brand-text">
-        <div class="title">Geo Map</div>
-        <div class="subtitle">LLMS Demo</div>
+    <div class="profile">
+      <div class="avatar">{{ userInitials }}</div>
+      <div v-if="!uiStore.sidebarCollapsed" class="profile-text">
+        <div class="name">{{ currentUser.name }}</div>
+        <div class="email">{{ currentUser.email }}</div>
       </div>
     </div>
 
@@ -36,20 +36,44 @@
     </nav>
 
     <div class="collapse">
-      <button type="button" class="collapse-btn" @click="uiStore.toggleSidebar()">
-        {{ uiStore.sidebarCollapsed ? '→' : '←' }}
+      <button type="button" class="collapse-btn" @click="uiStore.toggleSidebar()" aria-label="Toggle sidebar">
+        <svg v-if="uiStore.sidebarCollapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 6l-6 6 6 6" />
+        </svg>
       </button>
     </div>
   </aside>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUiStore } from "../stores/useUiStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import { MOCK_USERS } from "../shared/mock/users";
 
 const router = useRouter();
 const route = useRoute();
 const uiStore = useUiStore();
+const authStore = useAuthStore();
+
+const currentUser = computed(() => {
+  const match = MOCK_USERS.find((user) => user.role === authStore.role);
+  return match ?? MOCK_USERS[0];
+});
+
+const userInitials = computed(() => {
+  const name = currentUser.value?.name ?? "";
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+});
 
 const primaryItems = [
   {
@@ -97,43 +121,47 @@ const isActive = (path) => route.path.startsWith(path);
 <style scoped>
 .side-nav {
   width: 240px;
-  background: #fdfdfb;
+  background: #ffffff;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   padding: 20px 16px;
   transition: width 0.2s ease;
+  position: relative;
+  overflow: visible;
 }
 
 .side-nav.collapsed {
   width: 80px;
 }
 
-.brand {
+.profile {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 24px;
 }
 
-.logo {
+.avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
-  background: #fee2e2;
-  color: #ef4444;
+  border-radius: 14px;
+  background: #e6f4f1;
+  color: #0f766e;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
 }
 
-.brand-text .title {
-  font-size: 16px;
+.profile-text .name {
+  font-size: 14px;
   font-weight: 600;
 }
 
-.brand-text .subtitle {
+.profile-text .email {
   font-size: 11px;
   color: var(--muted);
 }
@@ -159,12 +187,12 @@ const isActive = (path) => route.path.startsWith(path);
 }
 
 .nav-item:hover {
-  background: #f3f4f6;
+  background: #f1f5f9;
 }
 
 .nav-item.active {
-  background: #ffe4e6;
-  color: #e11d48;
+  background: #e6f4f1;
+  color: #0f766e;
 }
 
 .nav-icon {
@@ -190,15 +218,29 @@ const isActive = (path) => route.path.startsWith(path);
 }
 
 .collapse {
-  display: flex;
-  justify-content: flex-end;
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
 }
 
 .collapse-btn {
-  border: none;
-  background: #f3f4f6;
-  border-radius: 10px;
-  padding: 6px 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  color: #475569;
+}
+
+.collapse-btn svg {
+  width: 16px;
+  height: 16px;
 }
 </style>

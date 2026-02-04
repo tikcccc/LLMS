@@ -307,7 +307,7 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
 }
 
 .kpi-label {
@@ -339,7 +339,7 @@ onBeforeUnmount(() => {
   padding: 16px;
   border: 1px solid var(--border);
   min-height: 160px;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
 }
 
 .chart-wrap {
@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   padding: 16px;
   border: 1px solid var(--border);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
 }
 
 .table-header {

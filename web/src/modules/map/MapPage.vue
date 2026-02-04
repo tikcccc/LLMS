@@ -7,10 +7,13 @@
         :tool="uiStore.tool"
         :can-edit-layer="canEditLayer"
         :has-draft="hasDraft"
+        :can-save-modify="!!modifySelectedId"
+        :show-edit-target="canSwitchTarget"
         :edit-target="uiStore.editTarget"
         :edit-target-options="editTargetOptions"
         @set-tool="setTool"
         @cancel-tool="cancelTool"
+        @save-modify="saveModify"
         @update:editTarget="uiStore.setEditTarget"
         @edit-target-change="onEditTargetChange"
       />
@@ -43,8 +46,8 @@
     </main>
 
     <MapDrawer
-      :selected-work-lot="selectedWorkLot"
-      :selected-land-lot="selectedLandLot"
+      :selected-work-lot="drawerWorkLot"
+      :selected-land-lot="drawerLandLot"
       :selected-tasks="selectedTasks"
       :selected-task="selectedTask"
       :task-form="taskForm"
@@ -112,6 +115,7 @@ import { useUiStore } from "../../stores/useUiStore";
 import { generateId } from "../../shared/utils/id";
 import { nowIso } from "../../shared/utils/time";
 import { useMapCore } from "./composables/useMapCore";
+import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
 import { useTaskPanel } from "./composables/useTaskPanel";
@@ -129,6 +133,7 @@ const canEditWork = computed(
   () => authStore.role === "SITE_ADMIN" || authStore.role === "SITE_OFFICER"
 );
 const canEditLayer = computed(() => canEditLand.value || canEditWork.value);
+const canSwitchTarget = computed(() => authStore.role === "SITE_ADMIN");
 const activeLayerType = computed(() => {
   if (authStore.role === "SITE_ADMIN") return uiStore.editTarget;
   if (canEditLand.value) return "land";
@@ -144,6 +149,14 @@ const selectedLandLot = computed(() =>
   landLotStore.landLots.find((lot) => lot.id === uiStore.selectedLandLotId) || null
 );
 
+const drawerWorkLot = computed(() =>
+  uiStore.tool === "MODIFY" ? null : selectedWorkLot.value
+);
+
+const drawerLandLot = computed(() =>
+  uiStore.tool === "MODIFY" ? null : selectedLandLot.value
+);
+
 const { mapEl, mapRef, basemapLayer, labelLayer, initMap } = useMapCore();
 
 const {
@@ -152,28 +165,38 @@ const {
   workSource,
   landLayer,
   workLayer,
-  landHighlightLayer,
-  workHighlightLayer,
   updateLayerOpacity,
   updateLayerVisibility,
   createLandFeature,
   createWorkFeature,
   refreshLandSource,
   refreshWorkSource,
-  refreshHighlights,
 } = useMapLayers({
   landLotStore,
   workLotStore,
   taskStore,
-  selectedLandLot,
-  selectedWorkLot,
   authStore,
   uiStore,
 });
 
+const {
+  landHighlightLayer,
+  workHighlightLayer,
+  refreshHighlights,
+  setHighlightFeature,
+  clearHighlightOverride,
+  updateHighlightVisibility,
+} = useMapHighlights({
+  createLandFeature,
+  createWorkFeature,
+  selectedLandLot,
+  selectedWorkLot,
+  uiStore,
+});
+
 const editTargetOptions = [
-  { label: "Land", value: "land" },
-  { label: "Work", value: "work" },
+  { label: "Work Lots", value: "work" },
+  { label: "Land Lots", value: "land" },
 ];
 
 const hasDraft = ref(false);
@@ -236,6 +259,8 @@ const {
   cancelDraft,
   rebuildInteractions,
   selectInteraction,
+  saveModify,
+  modifySelectedId,
 } = useMapInteractions({
   mapRef,
   uiStore,
@@ -247,6 +272,8 @@ const {
   landLayer,
   workLayer,
   refreshHighlights,
+  setHighlightFeature,
+  clearHighlightOverride,
   landLotStore,
   workLotStore,
   format,
@@ -400,6 +427,7 @@ watch(
   () => [uiStore.showBasemap, uiStore.showLabels, uiStore.showLandLots, uiStore.showWorkLots],
   () => {
     updateLayerVisibility(basemapLayer.value, labelLayer.value);
+    updateHighlightVisibility();
     if (uiStore.tool !== "PAN") {
       rebuildInteractions();
     }
@@ -465,6 +493,7 @@ onMounted(() => {
   refreshWorkSource();
   updateLayerOpacity();
   updateLayerVisibility(basemapLayer.value, labelLayer.value);
+  updateHighlightVisibility();
   refreshHighlights();
   rebuildInteractions();
   window.addEventListener("keydown", handleKeydown);

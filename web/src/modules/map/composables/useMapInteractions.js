@@ -1,4 +1,4 @@
-import { shallowRef } from "vue";
+import { ref, shallowRef } from "vue";
 import Draw from "ol/interaction/Draw";
 import Modify from "ol/interaction/Modify";
 import Select from "ol/interaction/Select";
@@ -19,6 +19,8 @@ export const useMapInteractions = ({
   landLayer,
   workLayer,
   refreshHighlights,
+  setHighlightFeature,
+  clearHighlightOverride,
   landLotStore,
   workLotStore,
   format,
@@ -32,6 +34,11 @@ export const useMapInteractions = ({
   let modifyInteraction = null;
   const selectInteraction = shallowRef(null);
   let snapInteraction = null;
+
+  const modifySelectedId = ref(null);
+  const hasPendingModify = ref(false);
+  const pendingModifiedIds = new Set();
+  let selectedModifyFeature = null;
 
   let draftFeature = null;
   let draftSource = null;
@@ -70,8 +77,16 @@ export const useMapInteractions = ({
       }
     });
     modifyBackup.clear();
-    refreshHighlights();
+    clearHighlightOverride();
     uiStore.clearSelection();
+  };
+
+  const clearModifyState = () => {
+    modifySelectedId.value = null;
+    hasPendingModify.value = false;
+    pendingModifiedIds.clear();
+    selectedModifyFeature = null;
+    modifyBackup.clear();
   };
 
   const cancelTool = () => {
@@ -80,15 +95,26 @@ export const useMapInteractions = ({
       return;
     }
     if (uiStore.tool === "MODIFY") {
-      restoreModifyBackup();
+      cancelModify();
+      return;
     }
     if (uiStore.tool === "DELETE" && selectInteraction.value) {
       selectInteraction.value.getFeatures().clear();
+      clearHighlightOverride();
     }
     uiStore.setTool("PAN");
   };
 
   const setTool = (tool) => {
+    if (uiStore.tool === "MODIFY" && tool !== "MODIFY") {
+      restoreModifyBackup();
+      clearModifyState();
+      uiStore.clearSelection();
+      clearHighlightOverride();
+    }
+    if (uiStore.tool === "DELETE" && tool !== "DELETE") {
+      clearHighlightOverride();
+    }
     if (tool !== "PAN" && !canEditLayer.value) return;
     if (uiStore.tool === "DRAW" && tool !== "DRAW") {
       abortDrawing();
@@ -102,7 +128,7 @@ export const useMapInteractions = ({
         uiStore.setLayerVisibility("showWorkLots", true);
       }
       uiStore.clearSelection();
-      refreshHighlights();
+      clearHighlightOverride();
     }
     uiStore.setTool(tool);
   };
@@ -123,28 +149,12 @@ export const useMapInteractions = ({
   };
 
   const handleModifyEnd = (event) => {
-    const updatedAt = nowIso();
     event.features.forEach((feature) => {
-      const geometry = format.writeGeometryObject(feature.getGeometry(), {
-        dataProjection: EPSG_2326,
-        featureProjection: EPSG_2326,
-      });
       const id = feature.getId();
-      if (activeLayerType.value === "land") {
-        landLotStore.updateLandLot(id, {
-          geometry,
-          updatedAt,
-          updatedBy: authStore.roleName,
-        });
-      } else if (activeLayerType.value === "work") {
-        workLotStore.updateWorkLot(id, {
-          geometry,
-          updatedAt,
-          updatedBy: authStore.roleName,
-        });
-      }
+      pendingModifiedIds.add(id);
     });
-    modifyBackup.clear();
+    hasPendingModify.value = pendingModifiedIds.size > 0;
+    refreshHighlights();
   };
 
   const handleSelect = (event) => {
@@ -152,7 +162,7 @@ export const useMapInteractions = ({
     const selected = event.selected[0];
     if (!selected) {
       uiStore.clearSelection();
-      refreshHighlights();
+      clearHighlightOverride();
       return;
     }
     const layerType = selected.get("layerType");
@@ -163,7 +173,7 @@ export const useMapInteractions = ({
     } else {
       uiStore.selectWorkLot(refId);
     }
-    refreshHighlights();
+    clearHighlightOverride();
   };
 
   const handleDeleteSelect = (event) => {
@@ -172,6 +182,7 @@ export const useMapInteractions = ({
     const id = selected.getId();
     const layerType = activeLayerType.value;
     if (!layerType) return;
+    setHighlightFeature(layerType, selected);
     ElMessageBox.confirm(`Delete ${id}?`, "Confirm", { type: "warning" })
       .then(() => {
         if (layerType === "land") {
@@ -180,14 +191,93 @@ export const useMapInteractions = ({
           workLotStore.removeWorkLot(id);
         }
         uiStore.clearSelection();
-        refreshHighlights();
+        clearHighlightOverride();
       })
       .catch(() => {
         // user canceled
+        clearHighlightOverride();
       })
       .finally(() => {
         event.target.getFeatures().clear();
       });
+  };
+
+  const handleModifySelect = (event) => {
+    const features = event.target.getFeatures();
+    const selected = event.selected[0];
+
+    if (!selectedModifyFeature && !selected) {
+      return;
+    }
+
+    if (!selectedModifyFeature && selected) {
+      selectedModifyFeature = selected;
+      const refId = selected.get("refId") || selected.getId();
+      modifySelectedId.value = refId;
+      const layerType = selected.get("layerType");
+      if (layerType === "land") {
+        uiStore.selectLandLot(refId);
+        if (clearTaskSelection) clearTaskSelection();
+      } else {
+        uiStore.selectWorkLot(refId);
+      }
+      setHighlightFeature(layerType, selected);
+      return;
+    }
+
+    if (selectedModifyFeature) {
+      features.clear();
+      features.push(selectedModifyFeature);
+    }
+  };
+
+  const saveModify = () => {
+    if (!modifySelectedId.value) return;
+    const layerType = activeLayerType.value;
+    if (!layerType) return;
+
+    ElMessageBox.confirm("Save changes?", "Confirm", { type: "warning" })
+      .then(() => {
+        if (pendingModifiedIds.size > 0) {
+          const targetSource = layerType === "land" ? landSource : workSource;
+          const updatedAt = nowIso();
+          pendingModifiedIds.forEach((id) => {
+            const feature = targetSource.getFeatureById(id);
+            if (!feature) return;
+            const geometry = format.writeGeometryObject(feature.getGeometry(), {
+              dataProjection: EPSG_2326,
+              featureProjection: EPSG_2326,
+            });
+            if (layerType === "land") {
+              landLotStore.updateLandLot(id, {
+                geometry,
+                updatedAt,
+                updatedBy: authStore.roleName,
+              });
+            } else if (layerType === "work") {
+              workLotStore.updateWorkLot(id, {
+                geometry,
+                updatedAt,
+                updatedBy: authStore.roleName,
+              });
+            }
+          });
+        }
+        clearModifyState();
+        uiStore.clearSelection();
+        clearHighlightOverride();
+        uiStore.setTool("PAN");
+      })
+      .catch(() => {
+        cancelModify();
+      });
+  };
+
+  const cancelModify = () => {
+    restoreModifyBackup();
+    clearModifyState();
+    clearHighlightOverride();
+    uiStore.setTool("PAN");
   };
 
   const clearInteractions = () => {
@@ -216,7 +306,7 @@ export const useMapInteractions = ({
 
     if (uiStore.tool === "PAN") {
       const selectLayers = [workLayer, landLayer].filter(Boolean);
-      selectInteraction.value = new Select({ layers: selectLayers });
+      selectInteraction.value = new Select({ layers: selectLayers, style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleSelect);
       mapRef.value.addInteraction(selectInteraction.value);
@@ -228,6 +318,28 @@ export const useMapInteractions = ({
 
     const targetSource = layerType === "land" ? landSource : workSource;
     const targetLayer = layerType === "land" ? landLayer : workLayer;
+
+    if (uiStore.tool === "MODIFY") {
+      selectInteraction.value = new Select({ layers: [targetLayer], style: null });
+      selectInteraction.value.set("managed", true);
+      selectInteraction.value.on("select", handleModifySelect);
+      mapRef.value.addInteraction(selectInteraction.value);
+
+      modifyInteraction = new Modify({ features: selectInteraction.value.getFeatures() });
+      modifyInteraction.set("managed", true);
+      modifyInteraction.on("modifystart", (event) => {
+        if (modifyBackup.size > 0) return;
+        event.features.forEach((feature) => {
+          const geometry = feature.getGeometry();
+          if (geometry) {
+            modifyBackup.set(feature.getId(), geometry.clone());
+          }
+        });
+      });
+      modifyInteraction.on("modifyend", handleModifyEnd);
+      mapRef.value.addInteraction(modifyInteraction);
+      return;
+    }
 
     if (uiStore.tool === "DRAW") {
       drawInteraction = new Draw({ source: targetSource, type: "Polygon" });
@@ -241,24 +353,8 @@ export const useMapInteractions = ({
       mapRef.value.addInteraction(drawInteraction);
     }
 
-    if (uiStore.tool === "MODIFY") {
-      modifyInteraction = new Modify({ source: targetSource });
-      modifyInteraction.set("managed", true);
-      modifyInteraction.on("modifystart", (event) => {
-        modifyBackup.clear();
-        event.features.forEach((feature) => {
-          const geometry = feature.getGeometry();
-          if (geometry) {
-            modifyBackup.set(feature.getId(), geometry.clone());
-          }
-        });
-      });
-      modifyInteraction.on("modifyend", handleModifyEnd);
-      mapRef.value.addInteraction(modifyInteraction);
-    }
-
     if (uiStore.tool === "DELETE") {
-      selectInteraction.value = new Select({ layers: [targetLayer] });
+      selectInteraction.value = new Select({ layers: [targetLayer], style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleDeleteSelect);
       mapRef.value.addInteraction(selectInteraction.value);
@@ -285,5 +381,8 @@ export const useMapInteractions = ({
     rebuildInteractions,
     clearInteractions,
     selectInteraction,
+    saveModify,
+    modifySelectedId,
+    hasPendingModify,
   };
 };

@@ -72,42 +72,100 @@
       <span class="tool-shortcut">ESC</span>
     </el-button>
 
-    <div class="edit-target" v-if="canEditLayer && tool === 'PAN'">
-      <span class="edit-target-label">Edit Target:</span>
+    <el-button
+      v-if="showSave"
+      size="small"
+      type="success"
+      @click="emit('save-modify')"
+      class="save-btn"
+      title="Save changes"
+    >
+      <span class="tool-icon">💾</span>
+      <span class="tool-label">Save</span>
+    </el-button>
+
+    <div class="edit-target" v-if="showEditTarget && tool === 'PAN'">
+      <div class="edit-target-status">
+        <span class="edit-target-label">Edit:</span>
+        <span class="edit-target-value">{{ editTargetLabel }}</span>
+        <button class="edit-target-switch" type="button" @click="togglePicker">
+          Switch
+        </button>
+      </div>
       <el-segmented
+        v-if="showPicker"
         v-model="editTargetProxy"
         size="small"
         :options="editTargetOptions"
-        @change="emit('edit-target-change')"
+        @change="handleTargetChange"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 const props = defineProps({
   tool: { type: String, required: true },
   canEditLayer: { type: Boolean, required: true },
   hasDraft: { type: Boolean, required: true },
+  canSaveModify: { type: Boolean, default: false },
+  showEditTarget: { type: Boolean, default: true },
   editTarget: { type: String, required: true },
   editTargetOptions: { type: Array, required: true },
 });
 
-const emit = defineEmits(["set-tool", "cancel-tool", "update:editTarget", "edit-target-change"]);
+const emit = defineEmits([
+  "set-tool",
+  "cancel-tool",
+  "save-modify",
+  "update:editTarget",
+  "edit-target-change",
+]);
 
 const editTargetProxy = computed({
   get: () => props.editTarget,
   set: (value) => emit("update:editTarget", value),
 });
 
+const showPicker = ref(false);
+
+const editTargetLabel = computed(() => {
+  const match = props.editTargetOptions.find(
+    (option) => option.value === props.editTarget
+  );
+  return match?.label ?? props.editTarget;
+});
+
+const togglePicker = () => {
+  showPicker.value = !showPicker.value;
+};
+
+const handleTargetChange = () => {
+  emit("edit-target-change");
+  showPicker.value = false;
+};
+
+watch(
+  () => props.tool,
+  (value) => {
+    if (value !== "PAN") {
+      showPicker.value = false;
+    }
+  }
+);
+
 const showCancel = computed(() => {
   return props.tool !== 'PAN' || props.hasDraft;
 });
 
+const showSave = computed(() => {
+  return props.tool === "MODIFY" && props.canSaveModify;
+});
+
 const showCancelOrTarget = computed(() => {
-  return showCancel.value || (props.canEditLayer && props.tool === 'PAN');
+  return showCancel.value || (props.showEditTarget && props.tool === 'PAN');
 });
 </script>
 
@@ -187,6 +245,47 @@ const showCancelOrTarget = computed(() => {
   padding: 6px 12px;
   animation: pulse 2s ease-in-out infinite;
   position: relative;
+}
+
+.edit-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-target-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.edit-target-label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.edit-target-value {
+  font-weight: 600;
+}
+
+.edit-target-switch {
+  border: none;
+  background: transparent;
+  color: #0f766e;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.edit-target-switch:hover {
+  color: #115e59;
 }
 
 .tool-shortcut {

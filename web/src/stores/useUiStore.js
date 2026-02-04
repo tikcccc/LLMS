@@ -5,7 +5,7 @@ export const useUiStore = defineStore("ui", {
     tool: "PAN",
     selectedWorkLotId: null,
     selectedLandLotId: null,
-    editTarget: "land",
+    editTarget: "work",
     sidebarCollapsed: false,
     showBasemap: true,
     showLabels: true,
