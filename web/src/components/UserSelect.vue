@@ -12,7 +12,12 @@
       :key="option.value"
       :label="option.label"
       :value="option.value"
-    />
+    >
+      <div class="user-option">
+        <div class="user-name">{{ option.name || option.label }}</div>
+        <div v-if="option.email" class="user-email">{{ option.email }}</div>
+      </div>
+    </el-option>
   </el-select>
 </template>
 
@@ -36,12 +41,38 @@ const modelProxy = computed({
 const normalizedOptions = computed(() =>
   props.options.map((option) => {
     if (typeof option === "string") {
-      return { label: option, value: option };
+      return { label: option, value: option, name: option, email: "" };
     }
+    const name = option.name ?? option.label ?? option.value ?? "";
+    const email = option.email ?? "";
+    const label = option.label ?? (email ? `${name} · ${email}` : name);
+    const value = option.value ?? name;
     return {
-      label: option.label ?? option.value ?? "",
-      value: option.value ?? option.label ?? "",
+      label,
+      value,
+      name,
+      email,
     };
   })
 );
 </script>
+
+<style scoped>
+.user-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.user-email {
+  font-size: 12px;
+  color: var(--muted);
+}
+</style>

@@ -19,8 +19,13 @@
           <el-option label="Done" value="Done" />
           <el-option label="Overdue" value="Overdue" />
         </el-select>
-        <el-select v-model="assigneeFilter" size="small" style="width: 160px">
-          <el-option v-for="option in assigneeOptions" :key="option" :label="option" :value="option" />
+        <el-select v-model="assigneeFilter" size="small" style="width: 180px">
+          <el-option
+            v-for="option in assigneeOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
         </el-select>
         <el-button type="primary" @click="exportExcel">Export Tasks</el-button>
       </div>
@@ -52,6 +57,7 @@ import { exportTasks } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import { todayHongKong } from "../../shared/utils/time";
 import TimeText from "../../components/TimeText.vue";
+import { buildUserOptions } from "../../shared/mock/users";
 
 const taskStore = useTaskStore();
 taskStore.seedIfEmpty();
@@ -60,8 +66,13 @@ const assigneeFilter = ref("All");
 const searchQuery = ref("");
 
 const assigneeOptions = computed(() => {
-  const values = new Set(taskStore.tasks.map((task) => task.assignee).filter(Boolean));
-  return ["All", ...Array.from(values)];
+  const baseOptions = buildUserOptions();
+  const knownNames = new Set(baseOptions.map((option) => option.value));
+  const extraNames = new Set(taskStore.tasks.map((task) => task.assignee).filter(Boolean));
+  const extraOptions = Array.from(extraNames)
+    .filter((name) => !knownNames.has(name))
+    .map((name) => ({ label: name, value: name }));
+  return [{ label: "All", value: "All" }, ...baseOptions, ...extraOptions];
 });
 
 const isOverdue = (task) => {

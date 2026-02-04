@@ -314,14 +314,23 @@ const handleViewTask = (taskId) => {
   emit("view-task", taskId);
 };
 
+let ignoreDetailClose = false;
+
 const handleCloseDetail = () => {
   showTaskDetail.value = false;
+  if (ignoreDetailClose) {
+    ignoreDetailClose = false;
+    return;
+  }
   emit("clear-task");
 };
 
 const openEditTask = () => {
   emit("reset-task-form");
-  showTaskDetail.value = false;
+  if (showTaskDetail.value) {
+    ignoreDetailClose = true;
+    showTaskDetail.value = false;
+  }
   showTaskEdit.value = true;
 };
 

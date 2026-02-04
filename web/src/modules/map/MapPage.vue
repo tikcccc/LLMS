@@ -159,6 +159,7 @@ import { useTaskStore } from "../../stores/useTaskStore";
 import { useUiStore } from "../../stores/useUiStore";
 import { generateId } from "../../shared/utils/id";
 import { nowIso, todayHongKong } from "../../shared/utils/time";
+import { buildUserOptions, getDefaultAssignee } from "../../shared/mock/users";
 
 const mapEl = ref(null);
 const mapRef = ref(null);
@@ -213,11 +214,16 @@ const taskForm = ref({
 });
 
 const assigneeOptions = computed(() => {
-  const values = new Set(
+  const baseOptions = buildUserOptions();
+  const knownNames = new Set(baseOptions.map((option) => option.value));
+  const extraNames = new Set(
     taskStore.tasks.map((task) => task.assignee).filter(Boolean)
   );
-  if (authStore.roleName) values.add(authStore.roleName);
-  return Array.from(values);
+  if (authStore.roleName) extraNames.add(authStore.roleName);
+  const extraOptions = Array.from(extraNames)
+    .filter((name) => !knownNames.has(name))
+    .map((name) => ({ label: name, value: name, name }));
+  return [...baseOptions, ...extraOptions];
 });
 
 const editTargetOptions = [
@@ -771,10 +777,15 @@ const addTask = () => {
   if (!selectedWorkLot.value) return;
   const title = newTaskTitle.value.trim();
   if (!title) return;
-  taskStore.addTask(selectedWorkLot.value.id, title, newTaskAssignee.value || authStore.roleName, {
+  taskStore.addTask(
+    selectedWorkLot.value.id,
+    title,
+    newTaskAssignee.value || getDefaultAssignee(authStore.role) || authStore.roleName,
+    {
     dueDate: newTaskDueDate.value,
     description: newTaskDescription.value,
-  });
+    }
+  );
   newTaskTitle.value = "";
   newTaskAssignee.value = "";
   newTaskDueDate.value = "";
@@ -791,7 +802,7 @@ const clearNewTask = () => {
 const openAddTaskDialog = () => {
   if (!selectedWorkLot.value) return;
   if (!newTaskAssignee.value) {
-    newTaskAssignee.value = authStore.roleName;
+    newTaskAssignee.value = getDefaultAssignee(authStore.role) || authStore.roleName;
   }
   if (!newTaskDescription.value) {
     newTaskDescription.value = "";

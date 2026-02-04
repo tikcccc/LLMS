@@ -1,6 +1,9 @@
 import { defineStore } from "pinia";
 import { nowIso, todayHongKong } from "../shared/utils/time";
 import { generateId } from "../shared/utils/id";
+import { MOCK_USERS, getDefaultAssignee } from "../shared/mock/users";
+
+const seedAssignees = MOCK_USERS.map((user) => user.name);
 
 const seedTasks = () => [
   // WL-2025-001: 有逾期任務 (紅色)
@@ -8,7 +11,7 @@ const seedTasks = () => [
     id: "TASK-001",
     workLotId: "WL-2025-001",
     title: "Verify occupancy",
-    assignee: "Field Staff",
+    assignee: seedAssignees[6],
     description: "",
     dueDate: "2026-01-15", // 逾期
     status: "Open",
@@ -18,7 +21,7 @@ const seedTasks = () => [
     id: "TASK-002",
     workLotId: "WL-2025-001",
     title: "Update site photos",
-    assignee: "Site Officer",
+    assignee: seedAssignees[3],
     description: "",
     dueDate: "2026-02-10",
     status: "Open",
@@ -30,7 +33,7 @@ const seedTasks = () => [
     id: "TASK-003",
     workLotId: "WL-2025-002",
     title: "Collect owner documents",
-    assignee: "Site Officer",
+    assignee: seedAssignees[2],
     description: "",
     dueDate: "2026-01-18",
     status: "Done",
@@ -40,7 +43,7 @@ const seedTasks = () => [
     id: "TASK-004",
     workLotId: "WL-2025-002",
     title: "Verify boundaries",
-    assignee: "Field Staff",
+    assignee: seedAssignees[8],
     description: "",
     dueDate: "2026-01-20",
     status: "Done",
@@ -52,7 +55,7 @@ const seedTasks = () => [
     id: "TASK-005",
     workLotId: "WL-2025-003",
     title: "Safety inspection",
-    assignee: "Field Staff",
+    assignee: seedAssignees[7],
     description: "",
     dueDate: "2026-02-25",
     status: "Open",
@@ -64,7 +67,7 @@ const seedTasks = () => [
     id: "TASK-006",
     workLotId: "WL-2025-004",
     title: "Resolve access issue",
-    assignee: "Site Officer",
+    assignee: seedAssignees[5],
     description: "",
     dueDate: "2026-01-10", // 逾期
     status: "Open",
@@ -74,7 +77,7 @@ const seedTasks = () => [
     id: "TASK-007",
     workLotId: "WL-2025-004",
     title: "Contact property owner",
-    assignee: "Site Officer",
+    assignee: seedAssignees[4],
     description: "",
     dueDate: "2026-01-20", // 逾期
     status: "Open",
@@ -86,7 +89,7 @@ const seedTasks = () => [
     id: "TASK-008",
     workLotId: "WL-2025-005",
     title: "Boundary confirmation",
-    assignee: "Field Staff",
+    assignee: seedAssignees[9],
     description: "",
     dueDate: "2026-02-20",
     status: "Open",
@@ -98,7 +101,7 @@ const seedTasks = () => [
     id: "TASK-009",
     workLotId: "WL-2025-006",
     title: "Structural assessment",
-    assignee: "Field Staff",
+    assignee: seedAssignees[10],
     description: "",
     dueDate: "2026-01-25", // 逾期
     status: "Open",
@@ -108,7 +111,7 @@ const seedTasks = () => [
     id: "TASK-010",
     workLotId: "WL-2025-006",
     title: "Environmental check",
-    assignee: "Site Officer",
+    assignee: seedAssignees[2],
     description: "",
     dueDate: "2026-02-15",
     status: "Open",
@@ -122,7 +125,7 @@ const seedTasks = () => [
     id: "TASK-011",
     workLotId: "WL-2025-008",
     title: "Final inspection",
-    assignee: "Site Officer",
+    assignee: seedAssignees[1],
     description: "",
     dueDate: "2026-01-30",
     status: "Done",
@@ -132,7 +135,7 @@ const seedTasks = () => [
     id: "TASK-012",
     workLotId: "WL-2025-008",
     title: "Documentation complete",
-    assignee: "Field Staff",
+    assignee: seedAssignees[11],
     description: "",
     dueDate: "2026-02-01",
     status: "Done",
@@ -144,7 +147,7 @@ const seedTasks = () => [
     id: "TASK-013",
     workLotId: "WL-2025-009",
     title: "Tenant notification",
-    assignee: "Site Officer",
+    assignee: seedAssignees[0],
     description: "",
     dueDate: "2026-02-28",
     status: "Open",
@@ -154,7 +157,7 @@ const seedTasks = () => [
     id: "TASK-014",
     workLotId: "WL-2025-009",
     title: "Schedule site visit",
-    assignee: "Field Staff",
+    assignee: seedAssignees[6],
     description: "",
     dueDate: "2026-03-05",
     status: "Open",
@@ -166,7 +169,7 @@ const seedTasks = () => [
     id: "TASK-015",
     workLotId: "WL-2025-010",
     title: "Legal review",
-    assignee: "Site Officer",
+    assignee: seedAssignees[3],
     description: "",
     dueDate: "2026-01-28", // 逾期
     status: "Open",
@@ -176,7 +179,7 @@ const seedTasks = () => [
     id: "TASK-016",
     workLotId: "WL-2025-010",
     title: "Compliance check",
-    assignee: "Field Staff",
+    assignee: seedAssignees[8],
     description: "",
     dueDate: "2026-01-30", // 逾期
     status: "Open",
@@ -186,7 +189,7 @@ const seedTasks = () => [
     id: "TASK-017",
     workLotId: "WL-2025-010",
     title: "Risk assessment",
-    assignee: "Site Officer",
+    assignee: seedAssignees[4],
     description: "",
     dueDate: "2026-02-10",
     status: "Open",
@@ -204,7 +207,7 @@ export const useTaskStore = defineStore("tasks", {
         this.tasks = seedTasks();
       }
     },
-    addTask(workLotId, title, assignee = "Field Staff", options = {}) {
+    addTask(workLotId, title, assignee = getDefaultAssignee("FIELD_STAFF"), options = {}) {
       const { dueDate, description = "" } = options || {};
       this.tasks.push({
         id: generateId("TASK"),
