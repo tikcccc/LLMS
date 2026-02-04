@@ -56,24 +56,6 @@
           </div>
         </el-collapse-item>
 
-        <!-- Related Land Lots -->
-        <el-collapse-item name="relations" :title="`Related Land Lots (${relatedLandLots.length})`">
-          <div v-if="relatedLandLots.length" class="related-grid">
-            <button
-              v-for="lot in relatedLandLots"
-              :key="lot.id"
-              type="button"
-              class="related-card"
-              @click="emit('focus-land', lot.id)"
-            >
-              <div class="related-card-title">{{ lot.lotNumber }}</div>
-              <el-tag size="small" effect="plain" :style="landStatusStyle(lot.status)">
-                {{ lot.status }}
-              </el-tag>
-            </button>
-          </div>
-          <el-empty v-else description="No related land lots" :image-size="60" />
-        </el-collapse-item>
       </el-collapse>
 
       <!-- Tasks Section -->
@@ -156,6 +138,14 @@
               style="width: 100%"
             />
           </el-form-item>
+          <el-form-item label="Description">
+            <el-input
+              v-model="taskForm.description"
+              type="textarea"
+              :autosize="{ minRows: 3, maxRows: 6 }"
+              placeholder="Optional details"
+            />
+          </el-form-item>
           <el-form-item label="Status">
             <el-select v-model="taskForm.status" style="width: 100%">
               <el-option label="Open" value="Open" />
@@ -196,23 +186,6 @@
           </div>
         </el-collapse-item>
 
-        <el-collapse-item name="relations" :title="`Related Work Lots (${relatedWorkLots.length})`">
-          <div v-if="relatedWorkLots.length" class="related-grid">
-            <button
-              v-for="lot in relatedWorkLots"
-              :key="lot.id"
-              type="button"
-              class="related-card"
-              @click="emit('focus-work', lot.id)"
-            >
-              <div class="related-card-title">{{ lot.operatorName }}</div>
-              <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
-                {{ lot.status }}
-              </el-tag>
-            </button>
-          </div>
-          <el-empty v-else description="No related work lots" :image-size="60" />
-        </el-collapse-item>
       </el-collapse>
     </div>
   </el-drawer>
@@ -225,8 +198,6 @@ import TimeText from "../../../components/TimeText.vue";
 const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
   selectedLandLot: { type: Object, default: null },
-  relatedLandLots: { type: Array, required: true },
-  relatedWorkLots: { type: Array, required: true },
   selectedTasks: { type: Array, required: true },
   selectedTask: { type: Object, default: null },
   taskForm: { type: Object, required: true },
@@ -237,8 +208,6 @@ const props = defineProps({
 
 const emit = defineEmits([
   "close",
-  "focus-land",
-  "focus-work",
   "open-add-task",
   "toggle-task",
   "select-task",
@@ -248,7 +217,7 @@ const emit = defineEmits([
 ]);
 
 const isOpen = computed(() => !!props.selectedWorkLot || !!props.selectedLandLot);
-const activeCollapse = ref(["basic", "relations"]);
+const activeCollapse = ref(["basic"]);
 const showTaskDetail = computed(() => !!props.selectedTask);
 const openTasks = computed(() => props.selectedTasks.filter((task) => task.status !== "Done").length);
 const doneTasks = computed(() => props.selectedTasks.filter((task) => task.status === "Done").length);
@@ -262,7 +231,7 @@ const handleSaveTask = () => {
 // Reset collapse state when drawer opens
 watch(isOpen, (value) => {
   if (value) {
-    activeCollapse.value = ["basic", "relations"];
+    activeCollapse.value = ["basic"];
   }
 });
 </script>
@@ -306,7 +275,7 @@ watch(isOpen, (value) => {
 .drawer-body {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 /* Collapse Sections */
@@ -318,11 +287,13 @@ watch(isOpen, (value) => {
 .info-collapse :deep(.el-collapse-item__header) {
   background: #f8fafc;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
+  border-radius: 8px;
+  padding: 8px 12px;
   font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.3;
+  min-height: 36px;
+  margin-bottom: 6px;
 }
 
 .info-collapse :deep(.el-collapse-item__wrap) {
@@ -331,15 +302,15 @@ watch(isOpen, (value) => {
 }
 
 .info-collapse :deep(.el-collapse-item__content) {
-  padding: 0 0 12px 0;
+  padding: 0 0 8px 0;
 }
 
 /* Info Grid */
 .info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 0 4px;
+  gap: 8px;
+  padding: 0 2px;
 }
 
 .info-item {
@@ -349,51 +320,17 @@ watch(isOpen, (value) => {
 }
 
 .info-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   font-weight: 500;
 }
 
 .info-value {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink);
-}
-
-/* Related Cards */
-.related-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  padding: 0 4px;
-}
-
-.related-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.related-card:hover {
-  border-color: var(--accent);
-  background: #f0fdfa;
-  transform: translateX(2px);
-}
-
-.related-card-title {
-  font-size: 13px;
-  font-weight: 600;
-  flex: 1;
-  text-align: left;
 }
 
 /* Section Divider */

@@ -40,20 +40,18 @@ Work Lot (工作地塊):
 Task (任務):
 定義： 需要在該地塊上執行的工作，例如「查證邊界」、「協商」、「確認交地」。
 2. 實體關係圖 (Entity Relationship Logic)
-我們可以將關係總結為：以 Work Lot 為核心，向下覆蓋 Land Lot，向上關聯 Operator 與 Task。
+我們可以將關係總結為：以 Work Lot 為核心，向下視覺對照 Land Lot，向上關聯 Operator 與 Task。
 A. Work Lot vs. Operator (1對1 或 緊密耦合)
 關係： Representation (代表關係)
 邏輯： 在這個平台的操作邏輯中，畫一個 Work Lot 就是為了定義一個 Operator。
 用戶在地圖上畫一個框 (Work Lot)。
 在屬性欄填入 Operator 的名字 (e.g., 順意廠房)。
 結論： 在數據庫設計上，Operator 的資訊（名稱、類別）通常是 Work Lot 的屬性欄位 (Attributes)。
-B. Work Lot vs. Land Lot (多對多，空間重疊)
-關係： Many-to-Many Spatial Intersection (多對多空間交集)
-錄音佐證： Hon (Site Team) 提到：「三個打直的 Lot (Land Lot)，但其實有三個打橫的 Operator (Work Lot) 係每人都佔每個 Lot 的一部分。」
-邏輯：
-1 個 Work Lot (順意廠房) 可能跨越 3 個 Land Lot (Lot A, B, C)。
-1 個 Land Lot (Lot A) 裡面可能住了 4 個 Work Lot (張三、李四、順意廠房、倉庫)。
-系統功能： 用戶不需要手動建立這種關係。系統應利用 GIS 空間運算，當用戶畫好 Work Lot 後，自動計算出它壓住了哪些 Land Lots。
+B. Work Lot vs. Land Lot（僅視覺疊圖，不建立數據關聯）
+關係： No persisted relationship（純疊圖比對）
+說明：
+1 個 Work Lot 可能跨越多個 Land Lot；1 個 Land Lot 內也可能有多個 Work Lot。
+本 demo 不做 GIS 空間計算與儲存關聯，僅提供兩個圖層疊加讓使用者目視比對。
 C. Work Lot vs. Task (1對多)
 關係： 1-to-Many (1 對多)
 邏輯： 一個 Work Lot (順意廠房) 在收地過程中會有多個任務。
@@ -68,8 +66,7 @@ Task 3: 現場交地 (Pending)
 這個紅框就是 Work Lot。
 工程師輸入資料：Name = "順意廠房", Status = "In Progress"。
 系統運算 (Relationship)：
-系統自動識別：這個 Work Lot (順意) 與 Land Lot 101, 102, 103 發生了 Spatial Intersection (空間重疊)。
-(這解決了 Rex 的痛點：不需要人眼去對它屬於哪個 Lot)。
+不做資料上的關聯，只提供 LandLot 圖層疊加讓使用者目視比對重疊範圍。
 指派任務 (Task)：
 經理指派一個 Task 給這個 Work Lot：「下週一去現場確認清場」。
 前線人員打開 App，看到「順意廠房」這塊地 (Work Lot) 上面有一個新 Task。
@@ -77,7 +74,7 @@ Task 3: 現場交地 (Pending)
 在 PRD 的數據結構部分，你應該強調：
 Land Lot 是由政府數據定義的（不可改）。
 Work Lot 是由用戶定義的（User Defined Polygon）。
-兩者是透過 GIS 空間位置 (Spatial Location) 關聯，而非傳統的 ID 關聯。
+兩者在本 demo 不建立資料關聯，只做視覺疊圖比對。
 
 
 這是一個非常關鍵的釐清。根據錄音內容，答案是 「兩者皆是，但對於本項目的具體邊界，主要依賴 CEDD 提供的平面圖（Soft Copy）由人工重畫」。

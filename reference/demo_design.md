@@ -125,7 +125,6 @@ interface WorkLot {
   type: "Business" | "Household";
   status: WorkLotStatus;
   geometry: any;             // GeoJSON Polygon (EPSG:2326)
-  relatedLandLots: string[]; // 模拟空间计算结果
   updatedBy: string;
   updatedAt: string;
 }
@@ -139,6 +138,7 @@ interface Task {
   workLotId: string;
   title: string;
   assignee: string;
+  description: string;
   dueDate: string;           // YYYY-MM-DD
   status: "Open" | "Done";
   createdAt: string;
@@ -197,7 +197,7 @@ interface Task {
 * Drawer 内容：
 
   * Header：Operator Name + Status Tag
-  * Tab1 Info：基础信息 + relatedLandLots（模拟显示覆盖的 lot）
+* Tab1 Info：基础信息（不显示 LandLot 关联）
   * Tab2 Tasks：任务列表 + 新增输入框（Enter 添加）+ 勾选 Done
 
 ---

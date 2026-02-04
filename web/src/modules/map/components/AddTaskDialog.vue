@@ -21,6 +21,14 @@
           placeholder="Select date"
         />
       </el-form-item>
+      <el-form-item label="Description">
+        <el-input
+          v-model="descriptionProxy"
+          type="textarea"
+          :autosize="{ minRows: 3, maxRows: 6 }"
+          placeholder="Optional details"
+        />
+      </el-form-item>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
@@ -41,6 +49,7 @@ const props = defineProps({
   title: { type: String, default: "" },
   assignee: { type: String, default: "" },
   dueDate: { type: String, default: "" },
+  description: { type: String, default: "" },
 });
 
 const emit = defineEmits([
@@ -48,6 +57,7 @@ const emit = defineEmits([
   "update:title",
   "update:assignee",
   "update:dueDate",
+  "update:description",
   "confirm",
   "cancel",
 ]);
@@ -65,6 +75,11 @@ const assigneeProxy = computed({
 const dueDateProxy = computed({
   get: () => props.dueDate,
   set: (value) => emit("update:dueDate", value),
+});
+
+const descriptionProxy = computed({
+  get: () => props.description,
+  set: (value) => emit("update:description", value),
 });
 
 const handleCancel = () => {

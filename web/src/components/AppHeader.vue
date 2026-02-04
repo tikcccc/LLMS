@@ -53,7 +53,6 @@ const resetDemoData = () => {
         "ND_LLM_V1_worklots",
         "ND_LLM_V1_tasks",
         "ND_LLM_V1_ui",
-        "ND_LLM_V1_relations",
       ].forEach((key) => localStorage.removeItem(key));
       ElMessage.success("Demo data reset. Reloading...");
       window.location.reload();

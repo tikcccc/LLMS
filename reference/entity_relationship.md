@@ -18,7 +18,7 @@ WorkLot：某个 Operator 实际占用/作业的范围（你们画出来的彩�
 
 Operator (1) → WorkLot (N)
 
-WorkLot (M) ↔ LandLot (N)（通过 link 表或 relatedLandLots 来表达）
+LandLot 与 WorkLot 在本 demo 不建立数据关联（不存 link / relatedLandLots），仅做图层叠加供人眼比对。
 
 2) Operator 是不是和 LandLot 都提前管理员画好的？
 LandLot：更像“提前画好的参考层”

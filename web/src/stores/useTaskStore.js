@@ -9,6 +9,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-001",
     title: "Verify occupancy",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-01-15", // 逾期
     status: "Open",
     createdAt: nowIso(),
@@ -18,6 +19,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-001",
     title: "Update site photos",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-02-10",
     status: "Open",
     createdAt: nowIso(),
@@ -29,6 +31,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-002",
     title: "Collect owner documents",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-01-18",
     status: "Done",
     createdAt: "2026-01-05T08:10:00Z",
@@ -38,6 +41,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-002",
     title: "Verify boundaries",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-01-20",
     status: "Done",
     createdAt: "2026-01-06T09:00:00Z",
@@ -49,6 +53,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-003",
     title: "Safety inspection",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-02-25",
     status: "Open",
     createdAt: "2026-01-12T09:20:00Z",
@@ -60,6 +65,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-004",
     title: "Resolve access issue",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-01-10", // 逾期
     status: "Open",
     createdAt: "2026-01-03T11:00:00Z",
@@ -69,6 +75,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-004",
     title: "Contact property owner",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-01-20", // 逾期
     status: "Open",
     createdAt: "2026-01-05T10:00:00Z",
@@ -80,6 +87,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-005",
     title: "Boundary confirmation",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-02-20",
     status: "Open",
     createdAt: "2026-02-01T10:00:00Z",
@@ -91,6 +99,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-006",
     title: "Structural assessment",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-01-25", // 逾期
     status: "Open",
     createdAt: "2026-01-10T08:00:00Z",
@@ -100,6 +109,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-006",
     title: "Environmental check",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-02-15",
     status: "Open",
     createdAt: "2026-01-15T09:00:00Z",
@@ -113,6 +123,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-008",
     title: "Final inspection",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-01-30",
     status: "Done",
     createdAt: "2026-01-20T10:00:00Z",
@@ -122,6 +133,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-008",
     title: "Documentation complete",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-02-01",
     status: "Done",
     createdAt: "2026-01-25T11:00:00Z",
@@ -133,6 +145,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-009",
     title: "Tenant notification",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-02-28",
     status: "Open",
     createdAt: "2026-02-01T08:00:00Z",
@@ -142,6 +155,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-009",
     title: "Schedule site visit",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-03-05",
     status: "Open",
     createdAt: "2026-02-02T09:00:00Z",
@@ -153,6 +167,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-010",
     title: "Legal review",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-01-28", // 逾期
     status: "Open",
     createdAt: "2026-01-15T10:00:00Z",
@@ -162,6 +177,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-010",
     title: "Compliance check",
     assignee: "Field Staff",
+    description: "",
     dueDate: "2026-01-30", // 逾期
     status: "Open",
     createdAt: "2026-01-18T11:00:00Z",
@@ -171,6 +187,7 @@ const seedTasks = () => [
     workLotId: "WL-2025-010",
     title: "Risk assessment",
     assignee: "Site Officer",
+    description: "",
     dueDate: "2026-02-10",
     status: "Open",
     createdAt: "2026-01-20T09:00:00Z",
@@ -187,13 +204,15 @@ export const useTaskStore = defineStore("tasks", {
         this.tasks = seedTasks();
       }
     },
-    addTask(workLotId, title, assignee = "Field Staff") {
+    addTask(workLotId, title, assignee = "Field Staff", options = {}) {
+      const { dueDate, description = "" } = options || {};
       this.tasks.push({
         id: generateId("TASK"),
         workLotId,
         title,
         assignee,
-        dueDate: todayHongKong(),
+        description,
+        dueDate: dueDate || todayHongKong(),
         status: "Open",
         createdAt: nowIso(),
       });

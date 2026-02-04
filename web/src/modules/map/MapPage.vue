@@ -48,8 +48,6 @@
     <MapDrawer
       :selected-work-lot="selectedWorkLot"
       :selected-land-lot="selectedLandLot"
-      :related-land-lots="relatedLandLots"
-      :related-work-lots="relatedWorkLots"
       :selected-tasks="selectedTasks"
       :selected-task="selectedTask"
       :task-form="taskForm"
@@ -57,8 +55,6 @@
       :land-status-style="landStatusStyle"
       :is-overdue="isOverdue"
       @close="uiStore.clearSelection()"
-      @focus-land="focusLandLot"
-      @focus-work="zoomToWorkLot"
       @open-add-task="openAddTaskDialog"
       @toggle-task="taskStore.toggleDone"
       @select-task="selectTask"
@@ -72,6 +68,7 @@
       v-model:title="newTaskTitle"
       v-model:assignee="newTaskAssignee"
       v-model:dueDate="newTaskDueDate"
+      v-model:description="newTaskDescription"
       @confirm="confirmAddTask"
       @cancel="clearNewTask"
     />
@@ -158,7 +155,6 @@ import { useLandLotStore } from "../../stores/useLandLotStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useTaskStore } from "../../stores/useTaskStore";
 import { useUiStore } from "../../stores/useUiStore";
-import { useRelationStore } from "../../stores/useRelationStore";
 import { generateId } from "../../shared/utils/id";
 import { nowIso, todayHongKong } from "../../shared/utils/time";
 
@@ -171,7 +167,6 @@ const landLotStore = useLandLotStore();
 const workLotStore = useWorkLotStore();
 const taskStore = useTaskStore();
 const uiStore = useUiStore();
-const relationStore = useRelationStore();
 
 const canEditLand = computed(() => authStore.role === "SITE_ADMIN");
 const canEditWork = computed(
@@ -193,22 +188,6 @@ const selectedLandLot = computed(() =>
   landLotStore.landLots.find((lot) => lot.id === uiStore.selectedLandLotId) || null
 );
 
-const relatedLandLots = computed(() => {
-  if (!uiStore.selectedWorkLotId) return [];
-  const landLotIds = relationStore.relations
-    .filter((rel) => rel.workLotId === uiStore.selectedWorkLotId)
-    .map((rel) => rel.landLotId);
-  return landLotStore.landLots.filter((lot) => landLotIds.includes(lot.id));
-});
-
-const relatedWorkLots = computed(() => {
-  if (!uiStore.selectedLandLotId) return [];
-  const workLotIds = relationStore.relations
-    .filter((rel) => rel.landLotId === uiStore.selectedLandLotId)
-    .map((rel) => rel.workLotId);
-  return workLotStore.workLots.filter((lot) => workLotIds.includes(lot.id));
-});
-
 const selectedTasks = computed(() =>
   taskStore.tasks.filter((task) => task.workLotId === uiStore.selectedWorkLotId)
 );
@@ -225,6 +204,7 @@ const taskForm = ref({
   title: "",
   assignee: "",
   dueDate: "",
+  description: "",
   status: "Open",
 });
 
@@ -251,6 +231,7 @@ const workForm = ref({
 const newTaskTitle = ref("");
 const newTaskAssignee = ref("");
 const newTaskDueDate = ref("");
+const newTaskDescription = ref("");
 
 let landSource;
 let workSource;
@@ -269,14 +250,6 @@ let snapInteraction;
 let draftFeature;
 let draftSource;
 let modifyBackup = new Map();
-
-const geojsonToGeometry = (geometry) =>
-  format.readGeometry(geometry, { dataProjection: EPSG_2326, featureProjection: EPSG_2326 });
-
-const geometriesIntersect = (geomA, geomB) => {
-  if (!geomA || !geomB) return false;
-  return geomA.intersectsExtent(geomB.getExtent());
-};
 
 const updateLayerOpacity = () => {
   if (!landLayer || !workLayer) return;
@@ -607,10 +580,8 @@ const handleModifyEnd = (event) => {
     const id = feature.getId();
     if (activeLayerType.value === "land") {
       landLotStore.updateLandLot(id, { geometry, updatedAt, updatedBy: authStore.roleName });
-      updateRelationsForLandLot(id, geometry);
     } else if (activeLayerType.value === "work") {
       workLotStore.updateWorkLot(id, { geometry, updatedAt, updatedBy: authStore.roleName });
-      updateRelationsForWorkLot(id, geometry);
     }
   });
   modifyBackup.clear();
@@ -644,10 +615,8 @@ const handleDeleteSelect = (event) => {
     .then(() => {
       if (layerType === "land") {
         landLotStore.removeLandLot(id);
-        relationStore.removeRelationsByLandLot(id);
       } else {
         workLotStore.removeWorkLot(id);
-        relationStore.removeRelationsByWorkLot(id);
       }
       uiStore.clearSelection();
       refreshHighlights();
@@ -754,7 +723,6 @@ const confirmLand = () => {
     updatedBy: authStore.roleName,
     updatedAt: nowIso(),
   });
-  updateRelationsForLandLot(id, pendingGeometry.value);
   landForm.value = { lotNumber: "", status: "Active" };
   showLandDialog.value = false;
   clearDraft();
@@ -773,7 +741,6 @@ const confirmWork = () => {
     updatedBy: authStore.roleName,
     updatedAt: nowIso(),
   });
-  updateRelationsForWorkLot(id, pendingGeometry.value);
   workForm.value = { operatorName: "", type: "Business", status: "Pending" };
   showWorkDialog.value = false;
   clearDraft();
@@ -792,26 +759,30 @@ const addTask = () => {
   if (!selectedWorkLot.value) return;
   const title = newTaskTitle.value.trim();
   if (!title) return;
-  taskStore.addTask(selectedWorkLot.value.id, title, newTaskAssignee.value || authStore.roleName);
-  const latestTask = taskStore.tasks[taskStore.tasks.length - 1];
-  if (latestTask && newTaskDueDate.value) {
-    taskStore.updateTask(latestTask.id, { dueDate: newTaskDueDate.value });
-  }
+  taskStore.addTask(selectedWorkLot.value.id, title, newTaskAssignee.value || authStore.roleName, {
+    dueDate: newTaskDueDate.value,
+    description: newTaskDescription.value,
+  });
   newTaskTitle.value = "";
   newTaskAssignee.value = "";
   newTaskDueDate.value = "";
+  newTaskDescription.value = "";
 };
 
 const clearNewTask = () => {
   newTaskTitle.value = "";
   newTaskAssignee.value = "";
   newTaskDueDate.value = "";
+  newTaskDescription.value = "";
 };
 
 const openAddTaskDialog = () => {
   if (!selectedWorkLot.value) return;
   if (!newTaskAssignee.value) {
     newTaskAssignee.value = authStore.roleName;
+  }
+  if (!newTaskDescription.value) {
+    newTaskDescription.value = "";
   }
   showTaskDialog.value = true;
 };
@@ -842,22 +813,6 @@ const deleteTask = () => {
   if (!selectedTask.value) return;
   taskStore.removeTask(selectedTask.value.id);
   selectedTaskId.value = null;
-};
-
-const updateRelationsForWorkLot = (workLotId, geometry) => {
-  const workGeom = geojsonToGeometry(geometry);
-  const landLotIds = landLotStore.landLots
-    .filter((lot) => geometriesIntersect(workGeom, geojsonToGeometry(lot.geometry)))
-    .map((lot) => lot.id);
-  relationStore.replaceRelationsForWorkLot(workLotId, landLotIds, authStore.roleName, "spatial");
-};
-
-const updateRelationsForLandLot = (landLotId, geometry) => {
-  const landGeom = geojsonToGeometry(geometry);
-  const workLotIds = workLotStore.workLots
-    .filter((lot) => geometriesIntersect(landGeom, geojsonToGeometry(lot.geometry)))
-    .map((lot) => lot.id);
-  relationStore.replaceRelationsForLandLot(landLotId, workLotIds, authStore.roleName, "spatial");
 };
 
 const initMap = () => {
@@ -1021,12 +976,6 @@ watch(
 );
 
 watch(
-  () => relationStore.relations,
-  () => refreshHighlights(),
-  { deep: true }
-);
-
-watch(
   () => selectedTaskId.value,
   (value) => {
     if (!value) return;
@@ -1036,6 +985,7 @@ watch(
       title: task.title,
       assignee: task.assignee,
       dueDate: task.dueDate,
+      description: task.description || "",
       status: task.status,
     };
   }
@@ -1051,7 +1001,6 @@ onMounted(() => {
   landLotStore.seedIfEmpty();
   workLotStore.seedIfEmpty();
   taskStore.seedIfEmpty();
-  relationStore.seedIfEmpty(landLotStore.landLots, workLotStore.workLots);
   initMap();
   window.addEventListener("keydown", handleKeydown);
 });
