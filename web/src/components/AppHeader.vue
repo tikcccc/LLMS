@@ -1,7 +1,7 @@
 <template>
   <header class="app-header">
     <div class="brand">
-      <div class="title">Digital Land Manag Demo</div>
+      <div class="title">Digital Land Management Platform</div>
     </div>
 
     <div class="actions">
