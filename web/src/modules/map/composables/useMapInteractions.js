@@ -18,11 +18,13 @@ export const useMapInteractions = ({
   workSource,
   landLayer,
   workLayer,
+  intLandLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
   landLotStore,
   workLotStore,
+  taskStore,
   format,
   pendingGeometry,
   showLandDialog,
@@ -170,6 +172,9 @@ export const useMapInteractions = ({
     if (layerType === "land") {
       uiStore.selectLandLot(refId);
       if (clearTaskSelection) clearTaskSelection();
+    } else if (layerType === "int") {
+      uiStore.selectIntLand(refId);
+      if (clearTaskSelection) clearTaskSelection();
     } else {
       uiStore.selectWorkLot(refId);
     }
@@ -183,12 +188,25 @@ export const useMapInteractions = ({
     const layerType = activeLayerType.value;
     if (!layerType) return;
     setHighlightFeature(layerType, selected);
-    ElMessageBox.confirm(`Delete ${id}?`, "Confirm", { type: "warning" })
+    let message = `Delete ${id}?`;
+    if (layerType === "work") {
+      const relatedTasks = taskStore?.tasks?.filter((task) => task.workLotId === id) ?? [];
+      const openTasks = relatedTasks.filter((task) => task.status !== "Done").length;
+      if (openTasks > 0) {
+        message = `Delete ${id}? This work lot has ${openTasks} open task(s). Deleting will also remove its tasks.`;
+      } else if (relatedTasks.length > 0) {
+        message = `Delete ${id}? This work lot has ${relatedTasks.length} task(s). Deleting will also remove its tasks.`;
+      }
+    }
+    ElMessageBox.confirm(message, "Confirm", { type: "warning" })
       .then(() => {
         if (layerType === "land") {
           landLotStore.removeLandLot(id);
         } else {
           workLotStore.removeWorkLot(id);
+          if (taskStore?.removeTasksByWorkLot) {
+            taskStore.removeTasksByWorkLot(id);
+          }
         }
         uiStore.clearSelection();
         clearHighlightOverride();
@@ -305,7 +323,7 @@ export const useMapInteractions = ({
     clearInteractions();
 
     if (uiStore.tool === "PAN") {
-      const selectLayers = [workLayer, landLayer].filter(Boolean);
+      const selectLayers = [workLayer, landLayer, intLandLayer].filter(Boolean);
       selectInteraction.value = new Select({ layers: selectLayers, style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleSelect);

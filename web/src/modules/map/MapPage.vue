@@ -27,6 +27,7 @@
         v-model:showBasemap="uiStore.showBasemap"
         v-model:showLabels="uiStore.showLabels"
         v-model:showLandLots="uiStore.showLandLots"
+        v-model:showIntLand="uiStore.showIntLand"
         v-model:showWorkLots="uiStore.showWorkLots"
         :filtered-tasks="filteredTasks"
         :land-lot-results="landLotResults"
@@ -48,6 +49,7 @@
     <MapDrawer
       :selected-work-lot="drawerWorkLot"
       :selected-land-lot="drawerLandLot"
+      :selected-int-land="drawerIntLand"
       :selected-tasks="selectedTasks"
       :selected-task="selectedTask"
       :task-form="taskForm"
@@ -55,13 +57,17 @@
       :work-status-style="workStatusStyle"
       :land-status-style="landStatusStyle"
       :is-overdue="isOverdue"
-      @close="uiStore.clearSelection()"
+      :can-delete-work="canEditWork"
+      :can-delete-land="canEditLand"
+      @close="handleDrawerClose"
       @open-add-task="openAddTaskDialog"
       @view-task="selectTask"
       @clear-task="clearTaskSelection"
       @reset-task-form="resetTaskForm"
       @save-task="saveTaskDetail"
       @delete-task="deleteTask"
+      @delete-work-lot="deleteSelectedWorkLot"
+      @delete-land-lot="deleteSelectedLandLot"
     />
 
     <AddTaskDialog
@@ -96,6 +102,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import "ol/ol.css";
 import { ElMessage } from "element-plus";
 
@@ -127,6 +134,7 @@ const landLotStore = useLandLotStore();
 const workLotStore = useWorkLotStore();
 const taskStore = useTaskStore();
 const uiStore = useUiStore();
+const route = useRoute();
 
 const canEditLand = computed(() => authStore.role === "SITE_ADMIN");
 const canEditWork = computed(
@@ -163,14 +171,18 @@ const {
   format,
   landSource,
   workSource,
+  intLandSource,
   landLayer,
   workLayer,
+  intLandLayer,
+  intLandLineLayer,
   updateLayerOpacity,
   updateLayerVisibility,
   createLandFeature,
   createWorkFeature,
   refreshLandSource,
   refreshWorkSource,
+  loadIntLandGeojson,
 } = useMapLayers({
   landLotStore,
   workLotStore,
@@ -179,9 +191,31 @@ const {
   uiStore,
 });
 
+const selectedIntLand = computed(() => {
+  if (!intLandSource || !uiStore.selectedIntLandId) return null;
+  const feature = intLandSource.getFeatureById(uiStore.selectedIntLandId);
+  if (!feature) return null;
+  const geometry = feature.getGeometry();
+  const area = geometry && typeof geometry.getArea === "function" ? geometry.getArea() : null;
+  return {
+    id: feature.getId(),
+    layer: feature.get("layer") || "INT Land",
+    entity: feature.get("entity") || geometry?.getType?.() || "Polygon",
+    area,
+  };
+});
+
+const drawerIntLand = computed(() =>
+  uiStore.tool === "MODIFY" ? null : selectedIntLand.value
+);
+
 const {
+  landHighlightSource,
+  workHighlightSource,
   landHighlightLayer,
   workHighlightLayer,
+  intHighlightLayer,
+  intHighlightSource,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
@@ -191,6 +225,10 @@ const {
   createWorkFeature,
   selectedLandLot,
   selectedWorkLot,
+  getIntLandFeature: () => {
+    if (!intLandSource || !uiStore.selectedIntLandId) return null;
+    return intLandSource.getFeatureById(uiStore.selectedIntLandId);
+  },
   uiStore,
 });
 
@@ -252,6 +290,24 @@ const {
   selectedWorkLot,
 });
 
+const deleteSelectedWorkLot = () => {
+  if (!selectedWorkLot.value) return;
+  const workLotId = selectedWorkLot.value.id;
+  workLotStore.removeWorkLot(workLotId);
+  taskStore.removeTasksByWorkLot(workLotId);
+  uiStore.clearSelection();
+  clearHighlightOverride();
+  refreshHighlights();
+};
+
+const deleteSelectedLandLot = () => {
+  if (!selectedLandLot.value) return;
+  landLotStore.removeLandLot(selectedLandLot.value.id);
+  uiStore.clearSelection();
+  clearHighlightOverride();
+  refreshHighlights();
+};
+
 const {
   setTool,
   cancelTool,
@@ -271,11 +327,13 @@ const {
   workSource,
   landLayer,
   workLayer,
+  intLandLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
   landLotStore,
   workLotStore,
+  taskStore,
   format,
   pendingGeometry,
   showLandDialog,
@@ -287,6 +345,17 @@ const {
 const onEditTargetChange = () => {
   if (uiStore.tool !== "PAN") {
     setTool(uiStore.tool);
+  }
+};
+
+const handleDrawerClose = () => {
+  uiStore.clearSelection();
+  clearHighlightOverride();
+  landHighlightSource?.clear(true);
+  workHighlightSource?.clear(true);
+  intHighlightSource?.clear(true);
+  if (selectInteraction.value?.getFeatures) {
+    selectInteraction.value.getFeatures().clear();
   }
 };
 
@@ -302,6 +371,44 @@ const onSearchEnter = () => {
     zoomToWorkLot(match.id);
   } else {
     ElMessage({ type: "warning", message: "No work lot matched." });
+  }
+};
+
+const getQueryValue = (value) =>
+  Array.isArray(value) ? value[0] : value ?? null;
+
+const applyFocusFromRoute = () => {
+  if (!mapRef.value) return;
+
+  const workLotId = getQueryValue(route.query.workLotId);
+  const landLotId = getQueryValue(route.query.landLotId);
+  const taskId = getQueryValue(route.query.taskId);
+
+  if (!workLotId && !landLotId && !taskId) return;
+
+  if (uiStore.tool !== "PAN") {
+    uiStore.setTool("PAN");
+  }
+
+  if (workLotId) {
+    zoomToWorkLot(workLotId);
+    if (taskId) {
+      selectTask(taskId);
+    }
+    return;
+  }
+
+  if (landLotId) {
+    focusLandLot(landLotId);
+    return;
+  }
+
+  if (taskId) {
+    const task = taskStore.tasks.find((item) => item.id === taskId);
+    if (task?.workLotId) {
+      zoomToWorkLot(task.workLotId);
+      selectTask(taskId);
+    }
   }
 };
 
@@ -424,7 +531,13 @@ watch(
 );
 
 watch(
-  () => [uiStore.showBasemap, uiStore.showLabels, uiStore.showLandLots, uiStore.showWorkLots],
+  () => [
+    uiStore.showBasemap,
+    uiStore.showLabels,
+    uiStore.showLandLots,
+    uiStore.showIntLand,
+    uiStore.showWorkLots,
+  ],
   () => {
     updateLayerVisibility(basemapLayer.value, labelLayer.value);
     updateHighlightVisibility();
@@ -451,6 +564,23 @@ watch(
 );
 
 watch(
+  () => uiStore.showIntLand,
+  (value) => {
+    if (value) return;
+    if (uiStore.selectedIntLandId) {
+      uiStore.clearIntLandSelection();
+      clearHighlightOverride("int");
+      intHighlightSource?.clear(true);
+      intHighlightLayer?.setVisible(false);
+      if (selectInteraction.value?.getFeatures) {
+        selectInteraction.value.getFeatures().clear();
+      }
+      updateHighlightVisibility();
+    }
+  }
+);
+
+watch(
   () => uiStore.selectedWorkLotId,
   (value) => {
     if (!value) return;
@@ -469,12 +599,28 @@ watch(
 );
 
 watch(
-  () => [uiStore.selectedWorkLotId, uiStore.selectedLandLotId],
-  ([workId, landId]) => {
+  () => uiStore.selectedIntLandId,
+  (value) => {
+    if (!value || !intLandSource) return;
+    const exists = !!intLandSource.getFeatureById(value);
+    if (!exists) uiStore.clearSelection();
+  }
+);
+
+watch(
+  () => [uiStore.selectedWorkLotId, uiStore.selectedLandLotId, uiStore.selectedIntLandId],
+  ([workId, landId, intId]) => {
     refreshHighlights();
-    if (!workId && !landId && selectInteraction.value?.getFeatures) {
+    if (!workId && !landId && !intId && selectInteraction.value?.getFeatures) {
       selectInteraction.value.getFeatures().clear();
     }
+  }
+);
+
+watch(
+  () => route.query,
+  () => {
+    applyFocusFromRoute();
   }
 );
 
@@ -488,14 +634,24 @@ onMounted(() => {
   landLotStore.seedIfEmpty();
   workLotStore.seedIfEmpty();
   taskStore.seedIfEmpty();
-  initMap([landLayer, workLayer, landHighlightLayer, workHighlightLayer]);
+  initMap([
+    landLayer,
+    intLandLineLayer,
+    intLandLayer,
+    workLayer,
+    landHighlightLayer,
+    intHighlightLayer,
+    workHighlightLayer,
+  ]);
   refreshLandSource();
   refreshWorkSource();
+  loadIntLandGeojson();
   updateLayerOpacity();
   updateLayerVisibility(basemapLayer.value, labelLayer.value);
   updateHighlightVisibility();
   refreshHighlights();
   rebuildInteractions();
+  applyFocusFromRoute();
   window.addEventListener("keydown", handleKeydown);
 });
 

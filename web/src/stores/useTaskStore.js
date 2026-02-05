@@ -229,6 +229,9 @@ export const useTaskStore = defineStore("tasks", {
     removeTask(taskId) {
       this.tasks = this.tasks.filter((item) => item.id !== taskId);
     },
+    removeTasksByWorkLot(workLotId) {
+      this.tasks = this.tasks.filter((item) => item.workLotId !== workLotId);
+    },
     toggleDone(taskId) {
       const task = this.tasks.find((item) => item.id === taskId);
       if (task) {

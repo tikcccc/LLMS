@@ -34,12 +34,18 @@
         </template>
       </el-table-column>
       <el-table-column prop="updatedBy" label="Updated By" min-width="140" />
+      <el-table-column label="" width="90" align="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="viewOnMap(row.id)">View</el-button>
+        </template>
+      </el-table-column>
     </el-table>
   </section>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { exportWorkLots } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
@@ -47,6 +53,7 @@ import TimeText from "../../components/TimeText.vue";
 
 const workLotStore = useWorkLotStore();
 workLotStore.seedIfEmpty();
+const router = useRouter();
 
 const workLots = computed(() => workLotStore.workLots);
 
@@ -70,6 +77,10 @@ const filteredWorkLots = computed(() =>
 
 const exportExcel = () => {
   exportWorkLots(filteredWorkLots.value);
+};
+
+const viewOnMap = (workLotId) => {
+  router.push({ path: "/map", query: { workLotId } });
 };
 </script>
 

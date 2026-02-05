@@ -46,12 +46,18 @@
           <TimeText :value="row.createdAt" />
         </template>
       </el-table-column>
+      <el-table-column label="" width="90" align="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="viewOnMap(row)">View</el-button>
+        </template>
+      </el-table-column>
     </el-table>
   </section>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useTaskStore } from "../../stores/useTaskStore";
 import { exportTasks } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
@@ -61,6 +67,7 @@ import { buildUserOptions } from "../../shared/mock/users";
 
 const taskStore = useTaskStore();
 taskStore.seedIfEmpty();
+const router = useRouter();
 const statusFilter = ref("All");
 const assigneeFilter = ref("All");
 const searchQuery = ref("");
@@ -98,6 +105,13 @@ const filteredTasks = computed(() =>
 
 const exportExcel = () => {
   exportTasks(filteredTasks.value);
+};
+
+const viewOnMap = (task) => {
+  router.push({
+    path: "/map",
+    query: { workLotId: task.workLotId, taskId: task.id },
+  });
 };
 </script>
 

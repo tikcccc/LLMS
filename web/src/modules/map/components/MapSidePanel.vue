@@ -16,6 +16,10 @@
             <el-switch v-model="showLandLotsProxy" />
           </div>
           <div class="panel-row">
+            <span>INT Land</span>
+            <el-switch v-model="showIntLandProxy" />
+          </div>
+          <div class="panel-row">
             <span>Work Lots</span>
             <el-switch v-model="showWorkLotsProxy" />
           </div>
@@ -162,6 +166,7 @@ const props = defineProps({
   showBasemap: { type: Boolean, required: true },
   showLabels: { type: Boolean, required: true },
   showLandLots: { type: Boolean, required: true },
+  showIntLand: { type: Boolean, required: true },
   showWorkLots: { type: Boolean, required: true },
   filteredTasks: { type: Array, required: true },
   landLotResults: { type: Array, required: true },
@@ -182,6 +187,7 @@ const emit = defineEmits([
   "update:showBasemap",
   "update:showLabels",
   "update:showLandLots",
+  "update:showIntLand",
   "update:showWorkLots",
   "focus-task",
   "focus-work",
@@ -220,6 +226,10 @@ const showLabelsProxy = computed({
 const showLandLotsProxy = computed({
   get: () => props.showLandLots,
   set: (value) => emit("update:showLandLots", value),
+});
+const showIntLandProxy = computed({
+  get: () => props.showIntLand,
+  set: (value) => emit("update:showIntLand", value),
 });
 const showWorkLotsProxy = computed({
   get: () => props.showWorkLots,
