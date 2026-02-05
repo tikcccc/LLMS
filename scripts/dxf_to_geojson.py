@@ -4,7 +4,8 @@ Convert a DXF file to GeoJSON with optional CRS transform.
 
 Default assumes the DXF coordinates are in HK80 (EPSG:2326) and keeps HK80
 for output. Override with --source-crs / --target-crs or --no-transform.
-By default the script polygonizes linework when possible (requires shapely).
+By default the script performs a direct conversion (no polygonization or
+geometry auto-fixing).
 """
 
 from __future__ import annotations
@@ -350,9 +351,16 @@ def main(argv: Optional[List[str]] = None):
         help="Do not expand block INSERTs",
     )
     parser.add_argument(
+        "--polygonize",
+        action="store_false",
+        dest="no_polygonize",
+        help="Enable polygonization of linework (processed mode)",
+    )
+    parser.add_argument(
         "--no-polygonize",
         action="store_true",
-        help="Disable polygonization of linework",
+        dest="no_polygonize",
+        help="Disable polygonization of linework (default)",
     )
     parser.add_argument(
         "--keep-lines",
@@ -388,6 +396,8 @@ def main(argv: Optional[List[str]] = None):
         action="store_true",
         help="List DXF layer names and exit",
     )
+
+    parser.set_defaults(no_polygonize=True)
 
     args = parser.parse_args(argv)
 

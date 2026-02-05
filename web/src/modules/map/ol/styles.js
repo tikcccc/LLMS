@@ -40,51 +40,16 @@ export function landLotStyle(feature) {
 
 const intLandStroke = new Stroke({ color: "rgba(14, 116, 144, 0.8)", width: 2.2 });
 const intLandFill = new Fill({ color: "rgba(14, 116, 144, 0.18)" });
-const intLandText = new Text({
-  font: "12px 'IBM Plex Sans'",
-  fill: new Fill({ color: "rgba(13, 68, 80, 0.85)" }),
-  stroke: new Stroke({ color: "rgba(255,255,255,0.9)", width: 3 }),
-  overflow: true,
-});
 const intLandBaseStyle = new Style({
   stroke: intLandStroke,
   fill: intLandFill,
-  text: intLandText,
 });
 
-export function intLandStyle(feature) {
-  const label = feature.get("label") ?? feature.getId?.() ?? "";
-  intLandText.setText(label);
+export function intLandStyle() {
   return intLandBaseStyle;
 }
 
-const intLandLineStyle = new Style({
-  stroke: new Stroke({ color: "rgba(14, 116, 144, 0.75)", width: 1.6 }),
-});
-
-export function intLandLineStyleFn() {
-  return intLandLineStyle;
-}
-
-const highlightIntLandText = new Text({
-  font: "bold 13px 'IBM Plex Sans'",
-  fill: new Fill({ color: "rgba(15, 23, 42, 0.95)" }),
-  stroke: new Stroke({ color: "rgba(255,255,255,0.98)", width: 4 }),
-  overflow: true,
-});
-const highlightIntLandBaseStyle = new Style({
-  stroke: new Stroke({ color: "rgba(8, 145, 178, 0.95)", width: 3.6 }),
-  fill: new Fill({ color: "rgba(8, 145, 178, 0.28)" }),
-  text: highlightIntLandText,
-});
-
-export function highlightIntLandStyle(feature) {
-  const label = feature.get("label") ?? feature.getId?.() ?? "";
-  highlightIntLandText.setText(label);
-  return highlightIntLandBaseStyle;
-}
-
-// Reduce land lot opacity to make work lots more visible
+// Reduce test layer opacity to make work lots more visible
 const landStyleLowOpacity = new Style({
   stroke: new Stroke({ color: "rgba(31, 93, 255, 0.4)", width: 1.2, lineDash: [4, 6] }),  // 稍微可見
   fill: new Fill({ color: "rgba(31, 93, 255, 0.08)" }),  // 稍微可見

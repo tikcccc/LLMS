@@ -2,7 +2,7 @@
   <section class="admin-page">
     <div class="admin-header">
       <div>
-        <h2>Land Lots</h2>
+        <h2>Test Layer</h2>
         <p class="muted">Legal boundary reference layer.</p>
       </div>
       <div class="admin-actions">

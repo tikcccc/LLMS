@@ -20,7 +20,7 @@
 
     <div class="kpis">
       <div class="kpi-card">
-        <div class="kpi-label">Total Land Lots</div>
+        <div class="kpi-label">Total Test Layer</div>
         <div class="kpi-value">{{ kpis.landLots }}</div>
       </div>
       <div class="kpi-card">

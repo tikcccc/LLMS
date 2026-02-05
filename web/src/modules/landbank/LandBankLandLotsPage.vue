@@ -2,21 +2,21 @@
   <section class="page">
     <div class="header">
       <div>
-        <h2>Land Bank · Land Lots</h2>
-        <p class="muted">Inventory view of all land lots.</p>
+        <h2>Land Bank · Test Layer</h2>
+        <p class="muted">Inventory view of all test layer.</p>
       </div>
       <div class="actions">
         <el-input
           v-model="searchQuery"
           size="small"
-          placeholder="Search land lots"
+          placeholder="Search test layer"
           clearable
           style="width: 200px"
         />
         <el-select v-model="statusFilter" size="small" style="width: 140px">
           <el-option v-for="option in statusOptions" :key="option" :label="option" :value="option" />
         </el-select>
-        <el-button type="primary" @click="exportExcel">Export Land Lots</el-button>
+        <el-button type="primary" @click="exportExcel">Export Test Layer</el-button>
       </div>
     </div>
 

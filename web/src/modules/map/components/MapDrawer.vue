@@ -306,7 +306,7 @@
 
       <ConfirmDialog
         v-model="showDeleteLandLotConfirm"
-        title="Delete Land Lot"
+        title="Delete Test Layer"
         :message="landLotDeleteMessage"
         description="This action cannot be undone."
         confirm-text="Delete"
@@ -411,7 +411,7 @@ const workLotDeleteDescription = computed(() => {
 
 const landLotDeleteMessage = computed(() => {
   if (!props.selectedLandLot) return "";
-  return `Delete land lot ${props.selectedLandLot.id}?`;
+  return `Delete test layer ${props.selectedLandLot.id}?`;
 });
 
 const intLandAreaText = computed(() => {

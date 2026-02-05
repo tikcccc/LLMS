@@ -1,15 +1,10 @@
 import GeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
-import { intLandLineStyleFn, intLandStyle, landLotStyle, workLotStyle } from "../ol/styles";
+import { intLandStyle, landLotStyle, workLotStyle } from "../ol/styles";
 import { EPSG_2326 } from "../ol/projection";
 import { getWorkLotTaskAlert } from "../utils/taskUtils";
-import {
-  INT_LAND_GEOJSON_URL,
-  INT_LAND_LABEL_MIN_AREA,
-  INT_LAND_LINE_MIN_LENGTH,
-  INT_LAND_MIN_AREA,
-} from "../../../shared/config/mapApi";
+import { INT_LAND_GEOJSON_URL } from "../../../shared/config/mapApi";
 
 export const useMapLayers = ({
   landLotStore,
@@ -23,19 +18,13 @@ export const useMapLayers = ({
   const landSource = new VectorSource();
   const workSource = new VectorSource();
   const intLandSource = new VectorSource();
-  const intLandLineSource = new VectorSource();
 
   const landLayer = new VectorLayer({ source: landSource, style: landLotStyle });
   const workLayer = new VectorLayer({ source: workSource, style: workLotStyle });
   const intLandLayer = new VectorLayer({ source: intLandSource, style: intLandStyle });
-  const intLandLineLayer = new VectorLayer({
-    source: intLandLineSource,
-    style: intLandLineStyleFn,
-  });
 
   landLayer.setZIndex(10);
-  intLandLineLayer.setZIndex(12);
-  intLandLayer.setZIndex(15);
+  intLandLayer.setZIndex(12);
   workLayer.setZIndex(20);
 
   const updateLayerOpacity = () => {
@@ -55,7 +44,6 @@ export const useMapLayers = ({
     if (basemapLayer) basemapLayer.setVisible(uiStore.showBasemap);
     if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
     landLayer.setVisible(uiStore.showLandLots);
-    intLandLineLayer.setVisible(uiStore.showIntLand);
     intLandLayer.setVisible(uiStore.showIntLand);
     workLayer.setVisible(uiStore.showWorkLots);
   };
@@ -128,38 +116,8 @@ export const useMapLayers = ({
         dataProjection: EPSG_2326,
         featureProjection: EPSG_2326,
       });
-      const polygonFeatures = [];
-      const lineFeatures = [];
-      features.forEach((feature, index) => {
-        const geometry = feature.getGeometry();
-        if (!geometry) return;
-        const type = geometry.getType();
-        if (type === "Polygon" || type === "MultiPolygon") {
-          const area = geometry.getArea();
-          if (area < INT_LAND_MIN_AREA) return;
-          const handle = feature.get("handle");
-          const id = handle ? `INT-${handle}` : `INT-${index + 1}`;
-          feature.setId(id);
-          if (area >= INT_LAND_LABEL_MIN_AREA) {
-            feature.set("label", id);
-          } else {
-            feature.set("label", "");
-          }
-          feature.set("layerType", "int");
-          feature.set("area", area);
-          polygonFeatures.push(feature);
-          return;
-        }
-        if (type === "LineString" || type === "MultiLineString") {
-          const length = geometry.getLength?.() ?? 0;
-          if (length < INT_LAND_LINE_MIN_LENGTH) return;
-          lineFeatures.push(feature);
-        }
-      });
       intLandSource.clear(true);
-      intLandLineSource.clear(true);
-      intLandSource.addFeatures(polygonFeatures);
-      intLandLineSource.addFeatures(lineFeatures);
+      intLandSource.addFeatures(features);
     } catch (error) {
       console.warn("[map] INT Land layer load failed", error);
     }
@@ -170,11 +128,9 @@ export const useMapLayers = ({
     landSource,
     workSource,
     intLandSource,
-    intLandLineSource,
     landLayer,
     workLayer,
     intLandLayer,
-    intLandLineLayer,
     updateLayerOpacity,
     updateLayerVisibility,
     createLandFeature,

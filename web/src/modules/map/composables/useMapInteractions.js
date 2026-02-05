@@ -18,7 +18,6 @@ export const useMapInteractions = ({
   workSource,
   landLayer,
   workLayer,
-  intLandLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
@@ -172,11 +171,10 @@ export const useMapInteractions = ({
     if (layerType === "land") {
       uiStore.selectLandLot(refId);
       if (clearTaskSelection) clearTaskSelection();
-    } else if (layerType === "int") {
-      uiStore.selectIntLand(refId);
-      if (clearTaskSelection) clearTaskSelection();
-    } else {
+    } else if (layerType === "work") {
       uiStore.selectWorkLot(refId);
+    } else {
+      return;
     }
     clearHighlightOverride();
   };
@@ -323,7 +321,7 @@ export const useMapInteractions = ({
     clearInteractions();
 
     if (uiStore.tool === "PAN") {
-      const selectLayers = [workLayer, landLayer, intLandLayer].filter(Boolean);
+      const selectLayers = [workLayer, landLayer].filter(Boolean);
       selectInteraction.value = new Select({ layers: selectLayers, style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleSelect);

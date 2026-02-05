@@ -12,7 +12,7 @@
             <el-switch v-model="showLabelsProxy" />
           </div>
           <div class="panel-row">
-            <span>Land Lots</span>
+            <span>Test Layer</span>
             <el-switch v-model="showLandLotsProxy" />
           </div>
           <div class="panel-row">
@@ -83,9 +83,9 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="Land Lots" name="landlots">
+      <el-tab-pane label="Test Layer" name="testlayer">
         <div class="panel-section">
-          <el-input v-model="landSearchProxy" placeholder="Search land lots" clearable />
+          <el-input v-model="landSearchProxy" placeholder="Search test layer" clearable />
         </div>
         <div class="list-scroll">
           <button
@@ -103,7 +103,7 @@
             </div>
             <div class="list-meta">{{ lot.id }}</div>
           </button>
-          <el-empty v-if="landLotResults.length === 0" description="No land lots" />
+          <el-empty v-if="landLotResults.length === 0" description="No test layer" />
         </div>
       </el-tab-pane>
 

@@ -40,7 +40,7 @@ const hintTitle = computed(() => {
 });
 
 const hintDescription = computed(() => {
-  const target = props.editTarget === "land" ? "Land Lot" : "Work Lot";
+  const target = props.editTarget === "land" ? "Test Layer" : "Work Lot";
   
   switch (props.tool) {
     case "DRAW": 

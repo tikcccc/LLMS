@@ -30,7 +30,7 @@ const modeIcon = computed(() => {
 });
 
 const modeTitle = computed(() => {
-  const target = props.editTarget === 'land' ? 'Land Lot' : 'Work Lot';
+  const target = props.editTarget === 'land' ? 'Test Layer' : 'Work Lot';
   switch (props.tool) {
     case 'DRAW': return `Drawing ${target}`;
     case 'MODIFY': return `Modifying ${target}`;

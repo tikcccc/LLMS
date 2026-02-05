@@ -49,7 +49,6 @@
     <MapDrawer
       :selected-work-lot="drawerWorkLot"
       :selected-land-lot="drawerLandLot"
-      :selected-int-land="drawerIntLand"
       :selected-tasks="selectedTasks"
       :selected-task="selectedTask"
       :task-form="taskForm"
@@ -171,11 +170,9 @@ const {
   format,
   landSource,
   workSource,
-  intLandSource,
   landLayer,
   workLayer,
   intLandLayer,
-  intLandLineLayer,
   updateLayerOpacity,
   updateLayerVisibility,
   createLandFeature,
@@ -191,31 +188,11 @@ const {
   uiStore,
 });
 
-const selectedIntLand = computed(() => {
-  if (!intLandSource || !uiStore.selectedIntLandId) return null;
-  const feature = intLandSource.getFeatureById(uiStore.selectedIntLandId);
-  if (!feature) return null;
-  const geometry = feature.getGeometry();
-  const area = geometry && typeof geometry.getArea === "function" ? geometry.getArea() : null;
-  return {
-    id: feature.getId(),
-    layer: feature.get("layer") || "INT Land",
-    entity: feature.get("entity") || geometry?.getType?.() || "Polygon",
-    area,
-  };
-});
-
-const drawerIntLand = computed(() =>
-  uiStore.tool === "MODIFY" ? null : selectedIntLand.value
-);
-
 const {
   landHighlightSource,
   workHighlightSource,
   landHighlightLayer,
   workHighlightLayer,
-  intHighlightLayer,
-  intHighlightSource,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
@@ -225,16 +202,12 @@ const {
   createWorkFeature,
   selectedLandLot,
   selectedWorkLot,
-  getIntLandFeature: () => {
-    if (!intLandSource || !uiStore.selectedIntLandId) return null;
-    return intLandSource.getFeatureById(uiStore.selectedIntLandId);
-  },
   uiStore,
 });
 
 const editTargetOptions = [
   { label: "Work Lots", value: "work" },
-  { label: "Land Lots", value: "land" },
+  { label: "Test Layer", value: "land" },
 ];
 
 const hasDraft = ref(false);
@@ -327,7 +300,6 @@ const {
   workSource,
   landLayer,
   workLayer,
-  intLandLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
@@ -353,7 +325,6 @@ const handleDrawerClose = () => {
   clearHighlightOverride();
   landHighlightSource?.clear(true);
   workHighlightSource?.clear(true);
-  intHighlightSource?.clear(true);
   if (selectInteraction.value?.getFeatures) {
     selectInteraction.value.getFeatures().clear();
   }
@@ -564,23 +535,6 @@ watch(
 );
 
 watch(
-  () => uiStore.showIntLand,
-  (value) => {
-    if (value) return;
-    if (uiStore.selectedIntLandId) {
-      uiStore.clearIntLandSelection();
-      clearHighlightOverride("int");
-      intHighlightSource?.clear(true);
-      intHighlightLayer?.setVisible(false);
-      if (selectInteraction.value?.getFeatures) {
-        selectInteraction.value.getFeatures().clear();
-      }
-      updateHighlightVisibility();
-    }
-  }
-);
-
-watch(
   () => uiStore.selectedWorkLotId,
   (value) => {
     if (!value) return;
@@ -599,19 +553,10 @@ watch(
 );
 
 watch(
-  () => uiStore.selectedIntLandId,
-  (value) => {
-    if (!value || !intLandSource) return;
-    const exists = !!intLandSource.getFeatureById(value);
-    if (!exists) uiStore.clearSelection();
-  }
-);
-
-watch(
-  () => [uiStore.selectedWorkLotId, uiStore.selectedLandLotId, uiStore.selectedIntLandId],
-  ([workId, landId, intId]) => {
+  () => [uiStore.selectedWorkLotId, uiStore.selectedLandLotId],
+  ([workId, landId]) => {
     refreshHighlights();
-    if (!workId && !landId && !intId && selectInteraction.value?.getFeatures) {
+    if (!workId && !landId && selectInteraction.value?.getFeatures) {
       selectInteraction.value.getFeatures().clear();
     }
   }
@@ -636,11 +581,9 @@ onMounted(() => {
   taskStore.seedIfEmpty();
   initMap([
     landLayer,
-    intLandLineLayer,
     intLandLayer,
     workLayer,
     landHighlightLayer,
-    intHighlightLayer,
     workHighlightLayer,
   ]);
   refreshLandSource();
