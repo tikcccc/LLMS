@@ -4,6 +4,7 @@ import MapPage from "../modules/map/MapPage.vue";
 import AdminWorkLots from "../modules/admin/AdminWorkLots.vue";
 import DashboardPage from "../modules/dashboard/DashboardPage.vue";
 import LandBankWorkLotsPage from "../modules/landbank/LandBankWorkLotsPage.vue";
+import LandBankSiteBoundariesPage from "../modules/landbank/LandBankSiteBoundariesPage.vue";
 import TasksOpsPage from "../modules/tasks/TasksOpsPage.vue";
 import UsersPage from "../modules/users/UsersPage.vue";
 
@@ -13,6 +14,7 @@ const routes = [
   { path: "/map", component: MapPage },
   { path: "/landbank", redirect: "/landbank/work-lots" },
   { path: "/landbank/work-lots", component: LandBankWorkLotsPage },
+  { path: "/landbank/site-boundaries", component: LandBankSiteBoundariesPage },
   { path: "/tasks-ops", component: TasksOpsPage },
   { path: "/users", component: UsersPage },
   {

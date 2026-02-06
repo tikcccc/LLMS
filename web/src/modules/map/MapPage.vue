@@ -310,8 +310,9 @@ const applyFocusFromRoute = () => {
 
   const workLotId = getQueryValue(route.query.workLotId);
   const taskId = getQueryValue(route.query.taskId);
+  const siteBoundaryId = getQueryValue(route.query.siteBoundaryId);
 
-  if (!workLotId && !taskId) return;
+  if (!workLotId && !taskId && !siteBoundaryId) return;
 
   if (uiStore.tool !== "PAN") {
     uiStore.setTool("PAN");
@@ -331,6 +332,11 @@ const applyFocusFromRoute = () => {
       zoomToWorkLot(task.workLotId);
       selectTask(taskId);
     }
+    return;
+  }
+
+  if (siteBoundaryId) {
+    zoomToSiteBoundary(siteBoundaryId);
   }
 };
 
@@ -347,6 +353,19 @@ const zoomToWorkLot = (id) => {
   const extent = feature.getGeometry().getExtent();
   view.fit(extent, { padding: [80, 80, 80, 80], duration: 500, maxZoom: 18 });
   uiStore.selectWorkLot(id);
+};
+
+const zoomToSiteBoundary = (id) => {
+  if (!mapRef.value || !siteBoundarySource) return;
+  if (!uiStore.showSiteBoundary) {
+    uiStore.setLayerVisibility("showSiteBoundary", true);
+  }
+  const view = mapRef.value.getView();
+  const feature = siteBoundarySource.getFeatureById(id);
+  if (!feature) return;
+  const extent = feature.getGeometry().getExtent();
+  view.fit(extent, { padding: [80, 80, 80, 80], duration: 500, maxZoom: 18 });
+  uiStore.selectSiteBoundary(id);
 };
 
 const focusTask = (task) => {
@@ -491,11 +510,14 @@ onMounted(() => {
   refreshWorkSource();
   loadIntLandGeojson();
   const shouldAutoFit =
-    !getQueryValue(route.query.workLotId) && !getQueryValue(route.query.taskId);
+    !getQueryValue(route.query.workLotId) &&
+    !getQueryValue(route.query.taskId) &&
+    !getQueryValue(route.query.siteBoundaryId);
   loadSiteBoundaryGeojson().then(() => {
     if (shouldAutoFit) {
       fitToSiteBoundary();
     }
+    applyFocusFromRoute();
   });
   updateLayerOpacity();
   updateLayerVisibility(basemapLayer.value, labelLayer.value);

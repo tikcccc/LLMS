@@ -48,3 +48,20 @@ export function exportTasks(tasks) {
   ]);
   downloadExcel("tasks.xlsx", headers, rows, "Tasks");
 }
+
+export function exportSiteBoundaries(boundaries) {
+  const headers = ["ID", "Name", "Source Layer", "Entity", "Area (m²)", "Area (ha)"];
+  const rows = boundaries.map((item) => {
+    const area = Number(item.area) || 0;
+    const ha = area / 10000;
+    return [
+      item.id,
+      item.name,
+      item.layer,
+      item.entity,
+      Math.round(area),
+      ha.toFixed(2),
+    ];
+  });
+  downloadExcel("site-boundaries.xlsx", headers, rows, "SiteBoundaries");
+}
