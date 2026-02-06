@@ -22,18 +22,6 @@ const downloadExcel = (filename, headers, rows, sheetName = "Sheet1") => {
   URL.revokeObjectURL(url);
 };
 
-export function exportLandLots(landLots) {
-  const headers = ["ID", "Lot Number", "Status", "Updated At", "Updated By"];
-  const rows = landLots.map((lot) => [
-    lot.id,
-    lot.lotNumber,
-    lot.status,
-    formatHongKong(lot.updatedAt),
-    lot.updatedBy,
-  ]);
-  downloadExcel("land-lots.xlsx", headers, rows, "LandLots");
-}
-
 export function exportWorkLots(workLots) {
   const headers = ["ID", "Operator", "Type", "Status", "Updated At", "Updated By"];
   const rows = workLots.map((lot) => [

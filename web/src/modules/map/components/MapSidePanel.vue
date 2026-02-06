@@ -12,12 +12,12 @@
             <el-switch v-model="showLabelsProxy" />
           </div>
           <div class="panel-row">
-            <span>Test Layer</span>
-            <el-switch v-model="showLandLotsProxy" />
+            <span>Drawing Layer</span>
+            <el-switch v-model="showIntLandProxy" />
           </div>
           <div class="panel-row">
-            <span>INT Land</span>
-            <el-switch v-model="showIntLandProxy" />
+            <span>Site Boundary</span>
+            <el-switch v-model="showSiteBoundaryProxy" />
           </div>
           <div class="panel-row">
             <span>Work Lots</span>
@@ -83,30 +83,6 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="Test Layer" name="testlayer">
-        <div class="panel-section">
-          <el-input v-model="landSearchProxy" placeholder="Search test layer" clearable />
-        </div>
-        <div class="list-scroll">
-          <button
-            v-for="lot in landLotResults"
-            :key="lot.id"
-            class="list-item"
-            type="button"
-            @click="emit('focus-land', lot.id)"
-          >
-            <div class="list-title-row">
-              <span class="list-title">{{ lot.lotNumber }}</span>
-              <el-tag size="small" effect="plain" :style="landStatusStyle(lot.status)">
-                {{ lot.status }}
-              </el-tag>
-            </div>
-            <div class="list-meta">{{ lot.id }}</div>
-          </button>
-          <el-empty v-if="landLotResults.length === 0" description="No test layer" />
-        </div>
-      </el-tab-pane>
-
       <el-tab-pane label="Work Lots" name="worklots">
         <div class="panel-section">
           <el-input v-model="workSearchProxy" placeholder="Search work lots" clearable />
@@ -161,20 +137,17 @@ const props = defineProps({
   leftTab: { type: String, required: true },
   taskFilter: { type: String, required: true },
   searchQuery: { type: String, required: true },
-  landSearchQuery: { type: String, required: true },
   workSearchQuery: { type: String, required: true },
   showBasemap: { type: Boolean, required: true },
   showLabels: { type: Boolean, required: true },
-  showLandLots: { type: Boolean, required: true },
   showIntLand: { type: Boolean, required: true },
+  showSiteBoundary: { type: Boolean, required: true },
   showWorkLots: { type: Boolean, required: true },
   filteredTasks: { type: Array, required: true },
-  landLotResults: { type: Array, required: true },
   workLotResults: { type: Array, required: true },
   searchResults: { type: Array, required: true },
   workLotName: { type: Function, required: true },
   isOverdue: { type: Function, required: true },
-  landStatusStyle: { type: Function, required: true },
   workStatusStyle: { type: Function, required: true },
 });
 
@@ -182,16 +155,14 @@ const emit = defineEmits([
   "update:leftTab",
   "update:taskFilter",
   "update:searchQuery",
-  "update:landSearchQuery",
   "update:workSearchQuery",
   "update:showBasemap",
   "update:showLabels",
-  "update:showLandLots",
   "update:showIntLand",
+  "update:showSiteBoundary",
   "update:showWorkLots",
   "focus-task",
   "focus-work",
-  "focus-land",
   "search-enter",
 ]);
 
@@ -207,10 +178,6 @@ const searchProxy = computed({
   get: () => props.searchQuery,
   set: (value) => emit("update:searchQuery", value),
 });
-const landSearchProxy = computed({
-  get: () => props.landSearchQuery,
-  set: (value) => emit("update:landSearchQuery", value),
-});
 const workSearchProxy = computed({
   get: () => props.workSearchQuery,
   set: (value) => emit("update:workSearchQuery", value),
@@ -223,13 +190,13 @@ const showLabelsProxy = computed({
   get: () => props.showLabels,
   set: (value) => emit("update:showLabels", value),
 });
-const showLandLotsProxy = computed({
-  get: () => props.showLandLots,
-  set: (value) => emit("update:showLandLots", value),
-});
 const showIntLandProxy = computed({
   get: () => props.showIntLand,
   set: (value) => emit("update:showIntLand", value),
+});
+const showSiteBoundaryProxy = computed({
+  get: () => props.showSiteBoundary,
+  set: (value) => emit("update:showSiteBoundary", value),
 });
 const showWorkLotsProxy = computed({
   get: () => props.showWorkLots,

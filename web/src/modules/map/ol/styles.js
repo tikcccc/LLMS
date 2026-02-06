@@ -1,42 +1,7 @@
 import { Fill, Stroke, Style, Text } from "ol/style";
 
-const landStroke = new Stroke({ color: "rgba(31, 93, 255, 0.6)", width: 1.4, lineDash: [4, 6] }); // 加深描邊
-const landFill = new Fill({ color: "rgba(31, 93, 255, 0.12)" }); // 加深填充
-const landText = new Text({
-  font: "11px 'IBM Plex Sans'", // 稍小的字體
-  fill: new Fill({ color: "rgba(15, 23, 42, 0.6)" }), // 更淡的文字
-  stroke: new Stroke({ color: "rgba(255,255,255,0.8)", width: 2.5 }),
-  overflow: true,
-});
-const landStyle = new Style({
-  stroke: landStroke,
-  fill: landFill,
-  text: landText,
-});
-
 const workStyleCache = new Map();
-
-
-const highlightLandText = new Text({
-  font: "bold 14px 'IBM Plex Sans'",
-  fill: new Fill({ color: "#0f172a" }),
-  stroke: new Stroke({ color: "rgba(255,255,255,0.98)", width: 5 }),
-  overflow: true,
-});
-
-const highlightLandStyle = new Style({
-  stroke: new Stroke({ color: "#1d4ed8", width: 3.6 }),
-  fill: new Fill({ color: "rgba(30, 64, 175, 0.22)" }),
-  text: highlightLandText,
-});
-
 const highlightWorkStyleCache = new Map();
-
-export function landLotStyle(feature) {
-  const label = feature.get("lotNumber") ?? "";
-  landText.setText(label);
-  return landStyle;
-}
 
 const intLandStroke = new Stroke({ color: "rgba(14, 116, 144, 0.8)", width: 2.2 });
 const intLandFill = new Fill({ color: "rgba(14, 116, 144, 0.18)" });
@@ -49,17 +14,33 @@ export function intLandStyle() {
   return intLandBaseStyle;
 }
 
-// Reduce test layer opacity to make work lots more visible
-const landStyleLowOpacity = new Style({
-  stroke: new Stroke({ color: "rgba(31, 93, 255, 0.4)", width: 1.2, lineDash: [4, 6] }),  // 稍微可見
-  fill: new Fill({ color: "rgba(31, 93, 255, 0.08)" }),  // 稍微可見
-  text: landText,
+const siteBoundaryStroke = new Stroke({
+  color: "rgba(217, 119, 6, 0.95)",
+  width: 2.6,
+  lineDash: [8, 4],
+});
+const siteBoundaryFill = new Fill({ color: "rgba(217, 119, 6, 0.12)" });
+const siteBoundaryBaseStyle = new Style({
+  stroke: siteBoundaryStroke,
+  fill: siteBoundaryFill,
 });
 
-export function landLotStyleAdjusted(feature) {
-  const label = feature.get("lotNumber") ?? "";
-  landText.setText(label);
-  return landStyleLowOpacity;
+export function siteBoundaryStyle() {
+  return siteBoundaryBaseStyle;
+}
+
+const siteBoundaryHighlightStroke = new Stroke({
+  color: "rgba(180, 83, 9, 1)",
+  width: 4,
+});
+const siteBoundaryHighlightFill = new Fill({ color: "rgba(245, 158, 11, 0.2)" });
+const siteBoundaryHighlightStyle = new Style({
+  stroke: siteBoundaryHighlightStroke,
+  fill: siteBoundaryHighlightFill,
+});
+
+export function highlightSiteBoundaryStyle() {
+  return siteBoundaryHighlightStyle;
 }
 
 export function workLotStyle(feature) {
@@ -113,12 +94,6 @@ export function workLotStyle(feature) {
 }
 
 // icon styles removed
-
-export function highlightLandLotStyle(feature) {
-  const label = feature.get("lotNumber") ?? "";
-  highlightLandText.setText(label);
-  return highlightLandStyle;
-}
 
 export function highlightWorkLotStyle(feature) {
   const taskAlert = feature.get("taskAlert");

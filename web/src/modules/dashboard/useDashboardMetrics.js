@@ -72,13 +72,11 @@ const isOverdue = (task) => {
   return task.dueDate < today;
 };
 
-export function useDashboardMetrics({ landLots, workLots, tasks, timeRange }) {
-  const filteredLandLots = computed(() => filterByRange(landLots.value, "updatedAt", timeRange.value));
+export function useDashboardMetrics({ workLots, tasks, timeRange }) {
   const filteredWorkLots = computed(() => filterByRange(workLots.value, "updatedAt", timeRange.value));
   const filteredTasks = computed(() => filterByRange(tasks.value, "createdAt", timeRange.value));
 
   const kpis = computed(() => ({
-    landLots: filteredLandLots.value.length,
     workLots: filteredWorkLots.value.length,
     overdueTasks: filteredTasks.value.filter(isOverdue).length,
     completionRate: filteredTasks.value.length
@@ -102,11 +100,7 @@ export function useDashboardMetrics({ landLots, workLots, tasks, timeRange }) {
   }));
 
   const monthlyTrend = computed(() =>
-    buildMonthlySeries(
-      [...filteredLandLots.value, ...filteredWorkLots.value],
-      "updatedAt",
-      timeRange.value
-    )
+    buildMonthlySeries(filteredWorkLots.value, "updatedAt", timeRange.value)
   );
 
   const recentTasks = computed(() =>

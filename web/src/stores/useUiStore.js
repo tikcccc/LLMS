@@ -4,15 +4,14 @@ export const useUiStore = defineStore("ui", {
   state: () => ({
     tool: "PAN",
     selectedWorkLotId: null,
-    selectedLandLotId: null,
-    editTarget: "work",
     sidebarCollapsed: false,
     showBasemap: true,
     showLabels: true,
-    showLandLots: true,
     showIntLand: true,
+    showSiteBoundary: true,
     showWorkLots: true,
     selectedIntLandId: null,
+    selectedSiteBoundaryId: null,
   }),
   actions: {
     setTool(tool) {
@@ -20,29 +19,26 @@ export const useUiStore = defineStore("ui", {
     },
     selectWorkLot(id) {
       this.selectedWorkLotId = id;
-      this.selectedLandLotId = null;
       this.selectedIntLandId = null;
-    },
-    selectLandLot(id) {
-      this.selectedLandLotId = id;
-      this.selectedWorkLotId = null;
-      this.selectedIntLandId = null;
+      this.selectedSiteBoundaryId = null;
     },
     selectIntLand(id) {
       this.selectedIntLandId = id;
       this.selectedWorkLotId = null;
-      this.selectedLandLotId = null;
+      this.selectedSiteBoundaryId = null;
+    },
+    selectSiteBoundary(id) {
+      this.selectedSiteBoundaryId = id;
+      this.selectedWorkLotId = null;
+      this.selectedIntLandId = null;
     },
     clearIntLandSelection() {
       this.selectedIntLandId = null;
     },
     clearSelection() {
       this.selectedWorkLotId = null;
-      this.selectedLandLotId = null;
       this.selectedIntLandId = null;
-    },
-    setEditTarget(target) {
-      this.editTarget = target;
+      this.selectedSiteBoundaryId = null;
     },
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;

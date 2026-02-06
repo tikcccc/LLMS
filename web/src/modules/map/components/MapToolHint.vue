@@ -15,7 +15,6 @@ import { computed } from "vue";
 
 const props = defineProps({
   tool: { type: String, required: true },
-  editTarget: { type: String, required: true },
   hasDraft: { type: Boolean, default: false },
 });
 
@@ -40,15 +39,13 @@ const hintTitle = computed(() => {
 });
 
 const hintDescription = computed(() => {
-  const target = props.editTarget === "land" ? "Test Layer" : "Work Lot";
-  
   switch (props.tool) {
     case "DRAW": 
       return `Click to add points • Double-click to finish • ESC to cancel`;
     case "MODIFY": 
       return `Drag vertices to edit • ESC to revert changes`;
     case "DELETE": 
-      return `Click a ${target} to delete • ESC to cancel`;
+      return "Click a work lot to delete • ESC to cancel";
     default: 
       return "";
   }

@@ -26,18 +26,3 @@ export const workStatusStyle = (status) => {
     color: "#334155",
   };
 };
-
-export const landStatusStyle = (status) => {
-  if (status === "Active") {
-    return {
-      backgroundColor: "rgba(34,197,94,0.18)",
-      borderColor: "rgba(34,197,94,0.5)",
-      color: "#14532d",
-    };
-  }
-  return {
-    backgroundColor: "rgba(148,163,184,0.2)",
-    borderColor: "rgba(148,163,184,0.5)",
-    color: "#334155",
-  };
-};

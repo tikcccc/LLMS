@@ -5,7 +5,6 @@ import { isOverdue } from "../utils/taskUtils";
 export const useTaskPanel = ({
   authStore,
   workLotStore,
-  landLotStore,
   taskStore,
   uiStore,
   selectedWorkLot,
@@ -13,7 +12,6 @@ export const useTaskPanel = ({
   const leftTab = ref("layers");
   const taskFilter = ref("All");
   const searchQuery = ref("");
-  const landSearchQuery = ref("");
   const workSearchQuery = ref("");
   const selectedTaskId = ref(null);
   const showTaskDialog = ref(false);
@@ -71,16 +69,6 @@ export const useTaskPanel = ({
       return taskStore.tasks.filter((task) => isOverdue(task));
     }
     return taskStore.tasks.filter((task) => task.status === taskFilter.value);
-  });
-
-  const landLotResults = computed(() => {
-    const query = landSearchQuery.value.trim().toLowerCase();
-    if (!query) return landLotStore.landLots.slice(0, 8);
-    return landLotStore.landLots.filter(
-      (lot) =>
-        lot.lotNumber.toLowerCase().includes(query) ||
-        lot.id.toLowerCase().includes(query)
-    );
   });
 
   const workLotResults = computed(() => {
@@ -189,7 +177,6 @@ export const useTaskPanel = ({
     leftTab,
     taskFilter,
     searchQuery,
-    landSearchQuery,
     workSearchQuery,
     selectedTaskId,
     selectedTasks,
@@ -203,7 +190,6 @@ export const useTaskPanel = ({
     newTaskDescription,
     searchResults,
     filteredTasks,
-    landLotResults,
     workLotResults,
     workLotName,
     addTask,

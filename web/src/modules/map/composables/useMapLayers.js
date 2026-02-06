@@ -1,13 +1,12 @@
 import GeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
-import { intLandStyle, landLotStyle, workLotStyle } from "../ol/styles";
+import { intLandStyle, siteBoundaryStyle, workLotStyle } from "../ol/styles";
 import { EPSG_2326 } from "../ol/projection";
 import { getWorkLotTaskAlert } from "../utils/taskUtils";
-import { INT_LAND_GEOJSON_URL } from "../../../shared/config/mapApi";
+import { INT_LAND_GEOJSON_URL, SITE_BOUNDARY_GEOJSON_URL } from "../../../shared/config/mapApi";
 
 export const useMapLayers = ({
-  landLotStore,
   workLotStore,
   taskStore,
   authStore,
@@ -15,56 +14,35 @@ export const useMapLayers = ({
 }) => {
   const format = new GeoJSON();
 
-  const landSource = new VectorSource();
   const workSource = new VectorSource();
   const intLandSource = new VectorSource();
+  const siteBoundarySource = new VectorSource();
 
-  const landLayer = new VectorLayer({ source: landSource, style: landLotStyle });
   const workLayer = new VectorLayer({ source: workSource, style: workLotStyle });
   const intLandLayer = new VectorLayer({ source: intLandSource, style: intLandStyle });
+  const siteBoundaryLayer = new VectorLayer({
+    source: siteBoundarySource,
+    style: siteBoundaryStyle,
+  });
 
-  landLayer.setZIndex(10);
   intLandLayer.setZIndex(12);
+  siteBoundaryLayer.setZIndex(14);
   workLayer.setZIndex(20);
 
   const updateLayerOpacity = () => {
-    if (authStore.role === "SITE_ADMIN") {
-      landLayer.setOpacity(1);
-      workLayer.setOpacity(0.45);
-    } else if (authStore.role === "SITE_OFFICER") {
-      landLayer.setOpacity(0.45);
+    if (authStore.role === "SITE_ADMIN" || authStore.role === "SITE_OFFICER") {
       workLayer.setOpacity(1);
     } else {
-      landLayer.setOpacity(0.35);
-      workLayer.setOpacity(0.7);
+      workLayer.setOpacity(0.8);
     }
   };
 
   const updateLayerVisibility = (basemapLayer, labelLayer) => {
     if (basemapLayer) basemapLayer.setVisible(uiStore.showBasemap);
     if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
-    landLayer.setVisible(uiStore.showLandLots);
     intLandLayer.setVisible(uiStore.showIntLand);
+    siteBoundaryLayer.setVisible(uiStore.showSiteBoundary);
     workLayer.setVisible(uiStore.showWorkLots);
-  };
-
-  const createLandFeature = (lot) => {
-    if (!lot?.geometry) return null;
-    const feature = format.readFeature(
-      {
-        type: "Feature",
-        geometry: lot.geometry,
-        properties: {
-          lotNumber: lot.lotNumber,
-          status: lot.status,
-        },
-      },
-      { dataProjection: EPSG_2326, featureProjection: EPSG_2326 }
-    );
-    feature.setId(lot.id);
-    feature.set("layerType", "land");
-    feature.set("refId", lot.id);
-    return feature;
   };
 
   const createWorkFeature = (lot) => {
@@ -89,14 +67,6 @@ export const useMapLayers = ({
     return feature;
   };
 
-  const refreshLandSource = () => {
-    landSource.clear(true);
-    landLotStore.landLots
-      .map(createLandFeature)
-      .filter(Boolean)
-      .forEach((feature) => landSource.addFeature(feature));
-  };
-
   const refreshWorkSource = () => {
     workSource.clear(true);
     workLotStore.workLots
@@ -109,7 +79,7 @@ export const useMapLayers = ({
     try {
       const response = await fetch(INT_LAND_GEOJSON_URL, { cache: "no-cache" });
       if (!response.ok) {
-        throw new Error(`Failed to load INT Land GeoJSON: ${response.status}`);
+        throw new Error(`Failed to load Drawing Layer GeoJSON: ${response.status}`);
       }
       const data = await response.json();
       const features = format.readFeatures(data, {
@@ -119,24 +89,52 @@ export const useMapLayers = ({
       intLandSource.clear(true);
       intLandSource.addFeatures(features);
     } catch (error) {
-      console.warn("[map] INT Land layer load failed", error);
+      console.warn("[map] Drawing Layer load failed", error);
+    }
+  };
+
+  const loadSiteBoundaryGeojson = async () => {
+    try {
+      const response = await fetch(SITE_BOUNDARY_GEOJSON_URL, { cache: "no-cache" });
+      if (!response.ok) {
+        throw new Error(`Failed to load Site Boundary GeoJSON: ${response.status}`);
+      }
+      const data = await response.json();
+      const features = format.readFeatures(data, {
+        dataProjection: EPSG_2326,
+        featureProjection: EPSG_2326,
+      });
+      features.forEach((feature, index) => {
+        const id = feature.getId() ?? feature.get("id") ?? `SB-${index + 1}`;
+        feature.setId(id);
+        feature.set("layerType", "siteBoundary");
+        feature.set("refId", id);
+        feature.set("name", feature.get("name") ?? "Site Boundary");
+        const geometry = feature.getGeometry();
+        if (geometry && typeof geometry.getArea === "function") {
+          feature.set("area", geometry.getArea());
+        }
+      });
+      siteBoundarySource.clear(true);
+      siteBoundarySource.addFeatures(features);
+    } catch (error) {
+      console.warn("[map] Site Boundary load failed", error);
     }
   };
 
   return {
     format,
-    landSource,
     workSource,
     intLandSource,
-    landLayer,
+    siteBoundarySource,
     workLayer,
     intLandLayer,
+    siteBoundaryLayer,
     updateLayerOpacity,
     updateLayerVisibility,
-    createLandFeature,
     createWorkFeature,
-    refreshLandSource,
     refreshWorkSource,
     loadIntLandGeojson,
+    loadSiteBoundaryGeojson,
   };
 };

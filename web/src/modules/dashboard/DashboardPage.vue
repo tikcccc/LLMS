@@ -20,10 +20,6 @@
 
     <div class="kpis">
       <div class="kpi-card">
-        <div class="kpi-label">Total Test Layer</div>
-        <div class="kpi-value">{{ kpis.landLots }}</div>
-      </div>
-      <div class="kpi-card">
         <div class="kpi-label">Active Work Lots</div>
         <div class="kpi-value">{{ kpis.workLots }}</div>
       </div>
@@ -100,7 +96,6 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { useLandLotStore } from "../../stores/useLandLotStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useTaskStore } from "../../stores/useTaskStore";
 import { useDashboardMetrics } from "./useDashboardMetrics";
@@ -129,14 +124,12 @@ let donutChart;
 let lineChart;
 let barChart;
 
-const landLotStore = useLandLotStore();
 const workLotStore = useWorkLotStore();
 const taskStore = useTaskStore();
 const router = useRouter();
 
 const { kpis, workLotTypeSplit, taskStatusSplit, monthlyTrend, recentTasks, isOverdue } =
   useDashboardMetrics({
-    landLots: computed(() => landLotStore.landLots),
     workLots: computed(() => workLotStore.workLots),
     tasks: computed(() => taskStore.tasks),
     timeRange,
@@ -261,7 +254,6 @@ const updateCharts = () => {
 };
 
 onMounted(() => {
-  landLotStore.seedIfEmpty();
   workLotStore.seedIfEmpty();
   taskStore.seedIfEmpty();
   buildCharts();

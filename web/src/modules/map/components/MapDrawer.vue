@@ -29,30 +29,18 @@
           </el-button>
         </div>
       </div>
-      <div class="drawer-header" v-else-if="selectedLandLot">
+      <div class="drawer-header" v-else-if="selectedSiteBoundary">
         <div class="header-text">
-          <div class="drawer-title">{{ selectedLandLot.lotNumber }}</div>
-          <div class="drawer-subtitle">{{ selectedLandLot.id }}</div>
+          <div class="drawer-title">{{ selectedSiteBoundary.name || "Site Boundary" }}</div>
+          <div class="drawer-subtitle">{{ selectedSiteBoundary.id }}</div>
         </div>
         <div class="header-tags">
-          <el-tag effect="plain" :style="landStatusStyle(selectedLandLot.status)">
-            {{ selectedLandLot.status }}
-          </el-tag>
-          <el-button
-            v-if="canDeleteLand"
-            class="delete-icon-btn"
-            type="danger"
-            text
-            size="small"
-            @click="requestDeleteLandLot"
-          >
-            Delete
-          </el-button>
+          <el-tag effect="plain">Site Boundary</el-tag>
         </div>
       </div>
       <div class="drawer-header" v-else-if="selectedIntLand">
         <div class="header-text">
-          <div class="drawer-title">INT Land</div>
+          <div class="drawer-title">Drawing Layer</div>
           <div class="drawer-subtitle">{{ selectedIntLand.id }}</div>
         </div>
       </div>
@@ -279,42 +267,30 @@
       />
     </div>
 
-    <div v-else-if="selectedLandLot" class="drawer-body">
+    <div v-else-if="selectedSiteBoundary" class="drawer-body">
       <el-collapse v-model="activeCollapse" class="info-collapse">
         <el-collapse-item name="basic" title="Basic Information">
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">ID</span>
-              <span class="info-value">{{ selectedLandLot.id }}</span>
+              <span class="info-value">{{ selectedSiteBoundary.id }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">Status</span>
-              <span class="info-value">{{ selectedLandLot.status }}</span>
+              <span class="info-label">Source Layer</span>
+              <span class="info-value">{{ selectedSiteBoundary.layer }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">Updated</span>
-              <span class="info-value"><TimeText :value="selectedLandLot.updatedAt" /></span>
+              <span class="info-label">Entity</span>
+              <span class="info-value">{{ selectedSiteBoundary.entity }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">Updated By</span>
-              <span class="info-value">{{ selectedLandLot.updatedBy }}</span>
+              <span class="info-label">Area</span>
+              <span class="info-value">{{ siteBoundaryAreaText }}</span>
             </div>
           </div>
         </el-collapse-item>
-
       </el-collapse>
-
-      <ConfirmDialog
-        v-model="showDeleteLandLotConfirm"
-        title="Delete Test Layer"
-        :message="landLotDeleteMessage"
-        description="This action cannot be undone."
-        confirm-text="Delete"
-        confirm-type="danger"
-        @confirm="handleConfirmDeleteLandLot"
-      />
     </div>
-
     <div v-else-if="selectedIntLand" class="drawer-body">
       <el-collapse v-model="activeCollapse" class="info-collapse">
         <el-collapse-item name="basic" title="Basic Information">
@@ -350,17 +326,15 @@ import ConfirmDialog from "../../../components/ConfirmDialog.vue";
 
 const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
-  selectedLandLot: { type: Object, default: null },
+  selectedSiteBoundary: { type: Object, default: null },
   selectedIntLand: { type: Object, default: null },
   selectedTasks: { type: Array, required: true },
   selectedTask: { type: Object, default: null },
   taskForm: { type: Object, required: true },
   assigneeOptions: { type: Array, default: () => [] },
   workStatusStyle: { type: Function, required: true },
-  landStatusStyle: { type: Function, required: true },
   isOverdue: { type: Function, required: true },
   canDeleteWork: { type: Boolean, default: true },
-  canDeleteLand: { type: Boolean, default: true },
 });
 
 const emit = defineEmits([
@@ -372,11 +346,10 @@ const emit = defineEmits([
   "save-task",
   "delete-task",
   "delete-work-lot",
-  "delete-land-lot",
 ]);
 
 const isOpen = computed(
-  () => !!props.selectedWorkLot || !!props.selectedLandLot || !!props.selectedIntLand
+  () => !!props.selectedWorkLot || !!props.selectedSiteBoundary || !!props.selectedIntLand
 );
 const activeCollapse = ref(["basic"]);
 const showTaskDetail = ref(false);
@@ -385,7 +358,6 @@ const showSaveConfirm = ref(false);
 const showCancelConfirm = ref(false);
 const showDeleteConfirm = ref(false);
 const showDeleteWorkLotConfirm = ref(false);
-const showDeleteLandLotConfirm = ref(false);
 const openTasks = computed(() => props.selectedTasks.filter((task) => task.status !== "Done").length);
 const doneTasks = computed(() => props.selectedTasks.filter((task) => task.status === "Done").length);
 const overdueTasks = computed(() => props.selectedTasks.filter((task) => props.isOverdue(task)).length);
@@ -409,13 +381,15 @@ const workLotDeleteDescription = computed(() => {
   return "This action cannot be undone.";
 });
 
-const landLotDeleteMessage = computed(() => {
-  if (!props.selectedLandLot) return "";
-  return `Delete test layer ${props.selectedLandLot.id}?`;
-});
-
 const intLandAreaText = computed(() => {
   const area = props.selectedIntLand?.area;
+  if (!area || Number.isNaN(area)) return "—";
+  const ha = area / 10000;
+  return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
+});
+
+const siteBoundaryAreaText = computed(() => {
+  const area = props.selectedSiteBoundary?.area;
   if (!area || Number.isNaN(area)) return "—";
   const ha = area / 10000;
   return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
@@ -485,14 +459,6 @@ const requestDeleteWorkLot = () => {
 
 const handleConfirmDeleteWorkLot = () => {
   emit("delete-work-lot");
-};
-
-const requestDeleteLandLot = () => {
-  showDeleteLandLotConfirm.value = true;
-};
-
-const handleConfirmDeleteLandLot = () => {
-  emit("delete-land-lot");
 };
 
 // Reset collapse state when drawer opens

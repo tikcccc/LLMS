@@ -2,7 +2,6 @@ import { ref, shallowRef } from "vue";
 import Draw from "ol/interaction/Draw";
 import Modify from "ol/interaction/Modify";
 import Select from "ol/interaction/Select";
-import Snap from "ol/interaction/Snap";
 import { ElMessageBox } from "element-plus";
 
 import { EPSG_2326 } from "../ol/projection";
@@ -14,27 +13,22 @@ export const useMapInteractions = ({
   authStore,
   canEditLayer,
   activeLayerType,
-  landSource,
   workSource,
-  landLayer,
   workLayer,
+  siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
-  landLotStore,
   workLotStore,
   taskStore,
   format,
   pendingGeometry,
-  showLandDialog,
   showWorkDialog,
   hasDraft,
-  clearTaskSelection,
 }) => {
   let drawInteraction = null;
   let modifyInteraction = null;
   const selectInteraction = shallowRef(null);
-  let snapInteraction = null;
 
   const modifySelectedId = ref(null);
   const hasPendingModify = ref(false);
@@ -58,7 +52,6 @@ export const useMapInteractions = ({
     draftFeature = null;
     draftSource = null;
     pendingGeometry.value = null;
-    showLandDialog.value = false;
     showWorkDialog.value = false;
     hasDraft.value = false;
   };
@@ -72,7 +65,7 @@ export const useMapInteractions = ({
   const restoreModifyBackup = () => {
     if (!modifyBackup.size) return;
     modifyBackup.forEach((geometry, id) => {
-      const feature = landSource?.getFeatureById(id) || workSource?.getFeatureById(id);
+      const feature = workSource?.getFeatureById(id);
       if (feature) {
         feature.setGeometry(geometry);
       }
@@ -122,9 +115,6 @@ export const useMapInteractions = ({
       clearDraft();
     }
     if (tool !== "PAN") {
-      if (activeLayerType.value === "land" && !uiStore.showLandLots) {
-        uiStore.setLayerVisibility("showLandLots", true);
-      }
       if (activeLayerType.value === "work" && !uiStore.showWorkLots) {
         uiStore.setLayerVisibility("showWorkLots", true);
       }
@@ -142,9 +132,7 @@ export const useMapInteractions = ({
       featureProjection: EPSG_2326,
     });
     pendingGeometry.value = geometry;
-    if (activeLayerType.value === "land") {
-      showLandDialog.value = true;
-    } else if (activeLayerType.value === "work") {
+    if (activeLayerType.value === "work") {
       showWorkDialog.value = true;
     }
   };
@@ -168,11 +156,10 @@ export const useMapInteractions = ({
     }
     const layerType = selected.get("layerType");
     const refId = selected.get("refId") || selected.getId();
-    if (layerType === "land") {
-      uiStore.selectLandLot(refId);
-      if (clearTaskSelection) clearTaskSelection();
-    } else if (layerType === "work") {
+    if (layerType === "work") {
       uiStore.selectWorkLot(refId);
+    } else if (layerType === "siteBoundary") {
+      uiStore.selectSiteBoundary(refId);
     } else {
       return;
     }
@@ -187,24 +174,18 @@ export const useMapInteractions = ({
     if (!layerType) return;
     setHighlightFeature(layerType, selected);
     let message = `Delete ${id}?`;
-    if (layerType === "work") {
-      const relatedTasks = taskStore?.tasks?.filter((task) => task.workLotId === id) ?? [];
-      const openTasks = relatedTasks.filter((task) => task.status !== "Done").length;
-      if (openTasks > 0) {
-        message = `Delete ${id}? This work lot has ${openTasks} open task(s). Deleting will also remove its tasks.`;
-      } else if (relatedTasks.length > 0) {
-        message = `Delete ${id}? This work lot has ${relatedTasks.length} task(s). Deleting will also remove its tasks.`;
-      }
+    const relatedTasks = taskStore?.tasks?.filter((task) => task.workLotId === id) ?? [];
+    const openTasks = relatedTasks.filter((task) => task.status !== "Done").length;
+    if (openTasks > 0) {
+      message = `Delete ${id}? This work lot has ${openTasks} open task(s). Deleting will also remove its tasks.`;
+    } else if (relatedTasks.length > 0) {
+      message = `Delete ${id}? This work lot has ${relatedTasks.length} task(s). Deleting will also remove its tasks.`;
     }
     ElMessageBox.confirm(message, "Confirm", { type: "warning" })
       .then(() => {
-        if (layerType === "land") {
-          landLotStore.removeLandLot(id);
-        } else {
-          workLotStore.removeWorkLot(id);
-          if (taskStore?.removeTasksByWorkLot) {
-            taskStore.removeTasksByWorkLot(id);
-          }
+        workLotStore.removeWorkLot(id);
+        if (taskStore?.removeTasksByWorkLot) {
+          taskStore.removeTasksByWorkLot(id);
         }
         uiStore.clearSelection();
         clearHighlightOverride();
@@ -231,11 +212,10 @@ export const useMapInteractions = ({
       const refId = selected.get("refId") || selected.getId();
       modifySelectedId.value = refId;
       const layerType = selected.get("layerType");
-      if (layerType === "land") {
-        uiStore.selectLandLot(refId);
-        if (clearTaskSelection) clearTaskSelection();
-      } else {
+      if (layerType === "work") {
         uiStore.selectWorkLot(refId);
+      } else {
+        return;
       }
       setHighlightFeature(layerType, selected);
       return;
@@ -255,7 +235,7 @@ export const useMapInteractions = ({
     ElMessageBox.confirm("Save changes?", "Confirm", { type: "warning" })
       .then(() => {
         if (pendingModifiedIds.size > 0) {
-          const targetSource = layerType === "land" ? landSource : workSource;
+          const targetSource = workSource;
           const updatedAt = nowIso();
           pendingModifiedIds.forEach((id) => {
             const feature = targetSource.getFeatureById(id);
@@ -264,19 +244,11 @@ export const useMapInteractions = ({
               dataProjection: EPSG_2326,
               featureProjection: EPSG_2326,
             });
-            if (layerType === "land") {
-              landLotStore.updateLandLot(id, {
-                geometry,
-                updatedAt,
-                updatedBy: authStore.roleName,
-              });
-            } else if (layerType === "work") {
-              workLotStore.updateWorkLot(id, {
-                geometry,
-                updatedAt,
-                updatedBy: authStore.roleName,
-              });
-            }
+            workLotStore.updateWorkLot(id, {
+              geometry,
+              updatedAt,
+              updatedBy: authStore.roleName,
+            });
           });
         }
         clearModifyState();
@@ -313,7 +285,6 @@ export const useMapInteractions = ({
     drawInteraction = null;
     modifyInteraction = null;
     selectInteraction.value = null;
-    snapInteraction = null;
   };
 
   const rebuildInteractions = () => {
@@ -321,8 +292,9 @@ export const useMapInteractions = ({
     clearInteractions();
 
     if (uiStore.tool === "PAN") {
-      const selectLayers = [workLayer, landLayer].filter(Boolean);
-      selectInteraction.value = new Select({ layers: selectLayers, style: null });
+      const selectableLayers = [workLayer].filter(Boolean);
+      if (siteBoundaryLayer) selectableLayers.unshift(siteBoundaryLayer);
+      selectInteraction.value = new Select({ layers: selectableLayers, style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleSelect);
       mapRef.value.addInteraction(selectInteraction.value);
@@ -332,8 +304,8 @@ export const useMapInteractions = ({
     const layerType = activeLayerType.value;
     if (!layerType) return;
 
-    const targetSource = layerType === "land" ? landSource : workSource;
-    const targetLayer = layerType === "land" ? landLayer : workLayer;
+    const targetSource = workSource;
+    const targetLayer = workLayer;
 
     if (uiStore.tool === "MODIFY") {
       selectInteraction.value = new Select({ layers: [targetLayer], style: null });
@@ -376,17 +348,6 @@ export const useMapInteractions = ({
       mapRef.value.addInteraction(selectInteraction.value);
     }
 
-    if (
-      authStore.role === "SITE_OFFICER" &&
-      layerType === "work" &&
-      ["DRAW", "MODIFY"].includes(uiStore.tool)
-    ) {
-      if (uiStore.showLandLots) {
-        snapInteraction = new Snap({ source: landSource });
-        snapInteraction.set("managed", true);
-        mapRef.value.addInteraction(snapInteraction);
-      }
-    }
   };
 
   return {

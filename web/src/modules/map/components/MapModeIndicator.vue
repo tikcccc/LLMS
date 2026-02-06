@@ -17,7 +17,6 @@ import { computed } from "vue";
 
 const props = defineProps({
   tool: { type: String, required: true },
-  editTarget: { type: String, required: true },
 });
 
 const modeIcon = computed(() => {
@@ -30,11 +29,10 @@ const modeIcon = computed(() => {
 });
 
 const modeTitle = computed(() => {
-  const target = props.editTarget === 'land' ? 'Test Layer' : 'Work Lot';
   switch (props.tool) {
-    case 'DRAW': return `Drawing ${target}`;
-    case 'MODIFY': return `Modifying ${target}`;
-    case 'DELETE': return `Deleting ${target}`;
+    case 'DRAW': return "Drawing Work Lot";
+    case 'MODIFY': return "Modifying Work Lot";
+    case 'DELETE': return "Deleting Work Lot";
     default: return 'Pan Mode';
   }
 });

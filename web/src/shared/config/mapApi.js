@@ -8,3 +8,4 @@ export const MAP_MIN_ZOOM = 10;
 export const MAP_MAX_ZOOM = 19;
 
 export const INT_LAND_GEOJSON_URL = "/geojson/int-land.geojson";
+export const SITE_BOUNDARY_GEOJSON_URL = "/geojson/site-boundary.geojson";

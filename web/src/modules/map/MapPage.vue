@@ -8,38 +8,29 @@
         :can-edit-layer="canEditLayer"
         :has-draft="hasDraft"
         :can-save-modify="!!modifySelectedId"
-        :show-edit-target="canSwitchTarget"
-        :edit-target="uiStore.editTarget"
-        :edit-target-options="editTargetOptions"
         @set-tool="setTool"
         @cancel-tool="cancelTool"
         @save-modify="saveModify"
-        @update:editTarget="uiStore.setEditTarget"
-        @edit-target-change="onEditTargetChange"
       />
 
       <MapSidePanel
         v-model:leftTab="leftTab"
         v-model:taskFilter="taskFilter"
         v-model:searchQuery="searchQuery"
-        v-model:landSearchQuery="landSearchQuery"
         v-model:workSearchQuery="workSearchQuery"
         v-model:showBasemap="uiStore.showBasemap"
         v-model:showLabels="uiStore.showLabels"
-        v-model:showLandLots="uiStore.showLandLots"
         v-model:showIntLand="uiStore.showIntLand"
+        v-model:showSiteBoundary="uiStore.showSiteBoundary"
         v-model:showWorkLots="uiStore.showWorkLots"
         :filtered-tasks="filteredTasks"
-        :land-lot-results="landLotResults"
         :work-lot-results="workLotResults"
         :search-results="searchResults"
         :work-lot-name="workLotName"
         :is-overdue="isOverdue"
-        :land-status-style="landStatusStyle"
         :work-status-style="workStatusStyle"
         @focus-task="focusTask"
         @focus-work="zoomToWorkLot"
-        @focus-land="focusLandLot"
         @search-enter="onSearchEnter"
       />
 
@@ -48,16 +39,14 @@
 
     <MapDrawer
       :selected-work-lot="drawerWorkLot"
-      :selected-land-lot="drawerLandLot"
+      :selected-site-boundary="selectedSiteBoundary"
       :selected-tasks="selectedTasks"
       :selected-task="selectedTask"
       :task-form="taskForm"
       :assignee-options="assigneeOptions"
       :work-status-style="workStatusStyle"
-      :land-status-style="landStatusStyle"
       :is-overdue="isOverdue"
       :can-delete-work="canEditWork"
-      :can-delete-land="canEditLand"
       @close="handleDrawerClose"
       @open-add-task="openAddTaskDialog"
       @view-task="selectTask"
@@ -66,7 +55,6 @@
       @save-task="saveTaskDetail"
       @delete-task="deleteTask"
       @delete-work-lot="deleteSelectedWorkLot"
-      @delete-land-lot="deleteSelectedLandLot"
     />
 
     <AddTaskDialog
@@ -78,14 +66,6 @@
       :assignee-options="assigneeOptions"
       @confirm="confirmAddTask"
       @cancel="clearNewTask"
-    />
-
-    <LandLotDialog
-      v-model="showLandDialog"
-      v-model:lotNumber="landForm.lotNumber"
-      v-model:status="landForm.status"
-      @confirm="confirmLand"
-      @cancel="cancelLand"
     />
 
     <WorkLotDialog
@@ -104,17 +84,16 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import "ol/ol.css";
 import { ElMessage } from "element-plus";
+import { isEmpty as isEmptyExtent } from "ol/extent";
 
 import MapToolbar from "./components/MapToolbar.vue";
 import MapSidePanel from "./components/MapSidePanel.vue";
 import MapDrawer from "./components/MapDrawer.vue";
 import AddTaskDialog from "./components/AddTaskDialog.vue";
-import LandLotDialog from "./components/LandLotDialog.vue";
 import WorkLotDialog from "./components/WorkLotDialog.vue";
 import MapAttribution from "./components/MapAttribution.vue";
 
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useLandLotStore } from "../../stores/useLandLotStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useTaskStore } from "../../stores/useTaskStore";
 import { useUiStore } from "../../stores/useUiStore";
@@ -125,63 +104,45 @@ import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
 import { useTaskPanel } from "./composables/useTaskPanel";
-import { landStatusStyle, workStatusStyle } from "./utils/statusStyle";
+import { workStatusStyle } from "./utils/statusStyle";
 import { isOverdue } from "./utils/taskUtils";
 
 const authStore = useAuthStore();
-const landLotStore = useLandLotStore();
 const workLotStore = useWorkLotStore();
 const taskStore = useTaskStore();
 const uiStore = useUiStore();
 const route = useRoute();
 
-const canEditLand = computed(() => authStore.role === "SITE_ADMIN");
 const canEditWork = computed(
   () => authStore.role === "SITE_ADMIN" || authStore.role === "SITE_OFFICER"
 );
-const canEditLayer = computed(() => canEditLand.value || canEditWork.value);
-const canSwitchTarget = computed(() => authStore.role === "SITE_ADMIN");
-const activeLayerType = computed(() => {
-  if (authStore.role === "SITE_ADMIN") return uiStore.editTarget;
-  if (canEditLand.value) return "land";
-  if (canEditWork.value) return "work";
-  return null;
-});
+const canEditLayer = computed(() => canEditWork.value);
+const activeLayerType = computed(() => (canEditWork.value ? "work" : null));
 
 const selectedWorkLot = computed(() =>
   workLotStore.workLots.find((lot) => lot.id === uiStore.selectedWorkLotId) || null
-);
-
-const selectedLandLot = computed(() =>
-  landLotStore.landLots.find((lot) => lot.id === uiStore.selectedLandLotId) || null
 );
 
 const drawerWorkLot = computed(() =>
   uiStore.tool === "MODIFY" ? null : selectedWorkLot.value
 );
 
-const drawerLandLot = computed(() =>
-  uiStore.tool === "MODIFY" ? null : selectedLandLot.value
-);
-
 const { mapEl, mapRef, basemapLayer, labelLayer, initMap } = useMapCore();
 
 const {
   format,
-  landSource,
   workSource,
-  landLayer,
   workLayer,
   intLandLayer,
+  siteBoundarySource,
+  siteBoundaryLayer,
   updateLayerOpacity,
   updateLayerVisibility,
-  createLandFeature,
   createWorkFeature,
-  refreshLandSource,
   refreshWorkSource,
   loadIntLandGeojson,
+  loadSiteBoundaryGeojson,
 } = useMapLayers({
-  landLotStore,
   workLotStore,
   taskStore,
   authStore,
@@ -189,36 +150,24 @@ const {
 });
 
 const {
-  landHighlightSource,
   workHighlightSource,
-  landHighlightLayer,
   workHighlightLayer,
+  siteBoundaryHighlightSource,
+  siteBoundaryHighlightLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
   updateHighlightVisibility,
 } = useMapHighlights({
-  createLandFeature,
   createWorkFeature,
-  selectedLandLot,
   selectedWorkLot,
   uiStore,
+  siteBoundarySource,
 });
-
-const editTargetOptions = [
-  { label: "Work Lots", value: "work" },
-  { label: "Test Layer", value: "land" },
-];
 
 const hasDraft = ref(false);
 const pendingGeometry = ref(null);
-const showLandDialog = ref(false);
 const showWorkDialog = ref(false);
-
-const landForm = ref({
-  lotNumber: "",
-  status: "Active",
-});
 
 const workForm = ref({
   operatorName: "",
@@ -230,7 +179,6 @@ const {
   leftTab,
   taskFilter,
   searchQuery,
-  landSearchQuery,
   workSearchQuery,
   selectedTasks,
   selectedTask,
@@ -243,7 +191,6 @@ const {
   newTaskDescription,
   searchResults,
   filteredTasks,
-  landLotResults,
   workLotResults,
   workLotName,
   clearNewTask,
@@ -257,7 +204,6 @@ const {
 } = useTaskPanel({
   authStore,
   workLotStore,
-  landLotStore,
   taskStore,
   uiStore,
   selectedWorkLot,
@@ -268,14 +214,6 @@ const deleteSelectedWorkLot = () => {
   const workLotId = selectedWorkLot.value.id;
   workLotStore.removeWorkLot(workLotId);
   taskStore.removeTasksByWorkLot(workLotId);
-  uiStore.clearSelection();
-  clearHighlightOverride();
-  refreshHighlights();
-};
-
-const deleteSelectedLandLot = () => {
-  if (!selectedLandLot.value) return;
-  landLotStore.removeLandLot(selectedLandLot.value.id);
   uiStore.clearSelection();
   clearHighlightOverride();
   refreshHighlights();
@@ -296,35 +234,43 @@ const {
   authStore,
   canEditLayer,
   activeLayerType,
-  landSource,
   workSource,
-  landLayer,
   workLayer,
+  siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
-  landLotStore,
   workLotStore,
   taskStore,
   format,
   pendingGeometry,
-  showLandDialog,
   showWorkDialog,
   hasDraft,
-  clearTaskSelection,
 });
 
-const onEditTargetChange = () => {
-  if (uiStore.tool !== "PAN") {
-    setTool(uiStore.tool);
-  }
-};
+const selectedSiteBoundary = computed(() => {
+  const id = uiStore.selectedSiteBoundaryId;
+  if (!id || !siteBoundarySource) return null;
+  const feature = siteBoundarySource.getFeatureById(id);
+  if (!feature) return null;
+  const geometry = feature.getGeometry();
+  const area =
+    feature.get("area") ??
+    (geometry && typeof geometry.getArea === "function" ? geometry.getArea() : null);
+  return {
+    id: feature.getId() ?? id,
+    name: feature.get("name") ?? "Site Boundary",
+    layer: feature.get("layer") ?? "—",
+    entity: feature.get("entity") ?? "Polygon",
+    area,
+  };
+});
 
 const handleDrawerClose = () => {
   uiStore.clearSelection();
   clearHighlightOverride();
-  landHighlightSource?.clear(true);
   workHighlightSource?.clear(true);
+  siteBoundaryHighlightSource?.clear(true);
   if (selectInteraction.value?.getFeatures) {
     selectInteraction.value.getFeatures().clear();
   }
@@ -348,14 +294,24 @@ const onSearchEnter = () => {
 const getQueryValue = (value) =>
   Array.isArray(value) ? value[0] : value ?? null;
 
+const fitToSiteBoundary = () => {
+  if (!mapRef.value || !siteBoundarySource) return;
+  const extent = siteBoundarySource.getExtent();
+  if (!extent || isEmptyExtent(extent)) return;
+  mapRef.value.getView().fit(extent, {
+    padding: [80, 80, 80, 80],
+    duration: 600,
+    maxZoom: 17,
+  });
+};
+
 const applyFocusFromRoute = () => {
   if (!mapRef.value) return;
 
   const workLotId = getQueryValue(route.query.workLotId);
-  const landLotId = getQueryValue(route.query.landLotId);
   const taskId = getQueryValue(route.query.taskId);
 
-  if (!workLotId && !landLotId && !taskId) return;
+  if (!workLotId && !taskId) return;
 
   if (uiStore.tool !== "PAN") {
     uiStore.setTool("PAN");
@@ -366,11 +322,6 @@ const applyFocusFromRoute = () => {
     if (taskId) {
       selectTask(taskId);
     }
-    return;
-  }
-
-  if (landLotId) {
-    focusLandLot(landLotId);
     return;
   }
 
@@ -398,21 +349,6 @@ const zoomToWorkLot = (id) => {
   uiStore.selectWorkLot(id);
 };
 
-const focusLandLot = (id) => {
-  if (!mapRef.value || !landSource) return;
-  if (!uiStore.showLandLots) {
-    uiStore.setLayerVisibility("showLandLots", true);
-  }
-  const view = mapRef.value.getView();
-  const feature =
-    landSource.getFeatureById(id) ||
-    createLandFeature(landLotStore.landLots.find((lot) => lot.id === id));
-  if (!feature) return;
-  const extent = feature.getGeometry().getExtent();
-  view.fit(extent, { padding: [80, 80, 80, 80], duration: 500, maxZoom: 18 });
-  uiStore.selectLandLot(id);
-};
-
 const focusTask = (task) => {
   zoomToWorkLot(task.workLotId);
   leftTab.value = "tasks";
@@ -425,23 +361,6 @@ const onRoleChange = () => {
   }
   updateLayerOpacity();
   rebuildInteractions();
-};
-
-const confirmLand = () => {
-  if (!pendingGeometry.value) return;
-  const id = generateId("LL");
-  landLotStore.addLandLot({
-    id,
-    lotNumber: landForm.value.lotNumber || `Lot ${id}`,
-    geometry: pendingGeometry.value,
-    status: landForm.value.status,
-    updatedBy: authStore.roleName,
-    updatedAt: nowIso(),
-  });
-  landForm.value = { lotNumber: "", status: "Active" };
-  showLandDialog.value = false;
-  clearDraft();
-  uiStore.setTool("PAN");
 };
 
 const confirmWork = () => {
@@ -462,22 +381,9 @@ const confirmWork = () => {
   uiStore.setTool("PAN");
 };
 
-const cancelLand = () => {
-  cancelDraft();
-};
-
 const cancelWork = () => {
   cancelDraft();
 };
-
-watch(
-  () => landLotStore.landLots,
-  () => {
-    refreshLandSource();
-    refreshHighlights();
-  },
-  { deep: true }
-);
 
 watch(
   () => workLotStore.workLots,
@@ -505,8 +411,8 @@ watch(
   () => [
     uiStore.showBasemap,
     uiStore.showLabels,
-    uiStore.showLandLots,
     uiStore.showIntLand,
+    uiStore.showSiteBoundary,
     uiStore.showWorkLots,
   ],
   () => {
@@ -524,17 +430,6 @@ watch(
 );
 
 watch(
-  () => uiStore.editTarget,
-  () => {
-    if (authStore.role === "SITE_ADMIN") {
-      if (uiStore.tool !== "PAN") {
-        rebuildInteractions();
-      }
-    }
-  }
-);
-
-watch(
   () => uiStore.selectedWorkLotId,
   (value) => {
     if (!value) return;
@@ -544,19 +439,27 @@ watch(
 );
 
 watch(
-  () => uiStore.selectedLandLotId,
-  (value) => {
-    if (!value) return;
-    const exists = landLotStore.landLots.some((lot) => lot.id === value);
-    if (!exists) uiStore.clearSelection();
+  () => uiStore.selectedWorkLotId,
+  (workId) => {
+    refreshHighlights();
+    if (!workId && selectInteraction.value?.getFeatures) {
+      selectInteraction.value.getFeatures().clear();
+    }
   }
 );
 
 watch(
-  () => [uiStore.selectedWorkLotId, uiStore.selectedLandLotId],
-  ([workId, landId]) => {
+  () => uiStore.selectedSiteBoundaryId,
+  (value) => {
+    if (value && siteBoundarySource) {
+      const exists = !!siteBoundarySource.getFeatureById(value);
+      if (!exists) {
+        uiStore.clearSelection();
+        return;
+      }
+    }
     refreshHighlights();
-    if (!workId && !landId && selectInteraction.value?.getFeatures) {
+    if (!value && selectInteraction.value?.getFeatures) {
       selectInteraction.value.getFeatures().clear();
     }
   }
@@ -576,19 +479,24 @@ const handleKeydown = (event) => {
 };
 
 onMounted(() => {
-  landLotStore.seedIfEmpty();
   workLotStore.seedIfEmpty();
   taskStore.seedIfEmpty();
   initMap([
-    landLayer,
     intLandLayer,
+    siteBoundaryLayer,
+    siteBoundaryHighlightLayer,
     workLayer,
-    landHighlightLayer,
     workHighlightLayer,
   ]);
-  refreshLandSource();
   refreshWorkSource();
   loadIntLandGeojson();
+  const shouldAutoFit =
+    !getQueryValue(route.query.workLotId) && !getQueryValue(route.query.taskId);
+  loadSiteBoundaryGeojson().then(() => {
+    if (shouldAutoFit) {
+      fitToSiteBoundary();
+    }
+  });
   updateLayerOpacity();
   updateLayerVisibility(basemapLayer.value, labelLayer.value);
   updateHighlightVisibility();

@@ -1,33 +1,32 @@
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
-import { highlightLandLotStyle, highlightWorkLotStyle } from "../ol/styles";
+import { highlightSiteBoundaryStyle, highlightWorkLotStyle } from "../ol/styles";
 
 export const useMapHighlights = ({
-  createLandFeature,
   createWorkFeature,
-  selectedLandLot,
   selectedWorkLot,
   uiStore,
+  siteBoundarySource,
 }) => {
-  const landHighlightSource = new VectorSource();
   const workHighlightSource = new VectorSource();
+  const siteBoundaryHighlightSource = new VectorSource();
 
-  const landHighlightLayer = new VectorLayer({
-    source: landHighlightSource,
-    style: highlightLandLotStyle,
-  });
   const workHighlightLayer = new VectorLayer({
     source: workHighlightSource,
     style: highlightWorkLotStyle,
   });
 
-  landHighlightLayer.setZIndex(25);
   workHighlightLayer.setZIndex(26);
 
-  const highlightOverride = {
-    land: null,
-    work: null,
-  };
+  let highlightOverride = null;
+  let siteBoundaryHighlightOverride = null;
+
+  const siteBoundaryHighlightLayer = new VectorLayer({
+    source: siteBoundaryHighlightSource,
+    style: highlightSiteBoundaryStyle,
+  });
+
+  siteBoundaryHighlightLayer.setZIndex(16);
 
   const cloneFeature = (feature) => {
     if (!feature) return null;
@@ -37,54 +36,53 @@ export const useMapHighlights = ({
   };
 
   const refreshHighlights = () => {
-    landHighlightSource.clear(true);
     workHighlightSource.clear(true);
+    siteBoundaryHighlightSource.clear(true);
 
-    const landFeature = highlightOverride.land
-      ? cloneFeature(highlightOverride.land)
-      : createLandFeature(selectedLandLot.value);
-    if (landFeature) landHighlightSource.addFeature(landFeature);
-
-    const workFeature = highlightOverride.work
-      ? cloneFeature(highlightOverride.work)
+    const workFeature = highlightOverride
+      ? cloneFeature(highlightOverride)
       : createWorkFeature(selectedWorkLot.value);
     if (workFeature) workHighlightSource.addFeature(workFeature);
 
+    const siteBoundaryId = uiStore.selectedSiteBoundaryId;
+    const siteBoundaryFeature = siteBoundaryHighlightOverride
+      ? cloneFeature(siteBoundaryHighlightOverride)
+      : siteBoundaryId && siteBoundarySource
+        ? cloneFeature(siteBoundarySource.getFeatureById(siteBoundaryId))
+        : null;
+    if (siteBoundaryFeature) siteBoundaryHighlightSource.addFeature(siteBoundaryFeature);
   };
 
   const setHighlightFeature = (layerType, feature) => {
-    if (layerType === "land") {
-      highlightOverride.land = feature || null;
-      highlightOverride.work = null;
-    } else if (layerType === "work") {
-      highlightOverride.work = feature || null;
-      highlightOverride.land = null;
+    if (layerType === "work") {
+      highlightOverride = feature || null;
+    }
+    if (layerType === "siteBoundary") {
+      siteBoundaryHighlightOverride = feature || null;
     }
     refreshHighlights();
   };
 
   const clearHighlightOverride = (layerType) => {
-    if (!layerType) {
-      highlightOverride.land = null;
-      highlightOverride.work = null;
-    } else if (layerType === "land") {
-      highlightOverride.land = null;
-    } else if (layerType === "work") {
-      highlightOverride.work = null;
+    if (!layerType || layerType === "work") {
+      highlightOverride = null;
+    }
+    if (!layerType || layerType === "siteBoundary") {
+      siteBoundaryHighlightOverride = null;
     }
     refreshHighlights();
   };
 
   const updateHighlightVisibility = () => {
-    landHighlightLayer.setVisible(uiStore.showLandLots);
     workHighlightLayer.setVisible(uiStore.showWorkLots);
+    siteBoundaryHighlightLayer.setVisible(uiStore.showSiteBoundary);
   };
 
   return {
-    landHighlightSource,
     workHighlightSource,
-    landHighlightLayer,
     workHighlightLayer,
+    siteBoundaryHighlightSource,
+    siteBoundaryHighlightLayer,
     refreshHighlights,
     setHighlightFeature,
     clearHighlightOverride,
