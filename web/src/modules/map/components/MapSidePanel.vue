@@ -107,22 +107,29 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="Search" name="search">
+      <el-tab-pane label="Site Boundaries" name="siteboundaries">
         <div class="panel-section">
-          <el-input v-model="searchProxy" placeholder="Search work lots" clearable @keyup.enter="emit('search-enter')" />
+          <el-input
+            v-model="siteBoundarySearchProxy"
+            placeholder="Search site boundaries"
+            clearable
+          />
         </div>
-        <div class="search-results">
+        <div class="list-scroll">
           <button
-            v-for="result in searchResults"
-            :key="result.id"
-            class="search-item"
+            v-for="boundary in siteBoundaryResults"
+            :key="boundary.id"
+            class="list-item"
             type="button"
-            @click="emit('focus-work', result.id)"
+            @click="emit('focus-site-boundary', boundary.id)"
           >
-            <div class="search-title">{{ result.operatorName }}</div>
-            <div class="search-meta">{{ result.id }}</div>
+            <div class="list-title-row">
+              <span class="list-title">{{ boundary.name }}</span>
+              <el-tag size="small" effect="plain">Site Boundary</el-tag>
+            </div>
+            <div class="list-meta">{{ boundary.id }} · {{ boundary.layer }}</div>
           </button>
-          <el-empty v-if="searchResults.length === 0" description="No results" />
+          <el-empty v-if="siteBoundaryResults.length === 0" description="No site boundaries" />
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -136,8 +143,8 @@ import TimeText from "../../../components/TimeText.vue";
 const props = defineProps({
   leftTab: { type: String, required: true },
   taskFilter: { type: String, required: true },
-  searchQuery: { type: String, required: true },
   workSearchQuery: { type: String, required: true },
+  siteBoundarySearchQuery: { type: String, required: true },
   showBasemap: { type: Boolean, required: true },
   showLabels: { type: Boolean, required: true },
   showIntLand: { type: Boolean, required: true },
@@ -145,7 +152,7 @@ const props = defineProps({
   showWorkLots: { type: Boolean, required: true },
   filteredTasks: { type: Array, required: true },
   workLotResults: { type: Array, required: true },
-  searchResults: { type: Array, required: true },
+  siteBoundaryResults: { type: Array, required: true },
   workLotName: { type: Function, required: true },
   isOverdue: { type: Function, required: true },
   workStatusStyle: { type: Function, required: true },
@@ -154,8 +161,8 @@ const props = defineProps({
 const emit = defineEmits([
   "update:leftTab",
   "update:taskFilter",
-  "update:searchQuery",
   "update:workSearchQuery",
+  "update:siteBoundarySearchQuery",
   "update:showBasemap",
   "update:showLabels",
   "update:showIntLand",
@@ -163,7 +170,7 @@ const emit = defineEmits([
   "update:showWorkLots",
   "focus-task",
   "focus-work",
-  "search-enter",
+  "focus-site-boundary",
 ]);
 
 const leftTabProxy = computed({
@@ -174,13 +181,13 @@ const taskFilterProxy = computed({
   get: () => props.taskFilter,
   set: (value) => emit("update:taskFilter", value),
 });
-const searchProxy = computed({
-  get: () => props.searchQuery,
-  set: (value) => emit("update:searchQuery", value),
-});
 const workSearchProxy = computed({
   get: () => props.workSearchQuery,
   set: (value) => emit("update:workSearchQuery", value),
+});
+const siteBoundarySearchProxy = computed({
+  get: () => props.siteBoundarySearchQuery,
+  set: (value) => emit("update:siteBoundarySearchQuery", value),
 });
 const showBasemapProxy = computed({
   get: () => props.showBasemap,
@@ -341,7 +348,6 @@ const showWorkLotsProxy = computed({
   justify-content: space-between;
 }
 
-.search-results,
 .list-scroll {
   display: flex;
   flex-direction: column;
@@ -350,8 +356,7 @@ const showWorkLotsProxy = computed({
   overflow-y: auto;
 }
 
-.list-item,
-.search-item {
+.list-item {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
@@ -360,8 +365,7 @@ const showWorkLotsProxy = computed({
   cursor: pointer;
 }
 
-.list-item:hover,
-.search-item:hover {
+.list-item:hover {
   border-color: rgba(15, 118, 110, 0.4);
   background: #f1f5f9;
 }
@@ -373,14 +377,12 @@ const showWorkLotsProxy = computed({
   gap: 8px;
 }
 
-.list-title,
-.search-title {
+.list-title {
   font-size: 13px;
   font-weight: 600;
 }
 
-.list-meta,
-.search-meta {
+.list-meta {
   font-size: 11px;
   color: var(--muted);
 }

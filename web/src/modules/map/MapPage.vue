@@ -16,8 +16,8 @@
       <MapSidePanel
         v-model:leftTab="leftTab"
         v-model:taskFilter="taskFilter"
-        v-model:searchQuery="searchQuery"
         v-model:workSearchQuery="workSearchQuery"
+        v-model:siteBoundarySearchQuery="siteBoundarySearchQuery"
         v-model:showBasemap="uiStore.showBasemap"
         v-model:showLabels="uiStore.showLabels"
         v-model:showIntLand="uiStore.showIntLand"
@@ -25,13 +25,13 @@
         v-model:showWorkLots="uiStore.showWorkLots"
         :filtered-tasks="filteredTasks"
         :work-lot-results="workLotResults"
-        :search-results="searchResults"
+        :site-boundary-results="siteBoundaryResults"
         :work-lot-name="workLotName"
         :is-overdue="isOverdue"
         :work-status-style="workStatusStyle"
         @focus-task="focusTask"
         @focus-work="zoomToWorkLot"
-        @search-enter="onSearchEnter"
+        @focus-site-boundary="zoomToSiteBoundary"
       />
 
       <MapAttribution />
@@ -83,7 +83,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import "ol/ol.css";
-import { ElMessage } from "element-plus";
 import { isEmpty as isEmptyExtent } from "ol/extent";
 
 import MapToolbar from "./components/MapToolbar.vue";
@@ -178,7 +177,6 @@ const workForm = ref({
 const {
   leftTab,
   taskFilter,
-  searchQuery,
   workSearchQuery,
   selectedTasks,
   selectedTask,
@@ -189,7 +187,6 @@ const {
   newTaskAssignee,
   newTaskDueDate,
   newTaskDescription,
-  searchResults,
   filteredTasks,
   workLotResults,
   workLotName,
@@ -208,6 +205,8 @@ const {
   uiStore,
   selectedWorkLot,
 });
+
+const siteBoundarySearchQuery = ref("");
 
 const deleteSelectedWorkLot = () => {
   if (!selectedWorkLot.value) return;
@@ -279,6 +278,31 @@ const selectedSiteBoundary = computed(() => {
   };
 });
 
+const siteBoundaryResults = computed(() => {
+  siteBoundarySourceVersion.value;
+  if (!siteBoundarySource) return [];
+
+  const query = siteBoundarySearchQuery.value.trim().toLowerCase();
+  return siteBoundarySource
+    .getFeatures()
+    .map((feature, index) => ({
+      id: String(feature.getId() ?? `SB-${index + 1}`),
+      name: feature.get("name") ?? "Site Boundary",
+      layer: feature.get("layer") ?? "—",
+      entity: feature.get("entity") ?? "Polygon",
+    }))
+    .filter((item) => {
+      if (!query) return true;
+      return (
+        item.id.toLowerCase().includes(query) ||
+        item.name.toLowerCase().includes(query) ||
+        item.layer.toLowerCase().includes(query) ||
+        item.entity.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+});
+
 const handleDrawerClose = () => {
   uiStore.clearSelection();
   clearHighlightOverride();
@@ -286,21 +310,6 @@ const handleDrawerClose = () => {
   siteBoundaryHighlightSource?.clear(true);
   if (selectInteraction.value?.getFeatures) {
     selectInteraction.value.getFeatures().clear();
-  }
-};
-
-const onSearchEnter = () => {
-  if (!searchQuery.value.trim()) return;
-  const query = searchQuery.value.trim().toLowerCase();
-  const match = workLotStore.workLots.find(
-    (lot) =>
-      lot.operatorName.toLowerCase().includes(query) ||
-      lot.id.toLowerCase().includes(query)
-  );
-  if (match) {
-    zoomToWorkLot(match.id);
-  } else {
-    ElMessage({ type: "warning", message: "No work lot matched." });
   }
 };
 
