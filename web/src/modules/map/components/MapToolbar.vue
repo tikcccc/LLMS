@@ -13,18 +13,62 @@
           <span class="tool-label">Pan</span>
         </el-button>
       </el-tooltip>
-      
-      <el-tooltip content="Draw Polygon (D)" placement="bottom" :show-after="500">
+
+      <el-tooltip content="Scope Brush (D)" placement="bottom" :show-after="500">
         <el-button
           size="small"
           :type="tool === 'DRAW' ? 'primary' : 'default'"
-          :disabled="!canEditLayer"
           @click="emit('set-tool', 'DRAW')"
           class="tool-btn"
           :class="{ active: tool === 'DRAW' }"
         >
+          <span class="tool-icon">🖌️</span>
+          <span class="tool-label">Scope</span>
+        </el-button>
+      </el-tooltip>
+
+      <el-tooltip content="Scope Circle (C)" placement="bottom" :show-after="500">
+        <el-button
+          size="small"
+          :type="tool === 'DRAW_CIRCLE' ? 'primary' : 'default'"
+          @click="emit('set-tool', 'DRAW_CIRCLE')"
+          class="tool-btn"
+          :class="{ active: tool === 'DRAW_CIRCLE' }"
+        >
+          <span class="tool-icon">🧭</span>
+          <span class="tool-label">Scope Circle</span>
+        </el-button>
+      </el-tooltip>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="tool-group">
+      <el-tooltip content="Create Polygon Work Lot (P)" placement="bottom" :show-after="500">
+        <el-button
+          size="small"
+          :type="tool === 'POLYGON' ? 'primary' : 'default'"
+          :disabled="!canEditLayer"
+          @click="emit('set-tool', 'POLYGON')"
+          class="tool-btn"
+          :class="{ active: tool === 'POLYGON' }"
+        >
           <span class="tool-icon">✏️</span>
-          <span class="tool-label">Draw</span>
+          <span class="tool-label">Polygon</span>
+        </el-button>
+      </el-tooltip>
+
+      <el-tooltip content="Create Circular Work Lot (O)" placement="bottom" :show-after="500">
+        <el-button
+          size="small"
+          :type="tool === 'POLYGON_CIRCLE' ? 'primary' : 'default'"
+          :disabled="!canEditLayer"
+          @click="emit('set-tool', 'POLYGON_CIRCLE')"
+          class="tool-btn"
+          :class="{ active: tool === 'POLYGON_CIRCLE' }"
+        >
+          <span class="tool-icon">⚪</span>
+          <span class="tool-label">Circle Lot</span>
         </el-button>
       </el-tooltip>
       
@@ -94,6 +138,7 @@ const props = defineProps({
   tool: { type: String, required: true },
   canEditLayer: { type: Boolean, required: true },
   hasDraft: { type: Boolean, required: true },
+  hasScopeQuery: { type: Boolean, default: false },
   canSaveModify: { type: Boolean, default: false },
 });
 
@@ -104,6 +149,9 @@ const emit = defineEmits([
 ]);
 
 const showCancel = computed(() => {
+  if (props.tool === "DRAW" || props.tool === "DRAW_CIRCLE") {
+    return props.hasDraft || props.hasScopeQuery;
+  }
   return props.tool !== 'PAN' || props.hasDraft;
 });
 

@@ -46,6 +46,61 @@
         </div>
       </el-tab-pane>
 
+      <el-tab-pane label="Scope Results" name="scope">
+        <div class="panel-section scope-summary">
+          <div class="scope-title">{{ scopeModeName }}</div>
+          <div class="scope-meta">
+            {{ scopeSiteBoundaryResults.length }} site boundaries ·
+            {{ scopeWorkLotResults.length }} work lots
+          </div>
+        </div>
+
+        <template
+          v-if="scopeSiteBoundaryResults.length > 0 || scopeWorkLotResults.length > 0"
+        >
+          <div class="list-subtitle">Site Boundaries</div>
+          <div class="list-scroll">
+            <button
+              v-for="boundary in scopeSiteBoundaryResults"
+              :key="`scope-${boundary.id}`"
+              class="list-item"
+              type="button"
+              @click="emit('focus-site-boundary', boundary.id)"
+            >
+              <div class="list-title-row">
+                <span class="list-title">{{ boundary.name }}</span>
+                <el-tag size="small" effect="plain">Site Boundary</el-tag>
+              </div>
+              <div class="list-meta">{{ boundary.id }} · {{ boundary.layer }}</div>
+            </button>
+          </div>
+
+          <div class="list-subtitle">Work Lots</div>
+          <div class="list-scroll">
+            <button
+              v-for="lot in scopeWorkLotResults"
+              :key="`scope-work-${lot.id}`"
+              class="list-item"
+              type="button"
+              @click="emit('focus-work', lot.id)"
+            >
+              <div class="list-title-row">
+                <span class="list-title">{{ lot.operatorName }}</span>
+                <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
+                  {{ lot.status }}
+                </el-tag>
+              </div>
+              <div class="list-meta">{{ lot.id }}</div>
+            </button>
+          </div>
+        </template>
+
+        <el-empty
+          v-else
+          description="Use Scope/Circle tool to draw a range"
+        />
+      </el-tab-pane>
+
       <el-tab-pane label="Tasks" name="tasks">
         <div class="panel-section">
           <el-select v-model="taskFilterProxy" size="small" style="width: 140px">
@@ -153,6 +208,9 @@ const props = defineProps({
   filteredTasks: { type: Array, required: true },
   workLotResults: { type: Array, required: true },
   siteBoundaryResults: { type: Array, required: true },
+  scopeWorkLotResults: { type: Array, required: true },
+  scopeSiteBoundaryResults: { type: Array, required: true },
+  scopeModeName: { type: String, required: true },
   workLotName: { type: Function, required: true },
   isOverdue: { type: Function, required: true },
   workStatusStyle: { type: Function, required: true },
@@ -384,6 +442,30 @@ const showWorkLotsProxy = computed({
 
 .list-meta {
   font-size: 11px;
+  color: var(--muted);
+}
+
+.scope-summary {
+  margin-bottom: 14px;
+}
+
+.scope-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.scope-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.list-subtitle {
+  margin: 8px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--muted);
 }
 

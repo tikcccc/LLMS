@@ -21,7 +21,10 @@ const props = defineProps({
 
 const modeIcon = computed(() => {
   switch (props.tool) {
-    case 'DRAW': return '✏️';
+    case 'DRAW': return '🖌️';
+    case 'DRAW_CIRCLE': return '🧭';
+    case 'POLYGON': return '✏️';
+    case 'POLYGON_CIRCLE': return '⚪';
     case 'MODIFY': return '✂️';
     case 'DELETE': return '🗑️';
     default: return '🖐️';
@@ -30,7 +33,10 @@ const modeIcon = computed(() => {
 
 const modeTitle = computed(() => {
   switch (props.tool) {
-    case 'DRAW': return "Drawing Work Lot";
+    case 'DRAW': return "Scope Draw";
+    case 'DRAW_CIRCLE': return "Scope Circle";
+    case 'POLYGON': return "Drawing Polygon Work Lot";
+    case 'POLYGON_CIRCLE': return "Drawing Circular Work Lot";
     case 'MODIFY': return "Modifying Work Lot";
     case 'DELETE': return "Deleting Work Lot";
     default: return 'Pan Mode';
@@ -39,7 +45,10 @@ const modeTitle = computed(() => {
 
 const modeHint = computed(() => {
   switch (props.tool) {
-    case 'DRAW': return 'Click to draw polygon • ESC to cancel';
+    case 'DRAW': return 'Draw area to list site boundaries and work lots';
+    case 'DRAW_CIRCLE': return 'Draw circular area to list site boundaries and work lots';
+    case 'POLYGON': return 'Click to draw polygon • ESC to cancel';
+    case 'POLYGON_CIRCLE': return 'Click and drag to draw circle • ESC to cancel';
     case 'MODIFY': return 'Drag vertices to modify • ESC to cancel';
     case 'DELETE': return 'Click feature to delete • ESC to cancel';
     default: return '';
@@ -83,6 +92,21 @@ const modeHint = computed(() => {
 .mode-draw {
   border-color: #3b82f6;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(255, 255, 255, 0.95));
+}
+
+.mode-draw_circle {
+  border-color: #0ea5e9;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(255, 255, 255, 0.95));
+}
+
+.mode-polygon {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(255, 255, 255, 0.95));
+}
+
+.mode-polygon_circle {
+  border-color: #0284c7;
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.1), rgba(255, 255, 255, 0.95));
 }
 
 .mode-modify {

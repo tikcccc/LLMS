@@ -1,11 +1,26 @@
 import { ref, shallowRef } from "vue";
-import Draw from "ol/interaction/Draw";
+import Draw, { createRegularPolygon } from "ol/interaction/Draw";
 import Modify from "ol/interaction/Modify";
 import Select from "ol/interaction/Select";
+import VectorLayer from "ol/layer/Vector";
+import VectorSource from "ol/source/Vector";
+import { Fill, Stroke, Style } from "ol/style";
+import { getCenter } from "ol/extent";
 import { ElMessageBox } from "element-plus";
 
 import { EPSG_2326 } from "../ol/projection";
 import { nowIso } from "../../../shared/utils/time";
+
+const scopeSketchStyle = new Style({
+  stroke: new Stroke({
+    color: "rgba(13, 148, 136, 0.95)",
+    width: 2.8,
+    lineDash: [10, 6],
+  }),
+  fill: new Fill({
+    color: "rgba(13, 148, 136, 0.18)",
+  }),
+});
 
 export const useMapInteractions = ({
   mapRef,
@@ -15,6 +30,7 @@ export const useMapInteractions = ({
   activeLayerType,
   workSource,
   workLayer,
+  siteBoundarySource,
   siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
@@ -25,6 +41,7 @@ export const useMapInteractions = ({
   pendingGeometry,
   showWorkDialog,
   hasDraft,
+  onScopeQueryResult,
 }) => {
   let drawInteraction = null;
   let modifyInteraction = null;
@@ -38,6 +55,29 @@ export const useMapInteractions = ({
   let draftFeature = null;
   let draftSource = null;
   const modifyBackup = new Map();
+
+  const scopeQuerySource = new VectorSource();
+  const scopeQueryLayer = new VectorLayer({
+    source: scopeQuerySource,
+    style: scopeSketchStyle,
+  });
+  scopeQueryLayer.setZIndex(30);
+  let scopeLayerAdded = false;
+
+  const isScopeTool = (tool) => tool === "DRAW" || tool === "DRAW_CIRCLE";
+  const isPolygonTool = (tool) =>
+    tool === "POLYGON" || tool === "POLYGON_CIRCLE";
+  const isEditOnlyTool = (tool) =>
+    tool === "POLYGON" ||
+    tool === "POLYGON_CIRCLE" ||
+    tool === "MODIFY" ||
+    tool === "DELETE";
+
+  const ensureScopeLayer = () => {
+    if (!mapRef.value || scopeLayerAdded) return;
+    mapRef.value.addLayer(scopeQueryLayer);
+    scopeLayerAdded = true;
+  };
 
   const abortDrawing = () => {
     if (drawInteraction) {
@@ -56,10 +96,15 @@ export const useMapInteractions = ({
     hasDraft.value = false;
   };
 
+  const clearScopeQuery = () => {
+    scopeQuerySource.clear(true);
+    onScopeQueryResult?.({ workLotIds: [], siteBoundaryIds: [] });
+  };
+
   const cancelDraft = () => {
     abortDrawing();
     clearDraft();
-    uiStore.setTool("PAN");
+    uiStore.setTool("DRAW");
   };
 
   const restoreModifyBackup = () => {
@@ -84,7 +129,14 @@ export const useMapInteractions = ({
   };
 
   const cancelTool = () => {
-    if (uiStore.tool === "DRAW") {
+    if (isScopeTool(uiStore.tool)) {
+      abortDrawing();
+      hasDraft.value = false;
+      clearScopeQuery();
+      uiStore.setTool("DRAW");
+      return;
+    }
+    if (isPolygonTool(uiStore.tool)) {
       cancelDraft();
       return;
     }
@@ -95,8 +147,10 @@ export const useMapInteractions = ({
     if (uiStore.tool === "DELETE" && selectInteraction.value) {
       selectInteraction.value.getFeatures().clear();
       clearHighlightOverride();
+      uiStore.setTool("DRAW");
+      return;
     }
-    uiStore.setTool("PAN");
+    uiStore.setTool("DRAW");
   };
 
   const setTool = (tool) => {
@@ -109,11 +163,19 @@ export const useMapInteractions = ({
     if (uiStore.tool === "DELETE" && tool !== "DELETE") {
       clearHighlightOverride();
     }
-    if (tool !== "PAN" && !canEditLayer.value) return;
-    if (uiStore.tool === "DRAW" && tool !== "DRAW") {
+
+    if (isEditOnlyTool(tool) && !canEditLayer.value) return;
+
+    if (isPolygonTool(uiStore.tool) && tool !== uiStore.tool) {
       abortDrawing();
       clearDraft();
     }
+
+    if (isScopeTool(uiStore.tool) && tool !== uiStore.tool) {
+      abortDrawing();
+      hasDraft.value = false;
+    }
+
     if (tool !== "PAN") {
       if (activeLayerType.value === "work" && !uiStore.showWorkLots) {
         uiStore.setLayerVisibility("showWorkLots", true);
@@ -121,10 +183,69 @@ export const useMapInteractions = ({
       uiStore.clearSelection();
       clearHighlightOverride();
     }
+
     uiStore.setTool(tool);
   };
 
-  const handleDrawEnd = (event) => {
+  const featureIntersectsScope = (feature, scopeGeometry) => {
+    const geometry = feature?.getGeometry();
+    if (!geometry || !scopeGeometry) return false;
+
+    const scopeExtent = scopeGeometry.getExtent();
+    const featureExtent = geometry.getExtent();
+
+    if (!geometry.intersectsExtent(scopeExtent)) return false;
+    if (!scopeGeometry.intersectsExtent(featureExtent)) return false;
+
+    const featureCenter = getCenter(featureExtent);
+    if (scopeGeometry.intersectsCoordinate(featureCenter)) return true;
+
+    const scopeCenter = getCenter(scopeExtent);
+    if (geometry.intersectsCoordinate(scopeCenter)) return true;
+
+    return true;
+  };
+
+  const collectScopeMatches = (scopeGeometry) => {
+    const workLotIds = [];
+    workSource?.getFeatures().forEach((feature) => {
+      if (!featureIntersectsScope(feature, scopeGeometry)) return;
+      const id = feature.get("refId") || feature.getId();
+      if (id !== null && id !== undefined) {
+        workLotIds.push(String(id));
+      }
+    });
+
+    const siteBoundaryIds = [];
+    siteBoundarySource?.getFeatures().forEach((feature) => {
+      if (!featureIntersectsScope(feature, scopeGeometry)) return;
+      const id = feature.get("refId") || feature.getId();
+      if (id !== null && id !== undefined) {
+        siteBoundaryIds.push(String(id));
+      }
+    });
+
+    return {
+      workLotIds: Array.from(new Set(workLotIds)),
+      siteBoundaryIds: Array.from(new Set(siteBoundaryIds)),
+    };
+  };
+
+  const handleScopeDrawEnd = (event) => {
+    draftFeature = null;
+    draftSource = null;
+    hasDraft.value = false;
+
+    const geometry = event.feature?.getGeometry();
+    if (!geometry) {
+      onScopeQueryResult?.({ workLotIds: [], siteBoundaryIds: [] });
+      return;
+    }
+
+    onScopeQueryResult?.(collectScopeMatches(geometry));
+  };
+
+  const handlePolygonDrawEnd = (event) => {
     draftFeature = event.feature;
     hasDraft.value = true;
     const geometry = format.writeGeometryObject(event.feature.getGeometry(), {
@@ -191,7 +312,6 @@ export const useMapInteractions = ({
         clearHighlightOverride();
       })
       .catch(() => {
-        // user canceled
         clearHighlightOverride();
       })
       .finally(() => {
@@ -254,7 +374,7 @@ export const useMapInteractions = ({
         clearModifyState();
         uiStore.clearSelection();
         clearHighlightOverride();
-        uiStore.setTool("PAN");
+        uiStore.setTool("DRAW");
       })
       .catch(() => {
         cancelModify();
@@ -265,7 +385,7 @@ export const useMapInteractions = ({
     restoreModifyBackup();
     clearModifyState();
     clearHighlightOverride();
-    uiStore.setTool("PAN");
+    uiStore.setTool("DRAW");
   };
 
   const clearInteractions = () => {
@@ -289,6 +409,7 @@ export const useMapInteractions = ({
 
   const rebuildInteractions = () => {
     if (!mapRef.value) return;
+    ensureScopeLayer();
     clearInteractions();
 
     if (uiStore.tool === "PAN") {
@@ -298,6 +419,25 @@ export const useMapInteractions = ({
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleSelect);
       mapRef.value.addInteraction(selectInteraction.value);
+      return;
+    }
+
+    if (isScopeTool(uiStore.tool)) {
+      const isCircleTool = uiStore.tool === "DRAW_CIRCLE";
+      drawInteraction = new Draw({
+        source: scopeQuerySource,
+        type: isCircleTool ? "Circle" : "Polygon",
+        geometryFunction: isCircleTool ? createRegularPolygon(64) : undefined,
+      });
+      drawInteraction.set("managed", true);
+      drawInteraction.on("drawstart", (event) => {
+        scopeQuerySource.clear(true);
+        draftFeature = event.feature;
+        draftSource = scopeQuerySource;
+        hasDraft.value = true;
+      });
+      drawInteraction.on("drawend", handleScopeDrawEnd);
+      mapRef.value.addInteraction(drawInteraction);
       return;
     }
 
@@ -329,16 +469,22 @@ export const useMapInteractions = ({
       return;
     }
 
-    if (uiStore.tool === "DRAW") {
-      drawInteraction = new Draw({ source: targetSource, type: "Polygon" });
+    if (isPolygonTool(uiStore.tool)) {
+      const isCircleTool = uiStore.tool === "POLYGON_CIRCLE";
+      drawInteraction = new Draw({
+        source: targetSource,
+        type: isCircleTool ? "Circle" : "Polygon",
+        geometryFunction: isCircleTool ? createRegularPolygon(64) : undefined,
+      });
       drawInteraction.set("managed", true);
       drawInteraction.on("drawstart", (event) => {
         draftFeature = event.feature;
         draftSource = targetSource;
         hasDraft.value = true;
       });
-      drawInteraction.on("drawend", handleDrawEnd);
+      drawInteraction.on("drawend", handlePolygonDrawEnd);
       mapRef.value.addInteraction(drawInteraction);
+      return;
     }
 
     if (uiStore.tool === "DELETE") {
@@ -347,13 +493,13 @@ export const useMapInteractions = ({
       selectInteraction.value.on("select", handleDeleteSelect);
       mapRef.value.addInteraction(selectInteraction.value);
     }
-
   };
 
   return {
     setTool,
     cancelTool,
     clearDraft,
+    clearScopeQuery,
     cancelDraft,
     rebuildInteractions,
     clearInteractions,

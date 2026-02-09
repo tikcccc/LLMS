@@ -7,6 +7,7 @@
         :tool="uiStore.tool"
         :can-edit-layer="canEditLayer"
         :has-draft="hasDraft"
+        :has-scope-query="hasScopeQuery"
         :can-save-modify="!!modifySelectedId"
         @set-tool="setTool"
         @cancel-tool="cancelTool"
@@ -26,6 +27,9 @@
         :filtered-tasks="filteredTasks"
         :work-lot-results="workLotResults"
         :site-boundary-results="siteBoundaryResults"
+        :scope-work-lot-results="scopeWorkLotResults"
+        :scope-site-boundary-results="scopeSiteBoundaryResults"
+        :scope-mode-name="scopeModeName"
         :work-lot-name="workLotName"
         :is-overdue="isOverdue"
         :work-status-style="workStatusStyle"
@@ -207,6 +211,33 @@ const {
 });
 
 const siteBoundarySearchQuery = ref("");
+const scopeWorkLotIds = ref([]);
+const scopeSiteBoundaryIds = ref([]);
+const scopeModeName = "Scope Draw";
+const hasScopeQuery = computed(
+  () => scopeWorkLotIds.value.length > 0 || scopeSiteBoundaryIds.value.length > 0
+);
+
+const handleScopeQueryResult = ({
+  workLotIds = [],
+  siteBoundaryIds = [],
+} = {}) => {
+  scopeWorkLotIds.value = Array.from(
+    new Set(workLotIds.map((value) => String(value)))
+  );
+  scopeSiteBoundaryIds.value = Array.from(
+    new Set(siteBoundaryIds.map((value) => String(value)))
+  );
+
+  if (scopeWorkLotIds.value.length > 0 || scopeSiteBoundaryIds.value.length > 0) {
+    leftTab.value = "scope";
+    return;
+  }
+
+  if (leftTab.value === "scope") {
+    leftTab.value = "layers";
+  }
+};
 
 const deleteSelectedWorkLot = () => {
   if (!selectedWorkLot.value) return;
@@ -235,6 +266,7 @@ const {
   activeLayerType,
   workSource,
   workLayer,
+  siteBoundarySource,
   siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
@@ -245,6 +277,7 @@ const {
   pendingGeometry,
   showWorkDialog,
   hasDraft,
+  onScopeQueryResult: handleScopeQueryResult,
 });
 
 const siteBoundarySourceVersion = ref(0);
@@ -301,6 +334,31 @@ const siteBoundaryResults = computed(() => {
       );
     })
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+});
+
+const scopeWorkLotResults = computed(() => {
+  if (!scopeWorkLotIds.value.length) return [];
+  const byId = new Map(
+    workLotStore.workLots.map((lot) => [String(lot.id), lot])
+  );
+  return scopeWorkLotIds.value
+    .map((id) => byId.get(String(id)))
+    .filter(Boolean);
+});
+
+const scopeSiteBoundaryResults = computed(() => {
+  siteBoundarySourceVersion.value;
+  if (!scopeSiteBoundaryIds.value.length) return [];
+
+  return scopeSiteBoundaryIds.value
+    .map((id) => findSiteBoundaryFeatureById(id))
+    .filter(Boolean)
+    .map((feature) => ({
+      id: String(feature.getId() ?? feature.get("refId")),
+      name: feature.get("name") ?? "Site Boundary",
+      layer: feature.get("layer") ?? "—",
+      entity: feature.get("entity") ?? "Polygon",
+    }));
 });
 
 const handleDrawerClose = () => {
@@ -399,7 +457,10 @@ const focusTask = (task) => {
 };
 
 const onRoleChange = () => {
-  if (!canEditLayer.value && uiStore.tool !== "PAN") {
+  if (
+    !canEditLayer.value &&
+    ["POLYGON", "POLYGON_CIRCLE", "MODIFY", "DELETE"].includes(uiStore.tool)
+  ) {
     cancelTool();
   }
   updateLayerOpacity();
@@ -421,7 +482,7 @@ const confirmWork = () => {
   workForm.value = { operatorName: "", type: "Business", status: "Pending" };
   showWorkDialog.value = false;
   clearDraft();
-  uiStore.setTool("PAN");
+  uiStore.setTool("DRAW");
 };
 
 const cancelWork = () => {
@@ -516,8 +577,47 @@ watch(
 );
 
 const handleKeydown = (event) => {
+  const target = event.target;
+  const isInputTarget =
+    target instanceof HTMLElement &&
+    (target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable);
+  if (isInputTarget) return;
+
   if (event.key === "Escape" && uiStore.tool !== "PAN") {
     cancelTool();
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === "v") {
+    setTool("PAN");
+    return;
+  }
+  if (key === "d") {
+    setTool("DRAW");
+    return;
+  }
+  if (key === "c") {
+    setTool("DRAW_CIRCLE");
+    return;
+  }
+  if (!canEditLayer.value) return;
+  if (key === "p") {
+    setTool("POLYGON");
+    return;
+  }
+  if (key === "o") {
+    setTool("POLYGON_CIRCLE");
+    return;
+  }
+  if (key === "m") {
+    setTool("MODIFY");
+    return;
+  }
+  if (key === "x") {
+    setTool("DELETE");
   }
 };
 
