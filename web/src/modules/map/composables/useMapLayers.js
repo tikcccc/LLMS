@@ -12,6 +12,12 @@ export const useMapLayers = ({
   authStore,
   uiStore,
 }) => {
+  const normalizeFeatureId = (value) => {
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).trim();
+    return normalized.length ? normalized : null;
+  };
+
   const format = new GeoJSON();
 
   const workSource = new VectorSource();
@@ -105,12 +111,11 @@ export const useMapLayers = ({
         featureProjection: EPSG_2326,
       });
       features.forEach((feature, index) => {
-        const rawId =
-          feature.getId() ??
-          feature.get("id") ??
-          feature.get("handle") ??
+        const id =
+          normalizeFeatureId(feature.getId()) ||
+          normalizeFeatureId(feature.get("id")) ||
+          normalizeFeatureId(feature.get("handle")) ||
           `SB-${index + 1}`;
-        const id = String(rawId);
         feature.setId(id);
         feature.set("layerType", "siteBoundary");
         feature.set("refId", id);

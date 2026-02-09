@@ -65,6 +65,12 @@ const ringArea = (ring = []) => {
   return Math.abs(area) / 2;
 };
 
+const normalizeFeatureId = (value) => {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized.length ? normalized : null;
+};
+
 const formatArea = (area) => {
   if (!area || Number.isNaN(area)) return "—";
   const ha = area / 10000;
@@ -85,12 +91,11 @@ const loadBoundaries = async () => {
       const geometry = feature.geometry || {};
       const ring = (geometry.coordinates && geometry.coordinates[0]) || [];
       const area = ringArea(ring);
-      const rawId =
-        feature.id ??
-        properties.id ??
-        properties.handle ??
+      const id =
+        normalizeFeatureId(feature.id) ||
+        normalizeFeatureId(properties.id) ||
+        normalizeFeatureId(properties.handle) ||
         `SB-${index + 1}`;
-      const id = String(rawId);
       return {
         id,
         name: properties.name ?? "Site Boundary",

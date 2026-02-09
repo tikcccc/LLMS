@@ -248,10 +248,23 @@ const {
   hasDraft,
 });
 
-const selectedSiteBoundary = computed(() => {
-  const id = uiStore.selectedSiteBoundaryId;
+const siteBoundarySourceVersion = ref(0);
+
+const findSiteBoundaryFeatureById = (id) => {
   if (!id || !siteBoundarySource) return null;
-  const feature = siteBoundarySource.getFeatureById(id);
+  const normalizedId = String(id);
+  return (
+    siteBoundarySource.getFeatureById(normalizedId) ||
+    siteBoundarySource.getFeatureById(normalizedId.toUpperCase()) ||
+    siteBoundarySource.getFeatureById(normalizedId.toLowerCase()) ||
+    null
+  );
+};
+
+const selectedSiteBoundary = computed(() => {
+  siteBoundarySourceVersion.value;
+  const id = uiStore.selectedSiteBoundaryId;
+  const feature = findSiteBoundaryFeatureById(id);
   if (!feature) return null;
   const geometry = feature.getGeometry();
   const area =
@@ -361,11 +374,13 @@ const zoomToSiteBoundary = (id) => {
     uiStore.setLayerVisibility("showSiteBoundary", true);
   }
   const view = mapRef.value.getView();
-  const feature = siteBoundarySource.getFeatureById(id);
+  const feature = findSiteBoundaryFeatureById(id);
   if (!feature) return;
   const extent = feature.getGeometry().getExtent();
   view.fit(extent, { padding: [80, 80, 80, 80], duration: 500, maxZoom: 18 });
-  uiStore.selectSiteBoundary(id);
+  const selectedId = String(feature.getId() ?? id);
+  uiStore.selectSiteBoundary(selectedId);
+  refreshHighlights();
 };
 
 const focusTask = (task) => {
@@ -514,10 +529,12 @@ onMounted(() => {
     !getQueryValue(route.query.taskId) &&
     !getQueryValue(route.query.siteBoundaryId);
   loadSiteBoundaryGeojson().then(() => {
+    siteBoundarySourceVersion.value += 1;
     if (shouldAutoFit) {
       fitToSiteBoundary();
     }
     applyFocusFromRoute();
+    refreshHighlights();
   });
   updateLayerOpacity();
   updateLayerVisibility(basemapLayer.value, labelLayer.value);

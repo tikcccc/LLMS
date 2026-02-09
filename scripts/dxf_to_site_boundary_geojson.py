@@ -54,6 +54,11 @@ def main(argv: Optional[List[str]] = None):
         help="Comma-separated list of DXF layers to include (default: all)",
     )
     parser.add_argument(
+        "--exclude-layers",
+        default="TransportPolygon",
+        help="Comma-separated list of DXF layers to exclude after conversion (default: TransportPolygon)",
+    )
+    parser.add_argument(
         "--flatten",
         type=float,
         default=0.2,
@@ -64,11 +69,20 @@ def main(argv: Optional[List[str]] = None):
         action="store_true",
         help="Do not expand block INSERTs",
     )
-    parser.add_argument(
-        "--no-polygonize",
+    polygonize_group = parser.add_mutually_exclusive_group()
+    polygonize_group.add_argument(
+        "--polygonize",
+        dest="polygonize",
         action="store_true",
-        help="Disable polygonization of linework (auto-fill on by default)",
+        help="Enable polygonization of linework (default)",
     )
+    polygonize_group.add_argument(
+        "--no-polygonize",
+        dest="polygonize",
+        action="store_false",
+        help="Disable polygonization of linework",
+    )
+    parser.set_defaults(polygonize=True)
     parser.add_argument(
         "--keep-lines",
         action="store_true",
@@ -118,7 +132,12 @@ def main(argv: Optional[List[str]] = None):
         list_layers(args.input)
         return
 
-    layers = [s.strip() for s in args.layers.split(",")] if args.layers else None
+    layers = [s.strip() for s in args.layers.split(",") if s.strip()] if args.layers else None
+    exclude_layers = (
+        {s.strip() for s in args.exclude_layers.split(",") if s.strip()}
+        if args.exclude_layers is not None
+        else set()
+    )
     if args.no_transform:
         source_crs = None
         target_crs = None
@@ -134,7 +153,7 @@ def main(argv: Optional[List[str]] = None):
         layers=layers,
         flatten_distance=args.flatten,
         include_inserts=not args.no_inserts,
-        polygonize=not args.no_polygonize,
+        polygonize=args.polygonize,
         keep_lines=args.keep_lines,
         snap=args.snap,
         close_tolerance=args.close_tolerance,
@@ -142,7 +161,7 @@ def main(argv: Optional[List[str]] = None):
         bridge_tolerance=args.bridge_tolerance,
     )
 
-    if args.min_area > 0:
+    if exclude_layers or args.min_area > 0:
         with open(args.output, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -155,10 +174,15 @@ def main(argv: Optional[List[str]] = None):
             return abs(area) / 2.0
 
         kept = []
-        removed = 0
+        removed_layer = 0
+        removed_area = 0
         for feature in data.get("features", []):
+            layer = (feature.get("properties") or {}).get("layer")
+            if layer in exclude_layers:
+                removed_layer += 1
+                continue
             geom = feature.get("geometry") or {}
-            if geom.get("type") != "Polygon":
+            if args.min_area <= 0 or geom.get("type") != "Polygon":
                 kept.append(feature)
                 continue
             rings = geom.get("coordinates") or []
@@ -166,14 +190,15 @@ def main(argv: Optional[List[str]] = None):
             if ring_area(outer) >= args.min_area:
                 kept.append(feature)
             else:
-                removed += 1
+                removed_area += 1
 
         data["features"] = kept
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
 
         print(
-            f"Filtered polygons: min_area={args.min_area} removed={removed} kept={len(kept)}"
+            f"Filtered features: excluded_layers={','.join(sorted(exclude_layers)) if exclude_layers else '(none)'} "
+            f"removed_by_layer={removed_layer} min_area={args.min_area} removed_by_area={removed_area} kept={len(kept)}"
         )
 
 
