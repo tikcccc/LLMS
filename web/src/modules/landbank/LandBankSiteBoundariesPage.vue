@@ -85,11 +85,12 @@ const loadBoundaries = async () => {
       const geometry = feature.geometry || {};
       const ring = (geometry.coordinates && geometry.coordinates[0]) || [];
       const area = ringArea(ring);
-      const id =
+      const rawId =
         feature.id ??
         properties.id ??
         properties.handle ??
         `SB-${index + 1}`;
+      const id = String(rawId);
       return {
         id,
         name: properties.name ?? "Site Boundary",

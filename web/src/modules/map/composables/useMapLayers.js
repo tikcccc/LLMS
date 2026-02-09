@@ -105,7 +105,12 @@ export const useMapLayers = ({
         featureProjection: EPSG_2326,
       });
       features.forEach((feature, index) => {
-        const id = feature.getId() ?? feature.get("id") ?? `SB-${index + 1}`;
+        const rawId =
+          feature.getId() ??
+          feature.get("id") ??
+          feature.get("handle") ??
+          `SB-${index + 1}`;
+        const id = String(rawId);
         feature.setId(id);
         feature.set("layerType", "siteBoundary");
         feature.set("refId", id);
