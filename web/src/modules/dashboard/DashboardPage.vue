@@ -254,8 +254,6 @@ const updateCharts = () => {
 };
 
 onMounted(() => {
-  workLotStore.seedIfEmpty();
-  taskStore.seedIfEmpty();
   buildCharts();
   updateCharts();
 });

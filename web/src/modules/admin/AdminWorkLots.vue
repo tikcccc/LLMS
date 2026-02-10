@@ -32,7 +32,6 @@ import { exportWorkLots } from "../../shared/utils/excel";
 import TimeText from "../../components/TimeText.vue";
 
 const workLotStore = useWorkLotStore();
-workLotStore.seedIfEmpty();
 
 const workLots = computed(() => workLotStore.workLots);
 

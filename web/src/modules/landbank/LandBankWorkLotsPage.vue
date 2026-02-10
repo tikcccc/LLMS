@@ -52,7 +52,6 @@ import { fuzzyMatchAny } from "../../shared/utils/search";
 import TimeText from "../../components/TimeText.vue";
 
 const workLotStore = useWorkLotStore();
-workLotStore.seedIfEmpty();
 const router = useRouter();
 
 const workLots = computed(() => workLotStore.workLots);

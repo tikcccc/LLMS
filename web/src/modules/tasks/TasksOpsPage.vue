@@ -66,7 +66,6 @@ import TimeText from "../../components/TimeText.vue";
 import { buildUserOptions } from "../../shared/mock/users";
 
 const taskStore = useTaskStore();
-taskStore.seedIfEmpty();
 const router = useRouter();
 const statusFilter = ref("All");
 const assigneeFilter = ref("All");

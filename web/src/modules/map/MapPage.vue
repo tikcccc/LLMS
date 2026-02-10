@@ -629,8 +629,6 @@ const handleKeydown = (event) => {
 };
 
 onMounted(() => {
-  workLotStore.seedIfEmpty();
-  taskStore.seedIfEmpty();
   if (uiStore.tool === "DRAW") {
     uiStore.setTool("DRAW_CIRCLE");
   }
