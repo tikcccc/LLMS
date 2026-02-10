@@ -293,9 +293,9 @@ onBeforeUnmount(() => {
   left: 24px;
   z-index: 100;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   width: max-content;
   max-width: calc(100vw - 48px);
   padding: 8px 10px;
@@ -381,10 +381,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
-  width: max-content;
-  max-width: 100%;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  width: auto;
+  max-width: none;
+  overflow-x: visible;
+  padding-bottom: 0;
 }
 
 .tool-btn {
@@ -411,6 +411,9 @@ onBeforeUnmount(() => {
     width: calc(100vw - 24px);
     padding: 8px;
     white-space: normal;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 
   .toolbar-head {
