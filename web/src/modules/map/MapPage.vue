@@ -38,7 +38,8 @@
         @focus-site-boundary="zoomToSiteBoundary"
       />
 
-      <MapAttribution />
+      <MapTaskStatusBar />
+      <MapScaleBar :map="mapRef" />
     </main>
 
     <MapDrawer
@@ -94,7 +95,8 @@ import MapSidePanel from "./components/MapSidePanel.vue";
 import MapDrawer from "./components/MapDrawer.vue";
 import AddTaskDialog from "./components/AddTaskDialog.vue";
 import WorkLotDialog from "./components/WorkLotDialog.vue";
-import MapAttribution from "./components/MapAttribution.vue";
+import MapScaleBar from "./components/MapScaleBar.vue";
+import MapTaskStatusBar from "./components/MapTaskStatusBar.vue";
 
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
@@ -213,7 +215,9 @@ const {
 const siteBoundarySearchQuery = ref("");
 const scopeWorkLotIds = ref([]);
 const scopeSiteBoundaryIds = ref([]);
-const scopeModeName = "Scope Draw";
+const scopeModeName = computed(() =>
+  uiStore.tool === "DRAW_CIRCLE" ? "Scope Circle" : "Scope Draw"
+);
 const hasScopeQuery = computed(
   () => scopeWorkLotIds.value.length > 0 || scopeSiteBoundaryIds.value.length > 0
 );
@@ -461,7 +465,7 @@ const onRoleChange = () => {
     !canEditLayer.value &&
     ["POLYGON", "POLYGON_CIRCLE", "MODIFY", "DELETE"].includes(uiStore.tool)
   ) {
-    cancelTool();
+    setTool("DRAW_CIRCLE");
   }
   updateLayerOpacity();
   rebuildInteractions();
@@ -482,7 +486,6 @@ const confirmWork = () => {
   workForm.value = { operatorName: "", type: "Business", status: "Pending" };
   showWorkDialog.value = false;
   clearDraft();
-  uiStore.setTool("DRAW");
 };
 
 const cancelWork = () => {
@@ -595,6 +598,10 @@ const handleKeydown = (event) => {
     setTool("PAN");
     return;
   }
+  if (key === "l") {
+    setTool("MEASURE");
+    return;
+  }
   if (key === "d") {
     setTool("DRAW");
     return;
@@ -624,6 +631,15 @@ const handleKeydown = (event) => {
 onMounted(() => {
   workLotStore.seedIfEmpty();
   taskStore.seedIfEmpty();
+  if (uiStore.tool === "DRAW") {
+    uiStore.setTool("DRAW_CIRCLE");
+  }
+  if (
+    !canEditLayer.value &&
+    ["POLYGON", "POLYGON_CIRCLE", "MODIFY", "DELETE"].includes(uiStore.tool)
+  ) {
+    uiStore.setTool("DRAW_CIRCLE");
+  }
   initMap([
     intLandLayer,
     siteBoundaryLayer,

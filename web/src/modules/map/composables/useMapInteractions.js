@@ -4,9 +4,10 @@ import Modify from "ol/interaction/Modify";
 import Select from "ol/interaction/Select";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
-import { Fill, Stroke, Style } from "ol/style";
+import Point from "ol/geom/Point";
+import { Circle as CircleStyle, Fill, Stroke, Style, Text } from "ol/style";
 import { getCenter } from "ol/extent";
-import { ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 
 import { EPSG_2326 } from "../ol/projection";
 import { nowIso } from "../../../shared/utils/time";
@@ -21,6 +22,72 @@ const scopeSketchStyle = new Style({
     color: "rgba(13, 148, 136, 0.18)",
   }),
 });
+
+const measureLineStyle = new Style({
+  stroke: new Stroke({
+    color: "rgba(37, 99, 235, 0.92)",
+    width: 2.6,
+    lineDash: [8, 6],
+  }),
+});
+
+const measureSketchLineStyle = new Style({
+  stroke: new Stroke({
+    color: "rgba(29, 78, 216, 0.95)",
+    width: 3,
+    lineDash: [10, 5],
+  }),
+});
+
+const formatMeasureDistance = (distance = 0) => {
+  if (!Number.isFinite(distance) || distance <= 0) return "0 m";
+  if (distance >= 1000) return `${(distance / 1000).toFixed(2)} km`;
+  return `${Math.round(distance)} m`;
+};
+
+const createMeasureLabelStyle = (distanceLabel) =>
+  new Style({
+    geometry: (feature) => {
+      const geometry = feature?.getGeometry();
+      if (!geometry || geometry.getType() !== "LineString") return null;
+      const coordinates = geometry.getCoordinates();
+      if (!coordinates?.length) return null;
+      return new Point(coordinates[coordinates.length - 1]);
+    },
+    image: new CircleStyle({
+      radius: 5,
+      fill: new Fill({ color: "rgba(37, 99, 235, 0.96)" }),
+      stroke: new Stroke({ color: "rgba(255, 255, 255, 0.95)", width: 1.8 }),
+    }),
+    text: new Text({
+      text: distanceLabel,
+      offsetY: -16,
+      font: "600 12px 'IBM Plex Sans'",
+      fill: new Fill({ color: "#1e3a8a" }),
+      stroke: new Stroke({ color: "rgba(255, 255, 255, 0.98)", width: 4 }),
+      backgroundFill: new Fill({ color: "rgba(239, 246, 255, 0.95)" }),
+      padding: [3, 6, 3, 6],
+    }),
+  });
+
+const measureStyle = (feature) => {
+  const geometry = feature?.getGeometry();
+  if (!geometry || geometry.getType() !== "LineString") {
+    return [measureLineStyle];
+  }
+  const distanceLabel =
+    feature.get("measureLabel") || formatMeasureDistance(geometry.getLength());
+  return [measureLineStyle, createMeasureLabelStyle(distanceLabel)];
+};
+
+const measureSketchStyle = (feature) => {
+  const geometry = feature?.getGeometry();
+  if (!geometry || geometry.getType() !== "LineString") {
+    return [measureSketchLineStyle];
+  }
+  const distanceLabel = formatMeasureDistance(geometry.getLength());
+  return [measureSketchLineStyle, createMeasureLabelStyle(distanceLabel)];
+};
 
 export const useMapInteractions = ({
   mapRef,
@@ -64,7 +131,16 @@ export const useMapInteractions = ({
   scopeQueryLayer.setZIndex(30);
   let scopeLayerAdded = false;
 
+  const measureSource = new VectorSource();
+  const measureLayer = new VectorLayer({
+    source: measureSource,
+    style: measureStyle,
+  });
+  measureLayer.setZIndex(35);
+  let measureLayerAdded = false;
+
   const isScopeTool = (tool) => tool === "DRAW" || tool === "DRAW_CIRCLE";
+  const isMeasureTool = (tool) => tool === "MEASURE";
   const isPolygonTool = (tool) =>
     tool === "POLYGON" || tool === "POLYGON_CIRCLE";
   const isEditOnlyTool = (tool) =>
@@ -72,11 +148,19 @@ export const useMapInteractions = ({
     tool === "POLYGON_CIRCLE" ||
     tool === "MODIFY" ||
     tool === "DELETE";
+  const defaultScopeTool = () => "DRAW_CIRCLE";
+  const defaultEditTool = () => "POLYGON";
 
   const ensureScopeLayer = () => {
     if (!mapRef.value || scopeLayerAdded) return;
     mapRef.value.addLayer(scopeQueryLayer);
     scopeLayerAdded = true;
+  };
+
+  const ensureMeasureLayer = () => {
+    if (!mapRef.value || measureLayerAdded) return;
+    mapRef.value.addLayer(measureLayer);
+    measureLayerAdded = true;
   };
 
   const abortDrawing = () => {
@@ -101,10 +185,19 @@ export const useMapInteractions = ({
     onScopeQueryResult?.({ workLotIds: [], siteBoundaryIds: [] });
   };
 
+  const clearMeasure = () => {
+    measureSource.clear(true);
+  };
+
   const cancelDraft = () => {
     abortDrawing();
     clearDraft();
-    uiStore.setTool("DRAW");
+    if (!canEditLayer.value) {
+      uiStore.setTool(defaultScopeTool());
+      return;
+    }
+    const nextTool = isPolygonTool(uiStore.tool) ? uiStore.tool : defaultEditTool();
+    uiStore.setTool(nextTool);
   };
 
   const restoreModifyBackup = () => {
@@ -133,7 +226,14 @@ export const useMapInteractions = ({
       abortDrawing();
       hasDraft.value = false;
       clearScopeQuery();
-      uiStore.setTool("DRAW");
+      uiStore.setTool(defaultScopeTool());
+      return;
+    }
+    if (isMeasureTool(uiStore.tool)) {
+      abortDrawing();
+      hasDraft.value = false;
+      clearMeasure();
+      uiStore.setTool("MEASURE");
       return;
     }
     if (isPolygonTool(uiStore.tool)) {
@@ -147,10 +247,10 @@ export const useMapInteractions = ({
     if (uiStore.tool === "DELETE" && selectInteraction.value) {
       selectInteraction.value.getFeatures().clear();
       clearHighlightOverride();
-      uiStore.setTool("DRAW");
+      uiStore.setTool(canEditLayer.value ? defaultEditTool() : defaultScopeTool());
       return;
     }
-    uiStore.setTool("DRAW");
+    uiStore.setTool(defaultScopeTool());
   };
 
   const setTool = (tool) => {
@@ -162,6 +262,11 @@ export const useMapInteractions = ({
     }
     if (uiStore.tool === "DELETE" && tool !== "DELETE") {
       clearHighlightOverride();
+    }
+    if (isMeasureTool(uiStore.tool) && tool !== "MEASURE") {
+      abortDrawing();
+      hasDraft.value = false;
+      clearMeasure();
     }
 
     if (isEditOnlyTool(tool) && !canEditLayer.value) return;
@@ -374,7 +479,7 @@ export const useMapInteractions = ({
         clearModifyState();
         uiStore.clearSelection();
         clearHighlightOverride();
-        uiStore.setTool("DRAW");
+        uiStore.setTool(canEditLayer.value ? "MODIFY" : defaultScopeTool());
       })
       .catch(() => {
         cancelModify();
@@ -385,7 +490,7 @@ export const useMapInteractions = ({
     restoreModifyBackup();
     clearModifyState();
     clearHighlightOverride();
-    uiStore.setTool("DRAW");
+    uiStore.setTool(canEditLayer.value ? "MODIFY" : defaultScopeTool());
   };
 
   const clearInteractions = () => {
@@ -410,6 +515,7 @@ export const useMapInteractions = ({
   const rebuildInteractions = () => {
     if (!mapRef.value) return;
     ensureScopeLayer();
+    ensureMeasureLayer();
     clearInteractions();
 
     if (uiStore.tool === "PAN") {
@@ -437,6 +543,29 @@ export const useMapInteractions = ({
         hasDraft.value = true;
       });
       drawInteraction.on("drawend", handleScopeDrawEnd);
+      mapRef.value.addInteraction(drawInteraction);
+      return;
+    }
+
+    if (isMeasureTool(uiStore.tool)) {
+      drawInteraction = new Draw({
+        source: measureSource,
+        type: "LineString",
+        style: measureSketchStyle,
+      });
+      drawInteraction.set("managed", true);
+      drawInteraction.on("drawstart", () => {
+        measureSource.clear(true);
+        hasDraft.value = true;
+      });
+      drawInteraction.on("drawend", (event) => {
+        hasDraft.value = false;
+        const geometry = event.feature?.getGeometry();
+        if (!geometry || geometry.getType() !== "LineString") return;
+        const distanceLabel = formatMeasureDistance(geometry.getLength());
+        event.feature.set("measureLabel", distanceLabel);
+        ElMessage.success(`Distance: ${distanceLabel}`);
+      });
       mapRef.value.addInteraction(drawInteraction);
       return;
     }

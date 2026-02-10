@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 
 export const useUiStore = defineStore("ui", {
   state: () => ({
-    tool: "DRAW",
+    tool: "DRAW_CIRCLE",
     selectedWorkLotId: null,
     sidebarCollapsed: false,
     showBasemap: true,
