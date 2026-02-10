@@ -1,5 +1,25 @@
 import { defineStore } from "pinia";
 import { normalizeWorkLot } from "../shared/utils/worklot";
+import { generateWorkLotId, isWorkLotId } from "../shared/utils/id";
+
+const normalizeText = (value) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
+
+const ensureWorkLotId = (lot, existingIds = new Set()) => {
+  const currentId = normalizeText(lot?.id);
+  const normalizedExistingIds = new Set(
+    Array.from(existingIds).map((value) => normalizeText(value).toLowerCase())
+  );
+  if (isWorkLotId(currentId) && !normalizedExistingIds.has(currentId.toLowerCase())) {
+    normalizedExistingIds.add(currentId.toLowerCase());
+    return currentId;
+  }
+  const generatedId = generateWorkLotId(lot?.category, normalizedExistingIds);
+  normalizedExistingIds.add(generatedId.toLowerCase());
+  return generatedId;
+};
 
 export const useWorkLotStore = defineStore("workLots", {
   state: () => ({
@@ -7,10 +27,27 @@ export const useWorkLotStore = defineStore("workLots", {
   }),
   actions: {
     normalizeLegacyWorkLots() {
-      this.workLots = this.workLots.map((lot) => normalizeWorkLot(lot));
+      const existingIds = new Set();
+      this.workLots = this.workLots.map((lot) => {
+        const normalized = normalizeWorkLot(lot);
+        const id = ensureWorkLotId(normalized, existingIds);
+        existingIds.add(id.toLowerCase());
+        return normalizeWorkLot({
+          ...normalized,
+          id,
+        });
+      });
     },
     addWorkLot(lot) {
-      this.workLots.push(normalizeWorkLot(lot));
+      const existingIds = new Set(this.workLots.map((item) => item.id));
+      const normalized = normalizeWorkLot(lot);
+      const id = ensureWorkLotId(normalized, existingIds);
+      this.workLots.push(
+        normalizeWorkLot({
+          ...normalized,
+          id,
+        })
+      );
     },
     updateWorkLot(id, payload) {
       const index = this.workLots.findIndex((lot) => lot.id === id);

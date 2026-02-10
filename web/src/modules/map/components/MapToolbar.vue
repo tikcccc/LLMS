@@ -198,7 +198,7 @@ let mobileQueryList = null;
 const modeOptions = [
   { label: "Browse", value: "browse" },
   { label: "Scope", value: "scope" },
-  { label: "Edit", value: "edit" },
+  { label: "Draw", value: "edit" },
 ];
 
 const activeMode = computed(() => {

@@ -58,6 +58,7 @@ const resetDemoData = () => {
         "ND_LLM_V1_auth",
         "ND_LLM_V1_landlots",
         "ND_LLM_V1_worklots",
+        "ND_LLM_V1_site_boundaries",
         "ND_LLM_V1_tasks",
         "ND_LLM_V1_ui",
       ].forEach((key) => localStorage.removeItem(key));

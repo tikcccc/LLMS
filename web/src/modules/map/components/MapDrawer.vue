@@ -11,14 +11,21 @@
       <div class="drawer-header" v-if="selectedWorkLot">
         <div class="header-text">
           <div class="drawer-title">{{ selectedWorkLot.operatorName }}</div>
-          <div class="drawer-subtitle">
-            {{ selectedWorkLot.id }} · {{ workCategoryLabel(selectedWorkLot.category) }}
-          </div>
         </div>
         <div class="header-tags">
           <el-tag effect="plain" :style="workStatusStyle(selectedWorkLot.status)">
             {{ selectedWorkLot.status }}
           </el-tag>
+          <el-button
+            v-if="canEditWork"
+            class="edit-icon-btn"
+            type="primary"
+            text
+            size="small"
+            @click="emit('edit-work-lot')"
+          >
+            Edit
+          </el-button>
           <el-button
             v-if="canDeleteWork"
             class="delete-icon-btn"
@@ -34,10 +41,19 @@
       <div class="drawer-header" v-else-if="selectedSiteBoundary">
         <div class="header-text">
           <div class="drawer-title">{{ selectedSiteBoundary.name || "Site Boundary" }}</div>
-          <div class="drawer-subtitle">{{ selectedSiteBoundary.id }}</div>
         </div>
         <div class="header-tags">
           <el-tag effect="plain">Site Boundary</el-tag>
+          <el-button
+            v-if="canEditSiteBoundary"
+            class="edit-icon-btn"
+            type="primary"
+            text
+            size="small"
+            @click="emit('edit-site-boundary')"
+          >
+            Edit
+          </el-button>
         </div>
       </div>
       <div class="drawer-header" v-else-if="selectedIntLand">
@@ -65,13 +81,44 @@
               <span class="info-value">{{ selectedWorkLot.responsiblePerson || "—" }}</span>
             </div>
             <div class="info-item">
+              <span class="info-label">Area</span>
+              <span class="info-value">{{ workLotAreaText }}</span>
+            </div>
+            <div class="info-item">
               <span class="info-label">Due Date</span>
               <span class="info-value">
                 <TimeText :value="selectedWorkLot.dueDate" mode="date" />
               </span>
             </div>
             <div class="info-item">
-              <span class="info-label">Status</span>
+              <span class="info-label">Assess Date</span>
+              <span class="info-value">
+                <TimeText :value="selectedWorkLot.assessDate" mode="date" />
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Completion Date</span>
+              <span class="info-value">
+                <TimeText :value="selectedWorkLot.completionDate" mode="date" />
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Float (Months)</span>
+              <span class="info-value">
+                {{
+                  selectedWorkLot.floatMonths === null ||
+                  selectedWorkLot.floatMonths === undefined
+                    ? "—"
+                    : selectedWorkLot.floatMonths
+                }}
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Force Eviction</span>
+              <span class="info-value">{{ selectedWorkLot.forceEviction ? "Yes" : "No" }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Operational Status</span>
               <span class="info-value">{{ selectedWorkLot.status }}</span>
             </div>
             <div class="info-item">
@@ -85,6 +132,29 @@
               </span>
             </div>
           </div>
+        </el-collapse-item>
+
+        <el-collapse-item name="relatedSites" title="Related Sites">
+          <div v-if="relatedSiteBoundaries.length > 0" class="related-list">
+            <button
+              v-for="site in relatedSiteBoundaries"
+              :key="site.id"
+              class="related-item"
+              type="button"
+              @click="emit('focus-site-boundary', site.id)"
+            >
+              <div class="related-item-head">
+                <span class="related-item-title">{{ site.name || "Site Boundary" }}</span>
+                <el-tag size="small" effect="light" :type="siteBoundaryTagType(site)">
+                  {{ site.status || "Pending Clearance" }}
+                </el-tag>
+              </div>
+              <div class="related-item-meta">
+                Handover <TimeText :value="site.plannedHandoverDate" mode="date" />
+              </div>
+            </button>
+          </div>
+          <el-empty v-else :image-size="60" description="No related sites" />
         </el-collapse-item>
 
         <el-collapse-item name="description" title="Description">
@@ -112,22 +182,72 @@
         <el-collapse-item name="basic" title="Basic Information">
           <div class="info-grid">
             <div class="info-item">
-              <span class="info-label">ID</span>
+              <span class="info-label">Land ID</span>
               <span class="info-value">{{ selectedSiteBoundary.id }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Source Layer</span>
-              <span class="info-value">{{ selectedSiteBoundary.layer }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Entity</span>
-              <span class="info-value">{{ selectedSiteBoundary.entity }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Area</span>
               <span class="info-value">{{ siteBoundaryAreaText }}</span>
             </div>
+            <div class="info-item">
+              <span class="info-label">Handover Date</span>
+              <span class="info-value">
+                <TimeText :value="selectedSiteBoundary.plannedHandoverDate" mode="date" />
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Contract No.</span>
+              <span class="info-value">{{ selectedSiteBoundary.contractNo || "—" }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Future Use</span>
+              <span class="info-value">{{ selectedSiteBoundary.futureUse || "—" }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Management Status</span>
+              <span class="info-value">
+                <el-tag size="small" :type="siteBoundaryStatusTagType" effect="light">
+                  {{ selectedSiteBoundary.boundaryStatus || "Pending Clearance" }}
+                </el-tag>
+              </span>
+            </div>
+            <div class="info-item info-item-wide">
+              <span class="info-label">Handover Progress</span>
+              <div class="progress-wrap">
+                <el-progress
+                  :percentage="siteBoundaryProgressPercent"
+                  :status="siteBoundaryProgressStatus"
+                />
+                <div class="progress-meta">
+                  {{ selectedSiteBoundary.operatorCompleted || 0 }} /
+                  {{ selectedSiteBoundary.operatorTotal || 0 }} operators completed
+                </div>
+              </div>
+            </div>
           </div>
+        </el-collapse-item>
+
+        <el-collapse-item name="relatedWorkLots" title="Related Work Lots">
+          <div v-if="relatedWorkLots.length > 0" class="related-list">
+            <button
+              v-for="lot in relatedWorkLots"
+              :key="lot.id"
+              class="related-item"
+              type="button"
+              @click="emit('focus-work-lot', lot.id)"
+            >
+              <div class="related-item-head">
+                <span class="related-item-title">{{ lot.operatorName || "Work Lot" }}</span>
+                <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
+                  {{ lot.status }}
+                </el-tag>
+              </div>
+              <div class="related-item-meta">
+                Due <TimeText :value="lot.dueDate" mode="date" />
+              </div>
+            </button>
+          </div>
+          <el-empty v-else :image-size="60" description="No related work lots" />
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -168,22 +288,47 @@ const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
   selectedSiteBoundary: { type: Object, default: null },
   selectedIntLand: { type: Object, default: null },
+  relatedWorkLots: { type: Array, default: () => [] },
+  relatedSiteBoundaries: { type: Array, default: () => [] },
   workStatusStyle: { type: Function, required: true },
   workCategoryLabel: { type: Function, required: true },
+  canEditWork: { type: Boolean, default: true },
+  canEditSiteBoundary: { type: Boolean, default: true },
   canDeleteWork: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(["close", "delete-work-lot"]);
+const emit = defineEmits([
+  "close",
+  "delete-work-lot",
+  "edit-work-lot",
+  "edit-site-boundary",
+  "focus-work-lot",
+  "focus-site-boundary",
+]);
 
 const isOpen = computed(
   () => !!props.selectedWorkLot || !!props.selectedSiteBoundary || !!props.selectedIntLand
 );
-const activeCollapse = ref(["basic", "description", "remark"]);
+const defaultActiveCollapse = () => [
+  "basic",
+  "relatedSites",
+  "relatedWorkLots",
+  "description",
+  "remark",
+];
+const activeCollapse = ref(defaultActiveCollapse());
 const showDeleteWorkLotConfirm = ref(false);
 
 const workLotDeleteMessage = computed(() => {
   if (!props.selectedWorkLot) return "";
   return `Delete work lot ${props.selectedWorkLot.id}?`;
+});
+
+const workLotAreaText = computed(() => {
+  const area = Number(props.selectedWorkLot?.area);
+  if (!Number.isFinite(area) || area <= 0) return "—";
+  const ha = area / 10000;
+  return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
 });
 
 const intLandAreaText = computed(() => {
@@ -200,6 +345,69 @@ const siteBoundaryAreaText = computed(() => {
   return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
 });
 
+const siteBoundaryProgressPercent = computed(() => {
+  const value = Number(props.selectedSiteBoundary?.handoverProgress);
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+});
+
+const siteBoundaryStatusTagType = computed(() => {
+  if (
+    props.selectedSiteBoundary?.overdue &&
+    props.selectedSiteBoundary?.boundaryStatusKey !== "HANDED_OVER" &&
+    props.selectedSiteBoundary?.boundaryStatusKey !== "HANDOVER_READY"
+  ) {
+    return "danger";
+  }
+  switch (props.selectedSiteBoundary?.boundaryStatusKey) {
+    case "HANDED_OVER":
+      return "success";
+    case "HANDOVER_READY":
+      return "success";
+    case "CRITICAL_RISK":
+      return "danger";
+    case "IN_PROGRESS":
+      return "warning";
+    default:
+      return "info";
+  }
+});
+
+const siteBoundaryProgressStatus = computed(() => {
+  if (props.selectedSiteBoundary?.boundaryStatusKey === "CRITICAL_RISK") {
+    return "exception";
+  }
+  if (props.selectedSiteBoundary?.boundaryStatusKey === "HANDED_OVER") {
+    return "success";
+  }
+  if (props.selectedSiteBoundary?.boundaryStatusKey === "HANDOVER_READY") {
+    return "success";
+  }
+  return undefined;
+});
+
+const siteBoundaryTagType = (boundary) => {
+  if (
+    boundary?.overdue &&
+    boundary?.statusKey !== "HANDED_OVER" &&
+    boundary?.statusKey !== "HANDOVER_READY"
+  ) {
+    return "danger";
+  }
+  switch (boundary?.statusKey) {
+    case "HANDED_OVER":
+      return "success";
+    case "HANDOVER_READY":
+      return "success";
+    case "CRITICAL_RISK":
+      return "danger";
+    case "IN_PROGRESS":
+      return "warning";
+    default:
+      return "info";
+  }
+};
+
 const requestDeleteWorkLot = () => {
   showDeleteWorkLotConfirm.value = true;
 };
@@ -210,7 +418,7 @@ const handleConfirmDeleteWorkLot = () => {
 
 watch(isOpen, (value) => {
   if (value) {
-    activeCollapse.value = ["basic", "description", "remark"];
+    activeCollapse.value = defaultActiveCollapse();
   }
 });
 </script>
@@ -252,6 +460,10 @@ watch(isOpen, (value) => {
 }
 
 .delete-icon-btn {
+  font-weight: 600;
+}
+
+.edit-icon-btn {
   font-weight: 600;
 }
 
@@ -324,6 +536,57 @@ watch(isOpen, (value) => {
   color: #334155;
   white-space: pre-wrap;
   padding: 2px 4px;
+}
+
+.related-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.related-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.related-item:hover {
+  border-color: rgba(15, 118, 110, 0.38);
+  background: #f1f5f9;
+}
+
+.related-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.related-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.related-item-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-meta {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 @media (max-width: 900px) {

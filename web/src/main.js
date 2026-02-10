@@ -8,6 +8,7 @@ import App from "./App.vue";
 import router from "./router";
 import { useWorkLotStore } from "./stores/useWorkLotStore";
 import { useUiStore } from "./stores/useUiStore";
+import { useSiteBoundaryStore } from "./stores/useSiteBoundaryStore";
 
 const LEGACY_MOCK_DATA_KEYS = ["ND_LLM_V1_worklots", "ND_LLM_V1_tasks"];
 const MOCK_DATA_CLEANUP_FLAG = "ND_LLM_V1_mock_data_cleanup_done";
@@ -24,6 +25,7 @@ pinia.use(piniaPersist);
 
 useWorkLotStore(pinia).normalizeLegacyWorkLots();
 useUiStore(pinia).normalizeLegacyState();
+useSiteBoundaryStore(pinia).normalizeLegacySiteBoundaries();
 
 app.use(pinia);
 app.use(router);

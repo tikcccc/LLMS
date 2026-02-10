@@ -88,8 +88,12 @@ export const useMapHighlights = ({
     const canShowDomestic =
       uiStore.showWorkLots &&
       uiStore.showWorkLotsDomestic &&
-      (selectedCategory === null || selectedCategory === WORK_LOT_CATEGORY.DOMESTIC);
-    workHighlightLayer.setVisible(canShowBusiness || canShowDomestic);
+      (selectedCategory === null || selectedCategory === WORK_LOT_CATEGORY.HH);
+    const canShowGovernment =
+      uiStore.showWorkLots &&
+      uiStore.showWorkLotsGovernment &&
+      (selectedCategory === null || selectedCategory === WORK_LOT_CATEGORY.GL);
+    workHighlightLayer.setVisible(canShowBusiness || canShowDomestic || canShowGovernment);
     siteBoundaryHighlightLayer.setVisible(uiStore.showSiteBoundary);
   };
 

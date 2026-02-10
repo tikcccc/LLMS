@@ -12,19 +12,34 @@
 
     <el-table :data="workLots" height="calc(100vh - 220px)">
       <el-table-column prop="id" label="ID" width="150" />
+      <el-table-column label="Related Lands" min-width="220">
+        <template #default="{ row }">
+          {{ relatedLandText(row) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="operatorName" label="Work Lot" min-width="190" />
       <el-table-column label="Category" min-width="180">
         <template #default="{ row }">
           {{ workCategoryLabel(row.category) }}
         </template>
       </el-table-column>
+      <el-table-column label="Area" width="170">
+        <template #default="{ row }">
+          {{ formatArea(row.area) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="responsiblePerson" label="Responsible Person" min-width="160" />
+      <el-table-column label="Assess Date" width="130">
+        <template #default="{ row }">
+          <TimeText :value="row.assessDate" mode="date" />
+        </template>
+      </el-table-column>
       <el-table-column label="Due Date" width="130">
         <template #default="{ row }">
           <TimeText :value="row.dueDate" mode="date" />
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="Status" width="170" />
+      <el-table-column prop="status" label="Operational Status" width="200" />
       <el-table-column label="Updated At" min-width="180">
         <template #default="{ row }">
           <TimeText :value="row.updatedAt" />
@@ -46,6 +61,18 @@ const workLotStore = useWorkLotStore();
 
 const workLots = computed(() => workLotStore.workLots);
 const workCategoryLabel = (category) => toWorkLotCategoryLabel(category);
+const relatedLandText = (lot) => {
+  const related = Array.isArray(lot?.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : [];
+  return related.length ? related.join(", ") : "—";
+};
+const formatArea = (area) => {
+  const value = Number(area);
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  const hectare = value / 10000;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${hectare.toFixed(
+    2
+  )} ha)`;
+};
 
 const exportExcel = () => {
   exportWorkLots(workLots.value);

@@ -3,9 +3,20 @@
     <div class="header">
       <div>
         <h2>Analytics Dashboard</h2>
-        <p class="muted">Land utilization snapshot and recent work lot activity.</p>
+        <p class="muted">
+          KPI denominator uses Site Boundaries and planned handover schedule.
+        </p>
       </div>
       <div class="filters">
+        <el-input-number
+          v-model="floatThresholdMonths"
+          size="small"
+          :min="0"
+          :max="24"
+          :step="1"
+          controls-position="right"
+          style="width: 180px"
+        />
         <el-button size="small" :type="timeRange === '12M' ? 'primary' : 'default'" @click="timeRange = '12M'">
           12 Months
         </el-button>
@@ -20,16 +31,24 @@
 
     <div class="kpis">
       <div class="kpi-card">
-        <div class="kpi-label">Active Work Lots</div>
-        <div class="kpi-value">{{ kpis.workLots }}</div>
+        <div class="kpi-label">Site Boundaries</div>
+        <div class="kpi-value">{{ kpis.landCount }}</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Overdue Work Lots</div>
-        <div class="kpi-value warn">{{ kpis.overdueWorkLots }}</div>
+        <div class="kpi-label">% Land Handover</div>
+        <div class="kpi-value">{{ kpis.handoverRate }}%</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">EGA Approved Rate</div>
-        <div class="kpi-value">{{ kpis.approvedRate }}%</div>
+        <div class="kpi-label">% Land Need Force Eviction</div>
+        <div class="kpi-value warn">{{ kpis.forceEvictionRate }}%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">% Land with Float &lt; {{ kpis.floatThresholdMonths }} Months</div>
+        <div class="kpi-value">{{ kpis.lowFloatRate }}%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Overdue Site Boundaries</div>
+        <div class="kpi-value warn">{{ kpis.overdueLandCount }}</div>
       </div>
     </div>
 
@@ -47,7 +66,7 @@
         </div>
       </div>
       <div class="card">
-        <h3>Work Lots by Status</h3>
+        <h3>Work Lots by Operational Status</h3>
         <div class="chart-wrap">
           <canvas ref="barRef"></canvas>
         </div>
@@ -61,6 +80,11 @@
       </div>
       <el-table :data="recentRows" height="360px">
         <el-table-column prop="id" label="ID" width="130" />
+        <el-table-column label="Related Lands" min-width="220">
+          <template #default="{ row }">
+            {{ relatedLandText(row) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="operatorName" label="Work Lot" min-width="180" />
         <el-table-column prop="categoryLabel" label="Category" min-width="190" />
         <el-table-column prop="responsiblePerson" label="Responsible Person" min-width="160" />
@@ -98,6 +122,7 @@ import {
   Legend,
 } from "chart.js";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
+import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { useDashboardMetrics } from "./useDashboardMetrics";
 import { useRouter } from "vue-router";
 import TimeText from "../../components/TimeText.vue";
@@ -118,6 +143,7 @@ Chart.register(
 );
 
 const timeRange = ref("12M");
+const floatThresholdMonths = ref(3);
 const donutRef = ref(null);
 const lineRef = ref(null);
 const barRef = ref(null);
@@ -126,16 +152,23 @@ let lineChart;
 let barChart;
 
 const workLotStore = useWorkLotStore();
+const siteBoundaryStore = useSiteBoundaryStore();
 const router = useRouter();
 
 const { kpis, workLotCategorySplit, workLotStatusSplit, monthlyTrend, recentWorkLots } =
   useDashboardMetrics({
     workLots: computed(() => workLotStore.workLots),
+    siteBoundaries: computed(() => siteBoundaryStore.siteBoundaries),
     timeRange,
+    floatThresholdMonths,
   });
 
 const recentRows = computed(() => recentWorkLots.value);
 const statusStyle = (status) => workStatusStyle(status);
+const relatedLandText = (lot) => {
+  const related = Array.isArray(lot?.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : [];
+  return related.length ? related.join(", ") : "—";
+};
 const goWorkLots = () => router.push("/landbank/work-lots");
 
 const buildCharts = () => {
@@ -143,11 +176,11 @@ const buildCharts = () => {
     donutChart = new Chart(donutRef.value, {
       type: "doughnut",
       data: {
-        labels: ["Business Undertaking", "Domestic"],
+        labels: ["Business Undertaking (BU)", "Household (HH)", "Government Land (GL)"],
         datasets: [
           {
-            data: [0, 0],
-            backgroundColor: ["#3b82f6", "#22c55e"],
+            data: [0, 0, 0],
+            backgroundColor: ["#3b82f6", "#22c55e", "#0ea5a3"],
             borderWidth: 0,
           },
         ],
@@ -208,11 +241,16 @@ const buildCharts = () => {
     barChart = new Chart(barRef.value, {
       type: "bar",
       data: {
-        labels: ["EGA approved", "Waiting for clearance", "Overdue"],
+        labels: [
+          "Waiting for Assessment",
+          "EGA Approved",
+          "Waiting for Clearance",
+          "Cleared / Completed",
+        ],
         datasets: [
           {
-            data: [0, 0, 0],
-            backgroundColor: ["#22c55e", "#facc15", "#f97316"],
+            data: [0, 0, 0, 0],
+            backgroundColor: ["#94a3b8", "#3b82f6", "#facc15", "#22c55e"],
             borderRadius: 10,
           },
         ],
@@ -233,18 +271,25 @@ const buildCharts = () => {
 };
 
 const updateCharts = () => {
-  const businessCount = workLotCategorySplit.value.business;
-  const domesticCount = workLotCategorySplit.value.domestic;
+  const buCount = workLotCategorySplit.value.bu;
+  const hhCount = workLotCategorySplit.value.hh;
+  const glCount = workLotCategorySplit.value.gl;
   if (donutChart) {
-    donutChart.data.datasets[0].data = [businessCount, domesticCount];
+    donutChart.data.datasets[0].data = [buCount, hhCount, glCount];
     donutChart.update();
   }
 
-  const approvedCount = workLotStatusSplit.value.approved;
-  const waitingCount = workLotStatusSplit.value.waiting;
-  const overdueCount = workLotStatusSplit.value.overdue;
+  const waitingAssessmentCount = workLotStatusSplit.value.waitingAssessment;
+  const egaApprovedCount = workLotStatusSplit.value.egaApproved;
+  const waitingClearanceCount = workLotStatusSplit.value.waitingClearance;
+  const clearedCompletedCount = workLotStatusSplit.value.clearedCompleted;
   if (barChart) {
-    barChart.data.datasets[0].data = [approvedCount, waitingCount, overdueCount];
+    barChart.data.datasets[0].data = [
+      waitingAssessmentCount,
+      egaApprovedCount,
+      waitingClearanceCount,
+      clearedCompletedCount,
+    ];
     barChart.update();
   }
 
@@ -256,11 +301,15 @@ const updateCharts = () => {
 };
 
 onMounted(() => {
+  siteBoundaryStore.ensureLoaded();
   buildCharts();
   updateCharts();
 });
 
-watch([timeRange, workLotCategorySplit, workLotStatusSplit, monthlyTrend], updateCharts);
+watch(
+  [timeRange, workLotCategorySplit, workLotStatusSplit, monthlyTrend],
+  updateCharts
+);
 
 onBeforeUnmount(() => {
   donutChart?.destroy();

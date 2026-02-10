@@ -50,17 +50,21 @@
             <el-switch v-model="showWorkLotsProxy" />
           </div>
           <div class="panel-row panel-row-nested">
-            <span>Business Undertaking</span>
+            <span>Business Undertaking (BU)</span>
             <el-switch v-model="showWorkLotsBusinessProxy" />
           </div>
           <div class="panel-row panel-row-nested">
-            <span>Domestic</span>
+            <span>Household (HH)</span>
             <el-switch v-model="showWorkLotsDomesticProxy" />
+          </div>
+          <div class="panel-row panel-row-nested">
+            <span>Government Land (GL)</span>
+            <el-switch v-model="showWorkLotsGovernmentProxy" />
           </div>
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="Scope Results" name="scope">
+      <el-tab-pane v-if="hasScopeQuery" label="Scope Results" name="scope">
         <div class="scope-pane">
           <div class="scope-summary">
             <div class="scope-summary-top">
@@ -99,7 +103,6 @@
                     <span class="list-title">{{ boundary.name }}</span>
                     <el-tag size="small" effect="plain">Site Boundary</el-tag>
                   </div>
-                  <div class="list-meta">{{ boundary.id }} · {{ boundary.layer }}</div>
                 </button>
               </div>
             </section>
@@ -123,7 +126,6 @@
                       {{ lot.status }}
                     </el-tag>
                   </div>
-                  <div class="list-meta">{{ lot.id }} · {{ workCategoryLabel(lot.category) }}</div>
                 </button>
               </div>
             </section>
@@ -155,9 +157,13 @@
                 {{ lot.status }}
               </el-tag>
             </div>
-            <div class="list-meta">{{ lot.id }} · {{ workCategoryLabel(lot.category) }}</div>
             <div class="list-meta subtle">
-              {{ lot.responsiblePerson || "Unassigned" }} · Due {{ lot.dueDate || "—" }}
+              {{
+                (Array.isArray(lot.relatedSiteBoundaryIds) && lot.relatedSiteBoundaryIds.length
+                  ? `${lot.relatedSiteBoundaryIds.length} related lands`
+                  : "No related land")
+              }}
+              · {{ lot.responsiblePerson || "Unassigned" }} · Due {{ lot.dueDate || "—" }}
             </div>
           </button>
           <el-empty v-if="workLotResults.length === 0" description="No work lots" />
@@ -184,7 +190,6 @@
               <span class="list-title">{{ boundary.name }}</span>
               <el-tag size="small" effect="plain">Site Boundary</el-tag>
             </div>
-            <div class="list-meta">{{ boundary.id }} · {{ boundary.layer }}</div>
           </button>
           <el-empty v-if="siteBoundaryResults.length === 0" description="No site boundaries" />
         </div>
@@ -217,13 +222,14 @@ const props = defineProps({
   showWorkLots: { type: Boolean, required: true },
   showWorkLotsBusiness: { type: Boolean, required: true },
   showWorkLotsDomestic: { type: Boolean, required: true },
+  showWorkLotsGovernment: { type: Boolean, required: true },
   workLotResults: { type: Array, required: true },
   siteBoundaryResults: { type: Array, required: true },
   scopeWorkLotResults: { type: Array, required: true },
   scopeSiteBoundaryResults: { type: Array, required: true },
+  hasScopeQuery: { type: Boolean, default: false },
   scopeModeName: { type: String, required: true },
   workStatusStyle: { type: Function, required: true },
-  workCategoryLabel: { type: Function, required: true },
 });
 
 const emit = defineEmits([
@@ -237,6 +243,7 @@ const emit = defineEmits([
   "update:showWorkLots",
   "update:showWorkLotsBusiness",
   "update:showWorkLotsDomestic",
+  "update:showWorkLotsGovernment",
   "focus-work",
   "focus-site-boundary",
 ]);
@@ -275,20 +282,37 @@ const showWorkLotsProxy = computed({
     emit("update:showWorkLots", value);
     emit("update:showWorkLotsBusiness", value);
     emit("update:showWorkLotsDomestic", value);
+    emit("update:showWorkLotsGovernment", value);
   },
 });
 const showWorkLotsBusinessProxy = computed({
   get: () => props.showWorkLotsBusiness,
   set: (value) => {
     emit("update:showWorkLotsBusiness", value);
-    emit("update:showWorkLots", value || props.showWorkLotsDomestic);
+    emit(
+      "update:showWorkLots",
+      value || props.showWorkLotsDomestic || props.showWorkLotsGovernment
+    );
   },
 });
 const showWorkLotsDomesticProxy = computed({
   get: () => props.showWorkLotsDomestic,
   set: (value) => {
     emit("update:showWorkLotsDomestic", value);
-    emit("update:showWorkLots", value || props.showWorkLotsBusiness);
+    emit(
+      "update:showWorkLots",
+      value || props.showWorkLotsBusiness || props.showWorkLotsGovernment
+    );
+  },
+});
+const showWorkLotsGovernmentProxy = computed({
+  get: () => props.showWorkLotsGovernment,
+  set: (value) => {
+    emit("update:showWorkLotsGovernment", value);
+    emit(
+      "update:showWorkLots",
+      value || props.showWorkLotsBusiness || props.showWorkLotsDomestic
+    );
   },
 });
 
@@ -441,6 +465,15 @@ watch(
   () => {
     if (isMobile.value) {
       mobilePanelOpen.value = true;
+    }
+  }
+);
+
+watch(
+  () => props.hasScopeQuery,
+  (value) => {
+    if (!value && props.leftTab === "scope") {
+      emit("update:leftTab", "layers");
     }
   }
 );

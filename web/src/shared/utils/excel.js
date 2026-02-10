@@ -1,6 +1,12 @@
 import * as XLSX from "xlsx";
 import { formatHongKong } from "./time";
-import { workLotCategoryLabel } from "./worklot";
+import {
+  workLotCategoryCode,
+} from "./worklot";
+import {
+  buildWorkLotsByBoundary,
+  summarizeSiteBoundary,
+} from "./siteBoundary";
 
 const ensureXlsxName = (filename) => (filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`);
 
@@ -26,10 +32,16 @@ const downloadExcel = (filename, headers, rows, sheetName = "Sheet1") => {
 export function exportWorkLots(workLots) {
   const headers = [
     "ID",
+    "Related Lands",
     "Work Lot",
-    "Category",
+    "Operator Type",
+    "Area (m2)",
     "Responsible Person",
+    "Assess Date",
     "Due Date",
+    "Completion Date",
+    "Float (Months)",
+    "Force Eviction",
     "Status",
     "Description",
     "Remark",
@@ -38,10 +50,16 @@ export function exportWorkLots(workLots) {
   ];
   const rows = workLots.map((lot) => [
     lot.id,
+    (Array.isArray(lot.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : []).join(", "),
     lot.operatorName,
-    workLotCategoryLabel(lot.category),
+    workLotCategoryCode(lot.category),
+    Number.isFinite(Number(lot.area)) ? Number(lot.area).toFixed(2) : "",
     lot.responsiblePerson || "",
+    formatHongKong(lot.assessDate, { mode: "date" }),
     formatHongKong(lot.dueDate, { mode: "date" }),
+    formatHongKong(lot.completionDate, { mode: "date" }),
+    lot.floatMonths ?? "",
+    lot.forceEviction ? "Yes" : "No",
     lot.status,
     lot.description || "",
     lot.remark || "",
@@ -51,18 +69,65 @@ export function exportWorkLots(workLots) {
   downloadExcel("work-lots.xlsx", headers, rows, "WorkLots");
 }
 
-export function exportSiteBoundaries(boundaries) {
-  const headers = ["ID", "Name", "Source Layer", "Entity", "Area (m²)", "Area (ha)"];
+export function exportSiteBoundaries(
+  boundaries,
+  workLots = [],
+  options = {}
+) {
+  const { floatThresholdMonths = 3 } = options;
+  const headers = [
+    "Land ID",
+    "Name",
+    "Hectare",
+    "BU/HH/GL",
+    "Contract No.",
+    "Future Use",
+    "Assess Date",
+    "Handover Date",
+    "Completion Date",
+    "Float (Months)",
+    "Status",
+    "Need Force Eviction",
+    "Others",
+    "Operator Progress",
+    "Related Work Lots",
+  ];
+  const byBoundary = buildWorkLotsByBoundary(workLots);
   const rows = boundaries.map((item) => {
+    const relatedLots = byBoundary.get(String(item.id)) || [];
+    const summary = summarizeSiteBoundary(
+      item,
+      relatedLots,
+      { floatThresholdMonths }
+    );
     const area = Number(item.area) || 0;
-    const ha = area / 10000;
+    const hectare = area / 10000;
+    const split = summary.categoryAreasHectare || { BU: 0, HH: 0, GL: 0 };
+    const hectareText = `${hectare.toFixed(2)} (BU:${split.BU.toFixed(2)} / HH:${split.HH.toFixed(
+      2
+    )} / GL:${split.GL.toFixed(2)})`;
+    const operatorMix = `BU:${summary.categoryCounts.BU} / HH:${summary.categoryCounts.HH} / GL:${summary.categoryCounts.GL}`;
+    const assessDate =
+      relatedLots
+        .map((lot) => lot?.assessDate || "")
+        .filter(Boolean)
+        .sort()[0] || item.assessDate || "";
     return [
       item.id,
       item.name,
-      item.layer,
-      item.entity,
-      Math.round(area),
-      ha.toFixed(2),
+      hectareText,
+      operatorMix,
+      item.contractNo || "",
+      item.futureUse || "",
+      formatHongKong(assessDate, { mode: "date" }),
+      formatHongKong(item.plannedHandoverDate, { mode: "date" }),
+      formatHongKong(item.completionDate, { mode: "date" }),
+      summary.minFloatMonths ?? "",
+      summary.status,
+      summary.requiresForceEviction ? "Yes" : "No",
+      item.others || "",
+      `${summary.completedOperators}/${summary.totalOperators} (${summary.progressPercent}%)`,
+      relatedLots.map((lot) => String(lot.id)).join(", "),
     ];
   });
   downloadExcel("site-boundaries.xlsx", headers, rows, "SiteBoundaries");

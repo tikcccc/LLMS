@@ -30,19 +30,53 @@
 
     <el-table :data="filteredWorkLots" height="calc(100vh - 260px)">
       <el-table-column prop="id" label="ID" width="150" />
+      <el-table-column label="Related Lands" min-width="220">
+        <template #default="{ row }">
+          {{ relatedLandText(row) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="operatorName" label="Work Lot" min-width="200" />
       <el-table-column label="Category" min-width="190">
         <template #default="{ row }">
           {{ workCategoryLabel(row.category) }}
         </template>
       </el-table-column>
+      <el-table-column label="Area" width="170">
+        <template #default="{ row }">
+          {{ formatArea(row.area) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="responsiblePerson" label="Responsible Person" min-width="160" />
+      <el-table-column label="Assess Date" width="130">
+        <template #default="{ row }">
+          <TimeText :value="row.assessDate" mode="date" />
+        </template>
+      </el-table-column>
       <el-table-column label="Due Date" width="130">
         <template #default="{ row }">
           <TimeText :value="row.dueDate" mode="date" />
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="Status" width="170" />
+      <el-table-column label="Completion Date" width="140">
+        <template #default="{ row }">
+          <TimeText :value="row.completionDate" mode="date" />
+        </template>
+      </el-table-column>
+      <el-table-column label="Float (Months)" width="120">
+        <template #default="{ row }">
+          {{
+            row.floatMonths === null || row.floatMonths === undefined
+              ? "—"
+              : row.floatMonths
+          }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Force Eviction" width="130">
+        <template #default="{ row }">
+          {{ row.forceEviction ? "Yes" : "No" }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="status" label="Operational Status" width="200" />
       <el-table-column label="Updated At" min-width="180">
         <template #default="{ row }">
           <TimeText :value="row.updatedAt" />
@@ -83,6 +117,18 @@ const categoryFilter = ref("All");
 const statusOptions = ["All", ...WORK_LOT_STATUSES];
 const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];
 const workCategoryLabel = (category) => toWorkLotCategoryLabel(category);
+const relatedLandText = (lot) => {
+  const related = Array.isArray(lot?.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : [];
+  return related.length ? related.join(", ") : "—";
+};
+const formatArea = (area) => {
+  const value = Number(area);
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  const hectare = value / 10000;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${hectare.toFixed(
+    2
+  )} ha)`;
+};
 
 const filteredWorkLots = computed(() =>
   workLots.value.filter((lot) => {
@@ -91,14 +137,20 @@ const filteredWorkLots = computed(() =>
     return fuzzyMatchAny(
       [
         lot.id,
+        relatedLandText(lot),
         lot.operatorName,
         workCategoryLabel(lot.category),
         lot.responsiblePerson,
+        lot.assessDate,
         lot.dueDate,
+        lot.completionDate,
+        lot.floatMonths,
+        lot.forceEviction ? "Yes" : "No",
         lot.status,
         lot.updatedBy,
         lot.description,
         lot.remark,
+        lot.area,
       ],
       searchQuery.value
     );

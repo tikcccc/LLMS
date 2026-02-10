@@ -25,13 +25,14 @@
         v-model:showWorkLots="uiStore.showWorkLots"
         v-model:showWorkLotsBusiness="uiStore.showWorkLotsBusiness"
         v-model:showWorkLotsDomestic="uiStore.showWorkLotsDomestic"
+        v-model:showWorkLotsGovernment="uiStore.showWorkLotsGovernment"
         :work-lot-results="workLotResults"
         :site-boundary-results="siteBoundaryResults"
         :scope-work-lot-results="scopeWorkLotResults"
         :scope-site-boundary-results="scopeSiteBoundaryResults"
+        :has-scope-query="hasScopeQuery"
         :scope-mode-name="scopeModeName"
         :work-status-style="workStatusStyle"
-        :work-category-label="workCategoryLabel"
         @focus-work="zoomToWorkLot"
         @focus-site-boundary="zoomToSiteBoundary"
       />
@@ -42,24 +43,55 @@
     <MapDrawer
       :selected-work-lot="drawerWorkLot"
       :selected-site-boundary="selectedSiteBoundary"
+      :related-work-lots="selectedSiteBoundaryRelatedWorkLots"
+      :related-site-boundaries="selectedWorkLotRelatedSites"
       :work-status-style="workStatusStyle"
       :work-category-label="workCategoryLabel"
+      :can-edit-work="canEditWork"
+      :can-edit-site-boundary="canEditWork"
       :can-delete-work="canEditWork"
       @close="handleDrawerClose"
+      @edit-work-lot="editSelectedWorkLot"
+      @edit-site-boundary="editSelectedSiteBoundary"
       @delete-work-lot="deleteSelectedWorkLot"
+      @focus-work-lot="zoomToWorkLot"
+      @focus-site-boundary="zoomToSiteBoundary"
     />
 
     <WorkLotDialog
       v-model="showWorkDialog"
+      :title="workDialogTitle"
+      :confirm-text="workDialogConfirmText"
+      :work-lot-id="workDialogWorkLotId"
+      :related-site-boundary-ids="workForm.relatedSiteBoundaryIds"
       v-model:operatorName="workForm.operatorName"
       v-model:category="workForm.category"
       v-model:responsiblePerson="workForm.responsiblePerson"
+      v-model:assessDate="workForm.assessDate"
       v-model:dueDate="workForm.dueDate"
+      v-model:completionDate="workForm.completionDate"
+      v-model:floatMonths="workForm.floatMonths"
+      v-model:forceEviction="workForm.forceEviction"
       v-model:status="workForm.status"
       v-model:description="workForm.description"
       v-model:remark="workForm.remark"
       @confirm="confirmWork"
       @cancel="cancelWork"
+    />
+
+    <SiteBoundaryDialog
+      v-model="showSiteBoundaryDialog"
+      title="Edit Site Boundary"
+      confirm-text="Save"
+      :boundary-id="siteBoundaryDialogBoundaryId"
+      v-model:name="siteBoundaryForm.name"
+      v-model:contractNo="siteBoundaryForm.contractNo"
+      v-model:futureUse="siteBoundaryForm.futureUse"
+      v-model:plannedHandoverDate="siteBoundaryForm.plannedHandoverDate"
+      v-model:completionDate="siteBoundaryForm.completionDate"
+      v-model:others="siteBoundaryForm.others"
+      @confirm="confirmSiteBoundary"
+      @cancel="cancelSiteBoundary"
     />
   </div>
 </template>
@@ -74,12 +106,13 @@ import MapToolbar from "./components/MapToolbar.vue";
 import MapSidePanel from "./components/MapSidePanel.vue";
 import MapDrawer from "./components/MapDrawer.vue";
 import WorkLotDialog from "./components/WorkLotDialog.vue";
+import SiteBoundaryDialog from "./components/SiteBoundaryDialog.vue";
 import MapScaleBar from "./components/MapScaleBar.vue";
 
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
+import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { useUiStore } from "../../stores/useUiStore";
-import { generateId } from "../../shared/utils/id";
 import { nowIso, todayHongKong } from "../../shared/utils/time";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import {
@@ -92,10 +125,13 @@ import { useMapCore } from "./composables/useMapCore";
 import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
+import { EPSG_2326 } from "./ol/projection";
+import { findSiteBoundaryIdsForGeometry } from "./utils/siteBoundaryMatch";
 import { workStatusStyle } from "./utils/statusStyle";
 
 const authStore = useAuthStore();
 const workLotStore = useWorkLotStore();
+const siteBoundaryStore = useSiteBoundaryStore();
 const uiStore = useUiStore();
 const route = useRoute();
 
@@ -122,7 +158,8 @@ const {
   workSources,
   workLayers,
   workBusinessLayer,
-  workDomesticLayer,
+  workHouseholdLayer,
+  workGovernmentLayer,
   intLandLayer,
   siteBoundarySource,
   siteBoundaryLayer,
@@ -130,6 +167,7 @@ const {
   updateLayerVisibility,
   createWorkFeature,
   refreshWorkSources,
+  refreshSiteBoundaryState,
   getWorkFeatureById,
   loadIntLandGeojson,
   loadSiteBoundaryGeojson,
@@ -137,6 +175,7 @@ const {
   workLotStore,
   authStore,
   uiStore,
+  siteBoundaryStore,
 });
 
 const {
@@ -158,16 +197,69 @@ const {
 const hasDraft = ref(false);
 const pendingGeometry = ref(null);
 const showWorkDialog = ref(false);
+const workDialogMode = ref("create");
+const editingWorkLotId = ref(null);
+const showSiteBoundaryDialog = ref(false);
+const editingSiteBoundaryId = ref("");
 
 const workForm = ref({
   operatorName: "",
   category: WORK_LOT_CATEGORY.BU,
+  relatedSiteBoundaryIds: [],
   responsiblePerson: "",
+  assessDate: todayHongKong(),
   dueDate: todayHongKong(),
-  status: WORK_LOT_STATUS.WAITING_CLEARANCE,
+  completionDate: "",
+  floatMonths: null,
+  forceEviction: false,
+  status: WORK_LOT_STATUS.WAITING_ASSESSMENT,
   description: "",
   remark: "",
 });
+
+const siteBoundaryForm = ref({
+  name: "",
+  contractNo: "",
+  futureUse: "",
+  plannedHandoverDate: "",
+  completionDate: "",
+  others: "",
+});
+
+const workDialogTitle = computed(() =>
+  workDialogMode.value === "edit" ? "Edit Work Lot" : "Create Work Lot"
+);
+const workDialogConfirmText = computed(() =>
+  workDialogMode.value === "edit" ? "Save Changes" : "Save"
+);
+const workDialogWorkLotId = computed(() =>
+  workDialogMode.value === "edit" ? String(editingWorkLotId.value ?? "") : ""
+);
+const siteBoundaryDialogBoundaryId = computed(() =>
+  String(editingSiteBoundaryId.value || "")
+);
+
+const resetWorkForm = () => {
+  workForm.value = {
+    operatorName: "",
+    category: WORK_LOT_CATEGORY.BU,
+    relatedSiteBoundaryIds: [],
+    responsiblePerson: "",
+    assessDate: todayHongKong(),
+    dueDate: todayHongKong(),
+    completionDate: "",
+    floatMonths: null,
+    forceEviction: false,
+    status: WORK_LOT_STATUS.WAITING_ASSESSMENT,
+    description: "",
+    remark: "",
+  };
+};
+
+const resetWorkDialogEditState = () => {
+  workDialogMode.value = "create";
+  editingWorkLotId.value = null;
+};
 
 const leftTab = ref("layers");
 const workSearchQuery = ref("");
@@ -194,10 +286,15 @@ const workLotResults = computed(() => {
       fuzzyMatchAny(
         [
           lot.id,
+          (lot.relatedSiteBoundaryIds || []).join(", "),
           lot.operatorName,
           workCategoryLabel(lot.category),
           lot.responsiblePerson,
+          lot.assessDate,
           lot.dueDate,
+          lot.completionDate,
+          lot.floatMonths,
+          lot.area,
           lot.status,
           lot.description,
           lot.remark,
@@ -234,6 +331,46 @@ const deleteSelectedWorkLot = () => {
   refreshHighlights();
 };
 
+const editSelectedWorkLot = () => {
+  if (!canEditWork.value || !selectedWorkLot.value) return;
+  const lot = selectedWorkLot.value;
+  workDialogMode.value = "edit";
+  editingWorkLotId.value = lot.id;
+  workForm.value = {
+    operatorName: lot.operatorName || "",
+    category: normalizeWorkLotCategory(lot.category ?? lot.type),
+    relatedSiteBoundaryIds: withRelatedIdFallback(
+      resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry),
+      lot.relatedSiteBoundaryIds
+    ),
+    responsiblePerson: lot.responsiblePerson || "",
+    assessDate: lot.assessDate || "",
+    dueDate: lot.dueDate || todayHongKong(),
+    completionDate: lot.completionDate || "",
+    floatMonths: lot.floatMonths ?? null,
+    forceEviction: !!lot.forceEviction,
+    status: lot.status || WORK_LOT_STATUS.WAITING_ASSESSMENT,
+    description: lot.description || "",
+    remark: lot.remark || "",
+  };
+  showWorkDialog.value = true;
+};
+
+const editSelectedSiteBoundary = () => {
+  if (!canEditWork.value || !selectedSiteBoundary.value) return;
+  const boundary = selectedSiteBoundary.value;
+  editingSiteBoundaryId.value = String(boundary.id || "");
+  siteBoundaryForm.value = {
+    name: boundary.name || "",
+    contractNo: boundary.contractNo || "",
+    futureUse: boundary.futureUse || "",
+    plannedHandoverDate: boundary.plannedHandoverDate || "",
+    completionDate: boundary.completionDate || "",
+    others: boundary.others || "",
+  };
+  showSiteBoundaryDialog.value = true;
+};
+
 const {
   setTool,
   cancelTool,
@@ -267,6 +404,45 @@ const {
 
 const siteBoundarySourceVersion = ref(0);
 
+const resolveRelatedSiteBoundaryIdsByGeometryObject = (geometryObject) => {
+  if (!geometryObject || !siteBoundarySource) return [];
+  try {
+    const geometry = format.readGeometry(geometryObject, {
+      dataProjection: EPSG_2326,
+      featureProjection: EPSG_2326,
+    });
+    return findSiteBoundaryIdsForGeometry(geometry, siteBoundarySource);
+  } catch (error) {
+    console.warn("[map] resolve related site boundaries for work lot failed", error);
+    return [];
+  }
+};
+
+const syncWorkLotBoundaryLinks = () => {
+  workLotStore.workLots.forEach((lot) => {
+    const autoRelatedIds = resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry).map(
+      (item) => String(item)
+    );
+    const currentRelated = Array.isArray(lot.relatedSiteBoundaryIds)
+      ? lot.relatedSiteBoundaryIds.map((item) => String(item))
+      : [];
+    const changed =
+      autoRelatedIds.length !== currentRelated.length ||
+      autoRelatedIds.some((item, index) => item !== currentRelated[index]);
+    if (!changed) return;
+    workLotStore.updateWorkLot(lot.id, {
+      relatedSiteBoundaryIds: autoRelatedIds,
+    });
+  });
+};
+
+const withRelatedIdFallback = (derivedIds, fallbackIds = []) =>
+  Array.isArray(derivedIds) && derivedIds.length > 0
+    ? derivedIds
+    : Array.isArray(fallbackIds)
+      ? fallbackIds
+      : [];
+
 const findSiteBoundaryFeatureById = (id) => {
   if (!id || !siteBoundarySource) return null;
   const normalizedId = String(id);
@@ -287,13 +463,96 @@ const selectedSiteBoundary = computed(() => {
   const area =
     feature.get("area") ??
     (geometry && typeof geometry.getArea === "function" ? geometry.getArea() : null);
+  const normalizedBoundaryId = String(feature.getId() ?? id);
+  const relatedWorkLotIds = workLotStore.workLots
+    .filter((lot) => {
+      const relatedIds = Array.isArray(lot.relatedSiteBoundaryIds)
+        ? lot.relatedSiteBoundaryIds
+        : [];
+      const normalizedBoundaryIdLower = normalizedBoundaryId.toLowerCase();
+      return relatedIds.some(
+        (relatedId) => String(relatedId).toLowerCase() === normalizedBoundaryIdLower
+      );
+    })
+    .map((lot) => String(lot.id));
   return {
-    id: feature.getId() ?? id,
+    id: normalizedBoundaryId,
     name: feature.get("name") ?? "Site Boundary",
     layer: feature.get("layer") ?? "—",
     entity: feature.get("entity") ?? "Polygon",
     area,
+    contractNo: feature.get("contractNo") ?? "",
+    futureUse: feature.get("futureUse") ?? "",
+    completionDate: feature.get("completionDate") ?? "",
+    others: feature.get("others") ?? "",
+    plannedHandoverDate: feature.get("plannedHandoverDate") ?? "",
+    handoverProgress: feature.get("handoverProgress") ?? 0,
+    operatorTotal: feature.get("operatorTotal") ?? 0,
+    operatorCompleted: feature.get("operatorCompleted") ?? 0,
+    boundaryStatus: feature.get("boundaryStatus") ?? "Pending Clearance",
+    boundaryStatusKey: feature.get("kpiStatus") ?? "PENDING_CLEARANCE",
+    categoryAreasHectare: feature.get("categoryAreasHectare") ?? { BU: 0, HH: 0, GL: 0 },
+    overdue: !!feature.get("overdue"),
+    relatedWorkLotIds,
   };
+});
+
+const selectedWorkLotRelatedSites = computed(() => {
+  siteBoundarySourceVersion.value;
+  const lot = selectedWorkLot.value;
+  if (!lot) return [];
+  const relatedSiteBoundaryIds = withRelatedIdFallback(
+    resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry),
+    lot.relatedSiteBoundaryIds
+  );
+  return Array.from(
+    new Set((relatedSiteBoundaryIds || []).map((item) => String(item)).filter(Boolean))
+  )
+    .map((siteBoundaryId) => {
+      const feature = findSiteBoundaryFeatureById(siteBoundaryId);
+      return {
+        id: String(feature?.getId() ?? siteBoundaryId),
+        name: feature?.get("name") ?? "Site Boundary",
+        status: feature?.get("boundaryStatus") ?? "Pending Clearance",
+        statusKey: feature?.get("kpiStatus") ?? "PENDING_CLEARANCE",
+        plannedHandoverDate: feature?.get("plannedHandoverDate") ?? "",
+        overdue: !!feature?.get("overdue"),
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true }) ||
+        a.id.localeCompare(b.id, undefined, { numeric: true })
+    );
+});
+
+const selectedSiteBoundaryRelatedWorkLots = computed(() => {
+  const siteBoundaryId = selectedSiteBoundary.value?.id;
+  if (!siteBoundaryId) return [];
+  const normalizedSiteBoundaryId = String(siteBoundaryId).toLowerCase();
+  return workLotStore.workLots
+    .filter((lot) => {
+      const relatedIds = Array.isArray(lot.relatedSiteBoundaryIds)
+        ? lot.relatedSiteBoundaryIds
+        : [];
+      return relatedIds.some(
+        (relatedId) => String(relatedId).toLowerCase() === normalizedSiteBoundaryId
+      );
+    })
+    .map((lot) => ({
+      id: String(lot.id),
+      operatorName: lot.operatorName || "Work Lot",
+      status: lot.status || WORK_LOT_STATUS.WAITING_ASSESSMENT,
+      dueDate: lot.dueDate || "",
+    }))
+    .sort((a, b) => {
+      const dueA = a.dueDate || "9999-12-31";
+      const dueB = b.dueDate || "9999-12-31";
+      return (
+        dueA.localeCompare(dueB) ||
+        a.operatorName.localeCompare(b.operatorName, undefined, { numeric: true })
+      );
+    });
 });
 
 const siteBoundaryResults = computed(() => {
@@ -304,18 +563,14 @@ const siteBoundaryResults = computed(() => {
   return siteBoundarySource
     .getFeatures()
     .map((feature, index) => ({
-      id: String(feature.getId() ?? `SB-${index + 1}`),
+      id: String(feature.getId() ?? `site_boundary_${String(index + 1).padStart(5, "0")}`),
       name: feature.get("name") ?? "Site Boundary",
-      layer: feature.get("layer") ?? "—",
-      entity: feature.get("entity") ?? "Polygon",
     }))
     .filter((item) => {
       if (!query) return true;
       return (
         item.id.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query) ||
-        item.layer.toLowerCase().includes(query) ||
-        item.entity.toLowerCase().includes(query)
+        item.name.toLowerCase().includes(query)
       );
     })
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
@@ -337,8 +592,6 @@ const scopeSiteBoundaryResults = computed(() => {
     .map((feature) => ({
       id: String(feature.getId() ?? feature.get("refId")),
       name: feature.get("name") ?? "Site Boundary",
-      layer: feature.get("layer") ?? "—",
-      entity: feature.get("entity") ?? "Polygon",
     }));
 });
 
@@ -398,8 +651,11 @@ const zoomToWorkLot = (id) => {
     if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) {
       uiStore.setLayerVisibility("showWorkLotsBusiness", true);
     }
-    if (category === WORK_LOT_CATEGORY.DOMESTIC && !uiStore.showWorkLotsDomestic) {
+    if (category === WORK_LOT_CATEGORY.HH && !uiStore.showWorkLotsDomestic) {
       uiStore.setLayerVisibility("showWorkLotsDomestic", true);
+    }
+    if (category === WORK_LOT_CATEGORY.GL && !uiStore.showWorkLotsGovernment) {
+      uiStore.setLayerVisibility("showWorkLotsGovernment", true);
     }
   }
   const view = mapRef.value.getView();
@@ -430,22 +686,59 @@ const onRoleChange = () => {
     !canEditLayer.value &&
     ["POLYGON", "POLYGON_CIRCLE", "MODIFY", "DELETE"].includes(uiStore.tool)
   ) {
-    setTool("DRAW_CIRCLE");
+    setTool("PAN");
   }
   updateLayerOpacity();
   rebuildInteractions();
 };
 
 const confirmWork = () => {
+  if (workDialogMode.value === "edit") {
+    const workLotId = editingWorkLotId.value;
+    if (!workLotId) return;
+    const existing = workLotStore.workLots.find((lot) => lot.id === workLotId);
+    const autoRelatedIds = withRelatedIdFallback(
+      resolveRelatedSiteBoundaryIdsByGeometryObject(existing?.geometry),
+      existing?.relatedSiteBoundaryIds
+    );
+    const workLotName =
+      workForm.value.operatorName.trim() || existing?.operatorName || `Work Lot ${workLotId}`;
+    workLotStore.updateWorkLot(workLotId, {
+      operatorName: workLotName,
+      category: workForm.value.category,
+      relatedSiteBoundaryIds: autoRelatedIds,
+      responsiblePerson: workForm.value.responsiblePerson,
+      assessDate: workForm.value.assessDate,
+      dueDate: workForm.value.dueDate || todayHongKong(),
+      completionDate: workForm.value.completionDate,
+      floatMonths: workForm.value.floatMonths,
+      forceEviction: workForm.value.forceEviction,
+      status: workForm.value.status,
+      description: workForm.value.description,
+      remark: workForm.value.remark,
+      updatedBy: authStore.roleName,
+      updatedAt: nowIso(),
+    });
+    showWorkDialog.value = false;
+    resetWorkDialogEditState();
+    return;
+  }
+
   if (!pendingGeometry.value) return;
-  const id = generateId("WL");
-  const workLotName = workForm.value.operatorName.trim() || `Work Lot ${id}`;
+  const workLotName = workForm.value.operatorName.trim() || "Work Lot";
+  const relatedSiteBoundaryIds = resolveRelatedSiteBoundaryIdsByGeometryObject(
+    pendingGeometry.value
+  );
   workLotStore.addWorkLot({
-    id,
     operatorName: workLotName,
     category: workForm.value.category,
+    relatedSiteBoundaryIds,
     responsiblePerson: workForm.value.responsiblePerson,
+    assessDate: workForm.value.assessDate,
     dueDate: workForm.value.dueDate || todayHongKong(),
+    completionDate: workForm.value.completionDate,
+    floatMonths: workForm.value.floatMonths,
+    forceEviction: workForm.value.forceEviction,
     status: workForm.value.status,
     description: workForm.value.description,
     remark: workForm.value.remark,
@@ -453,27 +746,56 @@ const confirmWork = () => {
     updatedBy: authStore.roleName,
     updatedAt: nowIso(),
   });
-  workForm.value = {
-    operatorName: "",
-    category: WORK_LOT_CATEGORY.BU,
-    responsiblePerson: "",
-    dueDate: todayHongKong(),
-    status: WORK_LOT_STATUS.WAITING_CLEARANCE,
-    description: "",
-    remark: "",
-  };
+  resetWorkForm();
   showWorkDialog.value = false;
   clearDraft();
+  resetWorkDialogEditState();
 };
 
 const cancelWork = () => {
+  if (workDialogMode.value === "edit") {
+    showWorkDialog.value = false;
+    resetWorkDialogEditState();
+    return;
+  }
   cancelDraft();
+};
+
+const confirmSiteBoundary = () => {
+  if (!editingSiteBoundaryId.value) return;
+  siteBoundaryStore.updateSiteBoundary(editingSiteBoundaryId.value, {
+    name: siteBoundaryForm.value.name,
+    contractNo: siteBoundaryForm.value.contractNo,
+    futureUse: siteBoundaryForm.value.futureUse,
+    plannedHandoverDate: siteBoundaryForm.value.plannedHandoverDate,
+    completionDate: siteBoundaryForm.value.completionDate,
+    others: siteBoundaryForm.value.others,
+  });
+  showSiteBoundaryDialog.value = false;
+  editingSiteBoundaryId.value = "";
+};
+
+const cancelSiteBoundary = () => {
+  showSiteBoundaryDialog.value = false;
+  editingSiteBoundaryId.value = "";
 };
 
 watch(
   () => workLotStore.workLots,
   () => {
     refreshWorkSources();
+    refreshSiteBoundaryState();
+    siteBoundarySourceVersion.value += 1;
+    refreshHighlights();
+  },
+  { deep: true }
+);
+
+watch(
+  () => siteBoundaryStore.siteBoundaries,
+  () => {
+    refreshSiteBoundaryState();
+    siteBoundarySourceVersion.value += 1;
     refreshHighlights();
   },
   { deep: true }
@@ -485,6 +807,15 @@ watch(
 );
 
 watch(
+  () => showWorkDialog.value,
+  (open) => {
+    if (!open || workDialogMode.value !== "create") return;
+    workForm.value.relatedSiteBoundaryIds =
+      resolveRelatedSiteBoundaryIdsByGeometryObject(pendingGeometry.value);
+  }
+);
+
+watch(
   () => [
     uiStore.showBasemap,
     uiStore.showLabels,
@@ -493,6 +824,7 @@ watch(
     uiStore.showWorkLots,
     uiStore.showWorkLotsBusiness,
     uiStore.showWorkLotsDomestic,
+    uiStore.showWorkLotsGovernment,
   ],
   () => {
     updateLayerVisibility(basemapLayer.value, labelLayer.value);
@@ -598,22 +930,21 @@ const handleKeydown = (event) => {
   }
 };
 
-onMounted(() => {
-  if (uiStore.tool === "DRAW") {
-    uiStore.setTool("DRAW_CIRCLE");
+onMounted(async () => {
+  if (uiStore.tool !== "PAN") {
+    uiStore.setTool("PAN");
   }
-  if (
-    !canEditLayer.value &&
-    ["POLYGON", "POLYGON_CIRCLE", "MODIFY", "DELETE"].includes(uiStore.tool)
-  ) {
-    uiStore.setTool("DRAW_CIRCLE");
+  if (uiStore.showIntLand) {
+    uiStore.setLayerVisibility("showIntLand", false);
   }
+  await siteBoundaryStore.ensureLoaded();
   initMap([
     intLandLayer,
     siteBoundaryLayer,
     siteBoundaryHighlightLayer,
     workBusinessLayer,
-    workDomesticLayer,
+    workHouseholdLayer,
+    workGovernmentLayer,
     workHighlightLayer,
   ]);
   refreshWorkSources();
@@ -622,6 +953,8 @@ onMounted(() => {
     !getQueryValue(route.query.workLotId) && !getQueryValue(route.query.siteBoundaryId);
   loadSiteBoundaryGeojson().then(() => {
     siteBoundarySourceVersion.value += 1;
+    syncWorkLotBoundaryLinks();
+    refreshSiteBoundaryState();
     if (shouldAutoFit) {
       fitToSiteBoundary();
     }

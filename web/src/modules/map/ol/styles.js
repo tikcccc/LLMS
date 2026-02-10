@@ -2,6 +2,7 @@ import { Fill, Stroke, Style, Text } from "ol/style";
 
 const workStyleCache = new Map();
 const highlightWorkStyleCache = new Map();
+const siteBoundaryStyleCache = new Map();
 
 const intLandStroke = new Stroke({ color: "rgba(14, 116, 144, 0.8)", width: 2.2 });
 const intLandFill = new Fill({ color: "rgba(14, 116, 144, 0.18)" });
@@ -14,19 +15,50 @@ export function intLandStyle() {
   return intLandBaseStyle;
 }
 
-const siteBoundaryStroke = new Stroke({
-  color: "rgba(217, 119, 6, 0.95)",
-  width: 2.6,
-  lineDash: [8, 4],
-});
-const siteBoundaryFill = new Fill({ color: "rgba(217, 119, 6, 0.12)" });
-const siteBoundaryBaseStyle = new Style({
-  stroke: siteBoundaryStroke,
-  fill: siteBoundaryFill,
-});
+const siteBoundaryPalette = {
+  DEFAULT: { stroke: "rgba(217, 119, 6, 0.95)", fill: "rgba(217, 119, 6, 0.12)" },
+  PENDING_CLEARANCE: {
+    stroke: "rgba(100, 116, 139, 0.95)",
+    fill: "rgba(148, 163, 184, 0.1)",
+  },
+  IN_PROGRESS: { stroke: "rgba(202, 138, 4, 0.95)", fill: "rgba(250, 204, 21, 0.12)" },
+  CRITICAL_RISK: { stroke: "rgba(220, 38, 38, 0.95)", fill: "rgba(248, 113, 113, 0.16)" },
+  HANDOVER_READY: { stroke: "rgba(22, 163, 74, 0.95)", fill: "rgba(34, 197, 94, 0.14)" },
+  HANDED_OVER: { stroke: "rgba(5, 150, 105, 0.95)", fill: "rgba(16, 185, 129, 0.16)" },
+};
 
-export function siteBoundaryStyle() {
-  return siteBoundaryBaseStyle;
+const createSiteBoundaryStyle = (statusKey = "DEFAULT") => {
+  const palette = siteBoundaryPalette[statusKey] || siteBoundaryPalette.DEFAULT;
+  return new Style({
+    stroke: new Stroke({
+      color: palette.stroke,
+      width: 2.6,
+      lineDash: [8, 4],
+    }),
+    fill: new Fill({ color: palette.fill }),
+    text: new Text({
+      font: "600 12px 'IBM Plex Sans'",
+      fill: new Fill({ color: "#334155" }),
+      stroke: new Stroke({ color: "rgba(255,255,255,0.96)", width: 4 }),
+      overflow: true,
+    }),
+  });
+};
+
+export function siteBoundaryStyle(feature) {
+  const rawStatusKey = feature?.get?.("kpiStatus") || "DEFAULT";
+  const overdue = !!feature?.get?.("overdue");
+  const statusKey =
+    overdue && rawStatusKey !== "HANDED_OVER" && rawStatusKey !== "HANDOVER_READY"
+      ? "CRITICAL_RISK"
+      : rawStatusKey;
+  if (!siteBoundaryStyleCache.has(statusKey)) {
+    siteBoundaryStyleCache.set(statusKey, createSiteBoundaryStyle(statusKey));
+  }
+  const style = siteBoundaryStyleCache.get(statusKey);
+  const name = feature?.get?.("name") || "";
+  style.getText()?.setText(name);
+  return style;
 }
 
 const siteBoundaryHighlightStroke = new Stroke({
@@ -50,17 +82,30 @@ export function workLotStyle(feature) {
   let strokeColor = "#64748b";
   let strokeWidth = 3;
 
-  if (status === "EGA approved") {
-    fillColor = "rgba(34, 197, 94, 0.72)";
-    strokeColor = "#15803d";
+  if (status === "Waiting for Assessment") {
+    fillColor = "rgba(148, 163, 184, 0.62)";
+    strokeColor = "#64748b";
+    strokeWidth = 2.8;
+  } else if (status === "EGA Approved") {
+    fillColor = "rgba(59, 130, 246, 0.72)";
+    strokeColor = "#1d4ed8";
     strokeWidth = 3.2;
-  } else if (status === "waiting for clearance") {
+  } else if (status === "Waiting for Clearance") {
     fillColor = "rgba(250, 204, 21, 0.74)";
     strokeColor = "#ca8a04";
     strokeWidth = 3.2;
+  } else if (status === "Cleared / Completed") {
+    fillColor = "rgba(34, 197, 94, 0.72)";
+    strokeColor = "#15803d";
+    strokeWidth = 3.2;
   }
 
-  const lineDash = category === "DOMESTIC" ? [6, 4] : undefined;
+  const lineDash =
+    category === "HH_HOUSEHOLD"
+      ? [6, 4]
+      : category === "GL_GOVERNMENT_LAND"
+        ? [2, 4]
+        : undefined;
   const cacheKey = `${status || "unknown"}:${category || "unknown"}`;
 
   if (!workStyleCache.has(cacheKey)) {
@@ -94,15 +139,23 @@ export function highlightWorkLotStyle(feature) {
 
   let fillColor = "rgba(148, 163, 184, 0.84)";
   let strokeColor = "#475569";
-  if (status === "EGA approved") {
-    fillColor = "rgba(34, 197, 94, 0.88)";
-    strokeColor = "#15803d";
-  } else if (status === "waiting for clearance") {
+  if (status === "EGA Approved") {
+    fillColor = "rgba(59, 130, 246, 0.9)";
+    strokeColor = "#1d4ed8";
+  } else if (status === "Waiting for Clearance") {
     fillColor = "rgba(250, 204, 21, 0.9)";
     strokeColor = "#a16207";
+  } else if (status === "Cleared / Completed") {
+    fillColor = "rgba(34, 197, 94, 0.9)";
+    strokeColor = "#15803d";
   }
 
-  const lineDash = category === "DOMESTIC" ? [7, 4] : undefined;
+  const lineDash =
+    category === "HH_HOUSEHOLD"
+      ? [7, 4]
+      : category === "GL_GOVERNMENT_LAND"
+        ? [2, 5]
+        : undefined;
   const cacheKey = `${status || "unknown"}:${category || "unknown"}`;
   if (!highlightWorkStyleCache.has(cacheKey)) {
     highlightWorkStyleCache.set(

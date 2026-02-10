@@ -5,6 +5,10 @@ import {
   WORK_LOT_STATUS,
   workLotCategoryLabel,
 } from "../../shared/utils/worklot";
+import {
+  buildWorkLotsByBoundary,
+  summarizeSiteBoundary,
+} from "../../shared/utils/siteBoundary";
 
 const MONTH_LABELS = [
   "Jan",
@@ -85,44 +89,79 @@ const buildMonthlySeries = (items, dateField, range) => {
 
 const isWorkLotOverdue = (lot) => {
   if (!lot?.dueDate) return false;
-  if (lot.status === WORK_LOT_STATUS.EGA_APPROVED) return false;
+  if (lot.status === WORK_LOT_STATUS.CLEARED_COMPLETED) return false;
   return lot.dueDate < todayHongKong();
 };
 
-export function useDashboardMetrics({ workLots, timeRange }) {
+export function useDashboardMetrics({
+  workLots,
+  siteBoundaries,
+  timeRange,
+  floatThresholdMonths,
+}) {
   const filteredWorkLots = computed(() =>
     filterByRange(workLots.value, "updatedAt", timeRange.value)
   );
 
+  const boundarySummaries = computed(() => {
+    const byBoundary = buildWorkLotsByBoundary(workLots.value);
+    return siteBoundaries.value.map((boundary) => {
+      const summary = summarizeSiteBoundary(
+        boundary,
+        byBoundary.get(String(boundary.id)) || [],
+        {
+          floatThresholdMonths: Number(floatThresholdMonths.value) || 0,
+        }
+      );
+      return { ...boundary, ...summary };
+    });
+  });
+
   const kpis = computed(() => {
-    const total = filteredWorkLots.value.length;
-    const approved = filteredWorkLots.value.filter(
-      (lot) => lot.status === WORK_LOT_STATUS.EGA_APPROVED
+    const totalLand = boundarySummaries.value.length;
+    const handoverDone = boundarySummaries.value.filter(
+      (item) => item.handoverCompleted
     ).length;
+    const forceEviction = boundarySummaries.value.filter(
+      (item) => item.requiresForceEviction
+    ).length;
+    const lowFloat = boundarySummaries.value.filter((item) => item.hasLowFloat).length;
+    const overdue = boundarySummaries.value.filter((item) => item.overdue).length;
     return {
-      workLots: total,
-      overdueWorkLots: filteredWorkLots.value.filter(isWorkLotOverdue).length,
-      approvedRate: total ? Math.round((approved / total) * 100) : 0,
+      landCount: totalLand,
+      handoverRate: totalLand ? Math.round((handoverDone / totalLand) * 100) : 0,
+      forceEvictionRate: totalLand ? Math.round((forceEviction / totalLand) * 100) : 0,
+      lowFloatRate: totalLand ? Math.round((lowFloat / totalLand) * 100) : 0,
+      overdueLandCount: overdue,
+      floatThresholdMonths: Number(floatThresholdMonths.value) || 0,
     };
   });
 
   const workLotCategorySplit = computed(() => ({
-    business: filteredWorkLots.value.filter(
+    bu: filteredWorkLots.value.filter(
       (lot) => lot.category === WORK_LOT_CATEGORY.BU
     ).length,
-    domestic: filteredWorkLots.value.filter(
-      (lot) => lot.category === WORK_LOT_CATEGORY.DOMESTIC
+    hh: filteredWorkLots.value.filter(
+      (lot) => lot.category === WORK_LOT_CATEGORY.HH
+    ).length,
+    gl: filteredWorkLots.value.filter(
+      (lot) => lot.category === WORK_LOT_CATEGORY.GL
     ).length,
   }));
 
   const workLotStatusSplit = computed(() => ({
-    approved: filteredWorkLots.value.filter(
+    waitingAssessment: filteredWorkLots.value.filter(
+      (lot) => lot.status === WORK_LOT_STATUS.WAITING_ASSESSMENT
+    ).length,
+    egaApproved: filteredWorkLots.value.filter(
       (lot) => lot.status === WORK_LOT_STATUS.EGA_APPROVED
     ).length,
-    waiting: filteredWorkLots.value.filter(
+    waitingClearance: filteredWorkLots.value.filter(
       (lot) => lot.status === WORK_LOT_STATUS.WAITING_CLEARANCE
     ).length,
-    overdue: filteredWorkLots.value.filter(isWorkLotOverdue).length,
+    clearedCompleted: filteredWorkLots.value.filter(
+      (lot) => lot.status === WORK_LOT_STATUS.CLEARED_COMPLETED
+    ).length,
   }));
 
   const monthlyTrend = computed(() =>
@@ -141,6 +180,7 @@ export function useDashboardMetrics({ workLots, timeRange }) {
 
   return {
     kpis,
+    boundarySummaries,
     workLotCategorySplit,
     workLotStatusSplit,
     monthlyTrend,

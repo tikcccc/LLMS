@@ -11,6 +11,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 
 import { EPSG_2326 } from "../ol/projection";
 import { nowIso } from "../../../shared/utils/time";
+import { findSiteBoundaryIdsForGeometry } from "../utils/siteBoundaryMatch";
 
 const scopeSketchStyle = new Style({
   stroke: new Stroke({
@@ -286,6 +287,7 @@ export const useMapInteractions = ({
         uiStore.setLayerVisibility("showWorkLots", true);
         uiStore.setLayerVisibility("showWorkLotsBusiness", true);
         uiStore.setLayerVisibility("showWorkLotsDomestic", true);
+        uiStore.setLayerVisibility("showWorkLotsGovernment", true);
       }
       uiStore.clearSelection();
       clearHighlightOverride();
@@ -457,12 +459,19 @@ export const useMapInteractions = ({
           pendingModifiedIds.forEach((id) => {
             const feature = getWorkFeatureById?.(id);
             if (!feature) return;
-            const geometry = format.writeGeometryObject(feature.getGeometry(), {
+            const featureGeometry = feature.getGeometry();
+            if (!featureGeometry) return;
+            const geometry = format.writeGeometryObject(featureGeometry, {
               dataProjection: EPSG_2326,
               featureProjection: EPSG_2326,
             });
+            const relatedSiteBoundaryIds = findSiteBoundaryIdsForGeometry(
+              featureGeometry,
+              siteBoundarySource
+            );
             workLotStore.updateWorkLot(id, {
               geometry,
+              relatedSiteBoundaryIds,
               updatedAt,
               updatedBy: authStore.roleName,
             });
