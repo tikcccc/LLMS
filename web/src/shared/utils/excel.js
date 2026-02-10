@@ -51,20 +51,6 @@ export function exportWorkLots(workLots) {
   downloadExcel("work-lots.xlsx", headers, rows, "WorkLots");
 }
 
-export function exportTasks(tasks) {
-  const headers = ["ID", "Work Lot", "Title", "Assignee", "Due Date", "Status", "Created At"];
-  const rows = tasks.map((task) => [
-    task.id,
-    task.workLotId,
-    task.title,
-    task.assignee,
-    formatHongKong(task.dueDate, { mode: "date" }),
-    task.status,
-    formatHongKong(task.createdAt),
-  ]);
-  downloadExcel("tasks.xlsx", headers, rows, "Tasks");
-}
-
 export function exportSiteBoundaries(boundaries) {
   const headers = ["ID", "Name", "Source Layer", "Entity", "Area (m²)", "Area (ha)"];
   const rows = boundaries.map((item) => {

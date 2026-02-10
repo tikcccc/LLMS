@@ -143,7 +143,7 @@ const buildCharts = () => {
     donutChart = new Chart(donutRef.value, {
       type: "doughnut",
       data: {
-        labels: ["BU Business Undertaking", "Domestic"],
+        labels: ["Business Undertaking", "Domestic"],
         datasets: [
           {
             data: [0, 0],

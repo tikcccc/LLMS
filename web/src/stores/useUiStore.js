@@ -17,6 +17,20 @@ export const useUiStore = defineStore("ui", {
     selectedSiteBoundaryId: null,
   }),
   actions: {
+    normalizeLegacyState() {
+      if (typeof this.showWorkLotsBusiness !== "boolean") {
+        this.showWorkLotsBusiness = true;
+      }
+      if (typeof this.showWorkLotsDomestic !== "boolean") {
+        this.showWorkLotsDomestic = true;
+      }
+      if (typeof this.showWorkLots !== "boolean") {
+        this.showWorkLots = true;
+      }
+      if (!this.showWorkLotsBusiness && !this.showWorkLotsDomestic) {
+        this.showWorkLots = false;
+      }
+    },
     setTool(tool) {
       this.tool = tool;
     },
@@ -53,7 +67,25 @@ export const useUiStore = defineStore("ui", {
       this.mobileNavOpen = !this.mobileNavOpen;
     },
     setLayerVisibility(layerKey, value) {
-      this[layerKey] = value;
+      const normalized = !!value;
+      if (layerKey === "showWorkLots") {
+        this.showWorkLots = normalized;
+        if (!normalized) {
+          this.showWorkLotsBusiness = false;
+          this.showWorkLotsDomestic = false;
+        } else if (!this.showWorkLotsBusiness && !this.showWorkLotsDomestic) {
+          this.showWorkLotsBusiness = true;
+          this.showWorkLotsDomestic = true;
+        }
+        return;
+      }
+      this[layerKey] = normalized;
+      if (
+        layerKey === "showWorkLotsBusiness" ||
+        layerKey === "showWorkLotsDomestic"
+      ) {
+        this.showWorkLots = this.showWorkLotsBusiness || this.showWorkLotsDomestic;
+      }
     },
   },
   persist: {

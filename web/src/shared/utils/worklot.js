@@ -6,7 +6,7 @@ export const WORK_LOT_CATEGORY = {
 };
 
 export const WORK_LOT_CATEGORIES = [
-  { value: WORK_LOT_CATEGORY.BU, label: "BU Business Undertaking" },
+  { value: WORK_LOT_CATEGORY.BU, label: "Business Undertaking" },
   { value: WORK_LOT_CATEGORY.DOMESTIC, label: "Domestic" },
 ];
 

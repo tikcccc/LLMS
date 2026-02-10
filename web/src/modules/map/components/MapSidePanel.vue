@@ -50,7 +50,7 @@
             <el-switch v-model="showWorkLotsProxy" />
           </div>
           <div class="panel-row panel-row-nested">
-            <span>BU Business Undertaking</span>
+            <span>Business Undertaking</span>
             <el-switch v-model="showWorkLotsBusinessProxy" />
           </div>
           <div class="panel-row panel-row-nested">
