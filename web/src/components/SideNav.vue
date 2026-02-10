@@ -1,8 +1,8 @@
 <template>
-  <aside :class="['side-nav', { collapsed: uiStore.sidebarCollapsed }]">
+  <aside :class="['side-nav', { collapsed: isCollapsed, mobile: mobile }]">
     <div class="profile">
       <div class="avatar">{{ userInitials }}</div>
-      <div v-if="!uiStore.sidebarCollapsed" class="profile-text">
+      <div v-if="!isCollapsed" class="profile-text">
         <div class="name">{{ currentUser.name }}</div>
         <div class="email">{{ currentUser.email }}</div>
       </div>
@@ -15,29 +15,29 @@
         type="button"
         :class="['nav-item', { active: isActive(item.path) }]"
         @click="go(item.path)"
-        :title="uiStore.sidebarCollapsed ? item.label : ''"
+        :title="isCollapsed ? item.label : ''"
       >
         <span class="nav-icon" v-html="item.icon"></span>
-        <span v-if="!uiStore.sidebarCollapsed" class="nav-label">{{ item.label }}</span>
+        <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
       </button>
 
-      <div class="nav-section" v-if="!uiStore.sidebarCollapsed">Settings</div>
+      <div class="nav-section" v-if="!isCollapsed">Settings</div>
       <button
         v-for="item in settingsItems"
         :key="item.path"
         type="button"
         :class="['nav-item', { active: isActive(item.path) }]"
         @click="go(item.path)"
-        :title="uiStore.sidebarCollapsed ? item.label : ''"
+        :title="isCollapsed ? item.label : ''"
       >
         <span class="nav-icon" v-html="item.icon"></span>
-        <span v-if="!uiStore.sidebarCollapsed" class="nav-label">{{ item.label }}</span>
+        <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
       </button>
     </nav>
 
-    <div class="collapse">
+    <div v-if="!mobile" class="collapse">
       <button type="button" class="collapse-btn" @click="uiStore.toggleSidebar()" aria-label="Toggle sidebar">
-        <svg v-if="uiStore.sidebarCollapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg v-if="isCollapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 6l6 6-6 6" />
         </svg>
         <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -59,6 +59,11 @@ const router = useRouter();
 const route = useRoute();
 const uiStore = useUiStore();
 const authStore = useAuthStore();
+const props = defineProps({
+  mobile: { type: Boolean, default: false },
+});
+
+const isCollapsed = computed(() => (props.mobile ? false : uiStore.sidebarCollapsed));
 
 const currentUser = computed(() => {
   const match = MOCK_USERS.find((user) => user.role === authStore.role);
@@ -113,6 +118,9 @@ const settingsItems = [
 
 const go = (path) => {
   router.push(path);
+  if (props.mobile) {
+    uiStore.setMobileNavOpen(false);
+  }
 };
 
 const isActive = (path) => route.path.startsWith(path);
@@ -133,6 +141,13 @@ const isActive = (path) => route.path.startsWith(path);
 
 .side-nav.collapsed {
   width: 80px;
+}
+
+.side-nav.mobile {
+  width: 100%;
+  min-height: 100%;
+  border-right: 0;
+  padding: 16px 12px;
 }
 
 .profile {

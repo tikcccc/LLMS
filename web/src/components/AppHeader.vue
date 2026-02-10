@@ -1,6 +1,11 @@
 <template>
   <header class="app-header">
     <div class="brand">
+      <button class="menu-btn" type="button" aria-label="Open navigation menu" @click="uiStore.toggleMobileNav()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
       <div class="title">Digital Land Management Platform</div>
     </div>
 
@@ -27,9 +32,11 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/useAuthStore";
+import { useUiStore } from "../stores/useUiStore";
 import { ROLE_OPTIONS } from "../shared/utils/role";
 
 const authStore = useAuthStore();
+const uiStore = useUiStore();
 const route = useRoute();
 const roleOptions = ROLE_OPTIONS;
 
@@ -76,6 +83,30 @@ const resetDemoData = () => {
 .brand .title {
   font-size: 20px;
   font-weight: 600;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #334155;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.menu-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .brand .subtitle {
@@ -132,6 +163,30 @@ const resetDemoData = () => {
 
   .actions {
     justify-self: start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-header {
+    padding: 12px 12px;
+    gap: 10px;
+  }
+
+  .brand .title {
+    font-size: 17px;
+  }
+
+  .menu-btn {
+    display: inline-flex;
+  }
+
+  .role-label {
+    display: none;
+  }
+
+  .actions {
+    gap: 8px;
   }
 }
 </style>

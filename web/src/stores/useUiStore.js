@@ -5,6 +5,7 @@ export const useUiStore = defineStore("ui", {
     tool: "DRAW_CIRCLE",
     selectedWorkLotId: null,
     sidebarCollapsed: false,
+    mobileNavOpen: false,
     showBasemap: true,
     showLabels: true,
     showIntLand: true,
@@ -42,6 +43,12 @@ export const useUiStore = defineStore("ui", {
     },
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
+    },
+    setMobileNavOpen(value) {
+      this.mobileNavOpen = !!value;
+    },
+    toggleMobileNav() {
+      this.mobileNavOpen = !this.mobileNavOpen;
     },
     setLayerVisibility(layerKey, value) {
       this[layerKey] = value;

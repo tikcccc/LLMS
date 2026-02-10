@@ -1,6 +1,32 @@
 <template>
-  <aside class="left-panel" :class="{ resizing: isResizing }" :style="panelStyle">
-    <el-tabs v-model="leftTabProxy" class="panel-tabs">
+  <aside
+    class="left-panel"
+    :class="{ resizing: isResizing, mobile: isMobile, 'mobile-open': mobilePanelOpen }"
+    :style="panelStyle"
+  >
+    <div v-if="isMobile" class="mobile-sheet-header">
+      <button
+        class="mobile-sheet-grip-btn"
+        type="button"
+        aria-label="Toggle map side panel"
+        @click="toggleMobilePanel"
+      >
+        <span class="mobile-sheet-grip"></span>
+      </button>
+      <div class="mobile-sheet-title">{{ mobilePanelTitle }}</div>
+      <button
+        class="mobile-sheet-close-btn"
+        type="button"
+        aria-label="Collapse map side panel"
+        @click="closeMobilePanel"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+    </div>
+
+    <el-tabs v-show="!isMobile || mobilePanelOpen" v-model="leftTabProxy" class="panel-tabs">
       <el-tab-pane label="Layers" name="layers">
         <div class="panel-section">
           <div class="panel-row">
@@ -192,6 +218,7 @@
       </el-tab-pane>
     </el-tabs>
     <button
+      v-if="!isMobile"
       class="resize-corner"
       type="button"
       aria-label="Resize side panel"
@@ -204,7 +231,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import TimeText from "../../../components/TimeText.vue";
 
 const props = defineProps({
@@ -279,6 +306,20 @@ const showWorkLotsProxy = computed({
   get: () => props.showWorkLots,
   set: (value) => emit("update:showWorkLots", value),
 });
+
+const MOBILE_BREAKPOINT = 900;
+const mobilePanelOpen = ref(true);
+const isMobile = ref(false);
+
+const TAB_TITLES = {
+  layers: "Layers",
+  scope: "Scope Results",
+  tasks: "Tasks",
+  worklots: "Work Lots",
+  siteboundaries: "Site Boundaries",
+};
+
+const mobilePanelTitle = computed(() => TAB_TITLES[leftTabProxy.value] || "Panel");
 
 const PANEL_WIDTH_STORAGE_KEY = "ND_LLM_V1_map_side_panel_width";
 const PANEL_HEIGHT_STORAGE_KEY = "ND_LLM_V1_map_side_panel_height";
@@ -360,7 +401,7 @@ const stopResize = () => {
 };
 
 const startResize = (event) => {
-  if (typeof window === "undefined" || window.innerWidth <= 900) return;
+  if (typeof window === "undefined" || window.innerWidth <= MOBILE_BREAKPOINT) return;
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
   isResizing.value = true;
@@ -379,20 +420,69 @@ const resetPanelSize = () => {
   persistPanelSize();
 };
 
+let mobileQueryList = null;
+
+const applyMobileMode = (mobile) => {
+  isMobile.value = mobile;
+  if (mobile) {
+    mobilePanelOpen.value = false;
+    stopResize();
+    return;
+  }
+  mobilePanelOpen.value = true;
+};
+
+const toggleMobilePanel = () => {
+  if (!isMobile.value) return;
+  mobilePanelOpen.value = !mobilePanelOpen.value;
+};
+
+const closeMobilePanel = () => {
+  if (!isMobile.value) return;
+  mobilePanelOpen.value = false;
+};
+
+const handleMobileMediaChange = (event) => {
+  applyMobileMode(event.matches);
+};
+
 const handleWindowResize = () => {
   panelWidth.value = clampPanelWidth(panelWidth.value);
   panelHeight.value = clampPanelHeight(panelHeight.value);
   persistPanelSize();
 };
 
+watch(
+  () => props.leftTab,
+  () => {
+    if (isMobile.value) {
+      mobilePanelOpen.value = true;
+    }
+  }
+);
+
 onMounted(() => {
   if (typeof window === "undefined") return;
+  mobileQueryList = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+  applyMobileMode(mobileQueryList.matches);
+  if (typeof mobileQueryList.addEventListener === "function") {
+    mobileQueryList.addEventListener("change", handleMobileMediaChange);
+  } else if (typeof mobileQueryList.addListener === "function") {
+    mobileQueryList.addListener(handleMobileMediaChange);
+  }
   window.addEventListener("resize", handleWindowResize);
 });
 
 onBeforeUnmount(() => {
   stopResize();
   if (typeof window === "undefined") return;
+  if (mobileQueryList) {
+    if (typeof mobileQueryList.removeEventListener === "function") {
+      mobileQueryList.removeEventListener("change", handleMobileMediaChange);
+    } else if (typeof mobileQueryList.removeListener === "function") {
+      mobileQueryList.removeListener(handleMobileMediaChange);
+    }
+  }
   window.removeEventListener("resize", handleWindowResize);
 });
 </script>
@@ -413,6 +503,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.mobile-sheet-header {
+  display: none;
 }
 
 .resize-corner {
@@ -676,10 +770,84 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .left-panel {
-    width: calc(100% - 48px);
-    height: calc(100% - 140px);
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    height: min(70vh, 560px);
+    max-height: calc(100% - 88px);
     min-width: 0;
     max-width: none;
+    border-radius: 14px;
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    z-index: 95;
+  }
+
+  .left-panel.mobile:not(.mobile-open) {
+    transform: translateY(calc(100% - 52px));
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+  }
+
+  .mobile-sheet-header {
+    height: 52px;
+    padding: 6px 10px 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.98);
+    display: grid;
+    grid-template-columns: 44px 1fr 32px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-sheet-grip-btn {
+    border: 0;
+    background: transparent;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .mobile-sheet-grip {
+    width: 26px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.8);
+  }
+
+  .mobile-sheet-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-sheet-close-btn {
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-close-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .panel-tabs {
+    height: calc(100% - 52px);
   }
 
   .resize-corner {

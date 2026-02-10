@@ -1,24 +1,35 @@
 <template>
   <div class="toolbar" role="toolbar" aria-label="Map toolbar">
-    <div class="mode-segment" role="tablist" aria-label="Work mode">
+    <div class="toolbar-head">
+      <div class="mode-segment" role="tablist" aria-label="Work mode">
+        <button
+          v-for="mode in modeOptions"
+          :key="mode.value"
+          type="button"
+          class="mode-btn"
+          :class="{
+            active: activeMode === mode.value,
+            disabled: mode.value === 'edit' && !canEditLayer,
+          }"
+          :aria-selected="activeMode === mode.value"
+          :disabled="mode.value === 'edit' && !canEditLayer"
+          @click="switchMode(mode.value)"
+        >
+          {{ mode.label }}
+        </button>
+      </div>
+
       <button
-        v-for="mode in modeOptions"
-        :key="mode.value"
+        v-if="isMobile"
         type="button"
-        class="mode-btn"
-        :class="{
-          active: activeMode === mode.value,
-          disabled: mode.value === 'edit' && !canEditLayer,
-        }"
-        :aria-selected="activeMode === mode.value"
-        :disabled="mode.value === 'edit' && !canEditLayer"
-        @click="switchMode(mode.value)"
+        class="mobile-tools-toggle"
+        @click="toggleMobileTools"
       >
-        {{ mode.label }}
+        {{ mobileToolsExpanded ? "Hide" : "Tools" }}
       </button>
     </div>
 
-    <div class="tool-row">
+    <div v-show="showToolRow" class="tool-row">
       <template v-if="activeMode === 'browse'">
         <el-tooltip content="Pan & Select (V)" placement="bottom" :show-after="450">
           <el-button
@@ -163,7 +174,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const props = defineProps({
   tool: { type: String, required: true },
@@ -178,6 +189,11 @@ const emit = defineEmits([
   "cancel-tool",
   "save-modify",
 ]);
+
+const MOBILE_BREAKPOINT = 768;
+const isMobile = ref(false);
+const mobileToolsExpanded = ref(true);
+let mobileQueryList = null;
 
 const modeOptions = [
   { label: "Browse", value: "browse" },
@@ -207,6 +223,21 @@ const showCancelControl = computed(() => {
   return showCancel.value;
 });
 
+const showToolRow = computed(() => !isMobile.value || mobileToolsExpanded.value);
+
+const syncMobileState = (matches) => {
+  isMobile.value = matches;
+  mobileToolsExpanded.value = !matches;
+};
+
+const handleMobileQueryChange = (event) => {
+  syncMobileState(event.matches);
+};
+
+const toggleMobileTools = () => {
+  mobileToolsExpanded.value = !mobileToolsExpanded.value;
+};
+
 const switchMode = (mode) => {
   if (mode === "browse") {
     emit("set-tool", "PAN");
@@ -223,6 +254,36 @@ const switchMode = (mode) => {
   }
   emit("set-tool", "POLYGON");
 };
+
+watch(
+  () => props.tool,
+  (tool) => {
+    if (!isMobile.value) return;
+    if (tool !== "PAN") {
+      mobileToolsExpanded.value = true;
+    }
+  }
+);
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  mobileQueryList = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+  syncMobileState(mobileQueryList.matches);
+  if (typeof mobileQueryList.addEventListener === "function") {
+    mobileQueryList.addEventListener("change", handleMobileQueryChange);
+  } else if (typeof mobileQueryList.addListener === "function") {
+    mobileQueryList.addListener(handleMobileQueryChange);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (!mobileQueryList) return;
+  if (typeof mobileQueryList.removeEventListener === "function") {
+    mobileQueryList.removeEventListener("change", handleMobileQueryChange);
+  } else if (typeof mobileQueryList.removeListener === "function") {
+    mobileQueryList.removeListener(handleMobileQueryChange);
+  }
+});
 </script>
 
 <style scoped>
@@ -232,8 +293,9 @@ const switchMode = (mode) => {
   left: 24px;
   z-index: 100;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   width: max-content;
   max-width: calc(100vw - 48px);
   padding: 8px 10px;
@@ -244,6 +306,13 @@ const switchMode = (mode) => {
   backdrop-filter: blur(8px);
   overflow-x: auto;
   white-space: nowrap;
+}
+
+.toolbar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .toolbar::-webkit-scrollbar {
@@ -264,6 +333,18 @@ const switchMode = (mode) => {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.92);
   flex: 0 0 auto;
+}
+
+.mobile-tools-toggle {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .mode-btn {
@@ -296,10 +377,14 @@ const switchMode = (mode) => {
 }
 
 .tool-row {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .tool-btn {
@@ -323,7 +408,34 @@ const switchMode = (mode) => {
     left: 12px;
     right: 12px;
     max-width: none;
-    width: auto;
+    width: calc(100vw - 24px);
+    padding: 8px;
+    white-space: normal;
+  }
+
+  .toolbar-head {
+    width: 100%;
+  }
+
+  .mode-segment {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .mode-btn {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .tool-row {
+    width: 100%;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 6px;
+  }
+
+  .tool-btn {
+    flex: 0 0 auto;
   }
 }
 </style>
