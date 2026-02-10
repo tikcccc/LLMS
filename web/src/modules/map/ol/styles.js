@@ -44,46 +44,39 @@ export function highlightSiteBoundaryStyle() {
 }
 
 export function workLotStyle(feature) {
-  const taskAlert = feature.get("taskAlert"); // 'overdue', 'inProgress', 'completed', or null
-  
-  // Determine color based on task alert - bright and clear colors
-  let fillColor, strokeColor, strokeWidth;
-  
-  if (taskAlert === 'overdue') {
-    fillColor = "rgba(239, 68, 68, 0.75)";      // Bright red
-    strokeColor = "#dc2626";
-    strokeWidth = 3.5;
-  } else if (taskAlert === 'inProgress') {
-    fillColor = "rgba(250, 204, 21, 0.75)";     // Bright yellow
-    strokeColor = "#eab308";
-    strokeWidth = 3.5;
-  } else if (taskAlert === 'completed') {
-    fillColor = "rgba(34, 197, 94, 0.75)";      // Bright green
-    strokeColor = "#16a34a";
-    strokeWidth = 3.5;
-  } else {
-    // No tasks - use neutral gray
-    fillColor = "rgba(148, 163, 184, 0.6)";
-    strokeColor = "#64748b";
-    strokeWidth = 3;
+  const status = feature.get("status");
+  const category = feature.get("workCategory");
+  let fillColor = "rgba(148, 163, 184, 0.62)";
+  let strokeColor = "#64748b";
+  let strokeWidth = 3;
+
+  if (status === "EGA approved") {
+    fillColor = "rgba(34, 197, 94, 0.72)";
+    strokeColor = "#15803d";
+    strokeWidth = 3.2;
+  } else if (status === "waiting for clearance") {
+    fillColor = "rgba(250, 204, 21, 0.74)";
+    strokeColor = "#ca8a04";
+    strokeWidth = 3.2;
   }
-  
-  const cacheKey = taskAlert || 'no-tasks';
-  
+
+  const lineDash = category === "DOMESTIC" ? [6, 4] : undefined;
+  const cacheKey = `${status || "unknown"}:${category || "unknown"}`;
+
   if (!workStyleCache.has(cacheKey)) {
     workStyleCache.set(
       cacheKey,
       new Style({
-        stroke: new Stroke({ 
-          color: strokeColor, 
-          width: strokeWidth
-          // 實線 - 移除 lineDash
+        stroke: new Stroke({
+          color: strokeColor,
+          width: strokeWidth,
+          lineDash,
         }),
         fill: new Fill({ color: fillColor }),
         text: new Text({
-          font: "bold 13px 'IBM Plex Sans'",     // slightly larger bold text
+          font: "bold 13px 'IBM Plex Sans'",
           fill: new Fill({ color: "#111827" }),
-          stroke: new Stroke({ color: "rgba(255,255,255,0.95)", width: 4.5 }), // thicker stroke
+          stroke: new Stroke({ color: "rgba(255,255,255,0.95)", width: 4.5 }),
         }),
       })
     );
@@ -96,30 +89,26 @@ export function workLotStyle(feature) {
 // icon styles removed
 
 export function highlightWorkLotStyle(feature) {
-  const taskAlert = feature.get("taskAlert");
+  const status = feature.get("status");
+  const category = feature.get("workCategory");
 
-  let fillColor;
-  let strokeColor;
-  if (taskAlert === "overdue") {
-    fillColor = "rgba(239, 68, 68, 0.9)";
-    strokeColor = "#b91c1c";
-  } else if (taskAlert === "inProgress") {
-    fillColor = "rgba(250, 204, 21, 0.88)";
-    strokeColor = "#ca8a04";
-  } else if (taskAlert === "completed") {
+  let fillColor = "rgba(148, 163, 184, 0.84)";
+  let strokeColor = "#475569";
+  if (status === "EGA approved") {
     fillColor = "rgba(34, 197, 94, 0.88)";
     strokeColor = "#15803d";
-  } else {
-    fillColor = "rgba(148, 163, 184, 0.8)";
-    strokeColor = "#475569";
+  } else if (status === "waiting for clearance") {
+    fillColor = "rgba(250, 204, 21, 0.9)";
+    strokeColor = "#a16207";
   }
 
-  const cacheKey = taskAlert || "no-tasks";
+  const lineDash = category === "DOMESTIC" ? [7, 4] : undefined;
+  const cacheKey = `${status || "unknown"}:${category || "unknown"}`;
   if (!highlightWorkStyleCache.has(cacheKey)) {
     highlightWorkStyleCache.set(
       cacheKey,
       new Style({
-        stroke: new Stroke({ color: strokeColor, width: 4 }),
+        stroke: new Stroke({ color: strokeColor, width: 4, lineDash }),
         fill: new Fill({ color: fillColor }),
         text: new Text({
           font: "bold 14px 'IBM Plex Sans'",

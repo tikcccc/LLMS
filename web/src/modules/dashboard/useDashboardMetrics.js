@@ -1,7 +1,25 @@
 import { computed } from "vue";
 import { todayHongKong } from "../../shared/utils/time";
+import {
+  WORK_LOT_CATEGORY,
+  WORK_LOT_STATUS,
+  workLotCategoryLabel,
+} from "../../shared/utils/worklot";
 
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 const toMonthKey = (date) => {
   const d = new Date(date);
@@ -65,56 +83,68 @@ const buildMonthlySeries = (items, dateField, range) => {
   return { labels, data };
 };
 
-const isOverdue = (task) => {
-  if (!task?.dueDate) return false;
-  if (task.status === "Done") return false;
-  const today = todayHongKong();
-  return task.dueDate < today;
+const isWorkLotOverdue = (lot) => {
+  if (!lot?.dueDate) return false;
+  if (lot.status === WORK_LOT_STATUS.EGA_APPROVED) return false;
+  return lot.dueDate < todayHongKong();
 };
 
-export function useDashboardMetrics({ workLots, tasks, timeRange }) {
-  const filteredWorkLots = computed(() => filterByRange(workLots.value, "updatedAt", timeRange.value));
-  const filteredTasks = computed(() => filterByRange(tasks.value, "createdAt", timeRange.value));
+export function useDashboardMetrics({ workLots, timeRange }) {
+  const filteredWorkLots = computed(() =>
+    filterByRange(workLots.value, "updatedAt", timeRange.value)
+  );
 
-  const kpis = computed(() => ({
-    workLots: filteredWorkLots.value.length,
-    overdueTasks: filteredTasks.value.filter(isOverdue).length,
-    completionRate: filteredTasks.value.length
-      ? Math.round(
-          (filteredTasks.value.filter((task) => task.status === "Done").length /
-            filteredTasks.value.length) *
-            100
-        )
-      : 0,
+  const kpis = computed(() => {
+    const total = filteredWorkLots.value.length;
+    const approved = filteredWorkLots.value.filter(
+      (lot) => lot.status === WORK_LOT_STATUS.EGA_APPROVED
+    ).length;
+    return {
+      workLots: total,
+      overdueWorkLots: filteredWorkLots.value.filter(isWorkLotOverdue).length,
+      approvedRate: total ? Math.round((approved / total) * 100) : 0,
+    };
+  });
+
+  const workLotCategorySplit = computed(() => ({
+    business: filteredWorkLots.value.filter(
+      (lot) => lot.category === WORK_LOT_CATEGORY.BU
+    ).length,
+    domestic: filteredWorkLots.value.filter(
+      (lot) => lot.category === WORK_LOT_CATEGORY.DOMESTIC
+    ).length,
   }));
 
-  const workLotTypeSplit = computed(() => ({
-    business: filteredWorkLots.value.filter((lot) => lot.type === "Business").length,
-    household: filteredWorkLots.value.filter((lot) => lot.type === "Household").length,
-  }));
-
-  const taskStatusSplit = computed(() => ({
-    done: filteredTasks.value.filter((task) => task.status === "Done").length,
-    open: filteredTasks.value.filter((task) => task.status === "Open").length,
-    overdue: filteredTasks.value.filter(isOverdue).length,
+  const workLotStatusSplit = computed(() => ({
+    approved: filteredWorkLots.value.filter(
+      (lot) => lot.status === WORK_LOT_STATUS.EGA_APPROVED
+    ).length,
+    waiting: filteredWorkLots.value.filter(
+      (lot) => lot.status === WORK_LOT_STATUS.WAITING_CLEARANCE
+    ).length,
+    overdue: filteredWorkLots.value.filter(isWorkLotOverdue).length,
   }));
 
   const monthlyTrend = computed(() =>
     buildMonthlySeries(filteredWorkLots.value, "updatedAt", timeRange.value)
   );
 
-  const recentTasks = computed(() =>
-    [...filteredTasks.value]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  const recentWorkLots = computed(() =>
+    [...filteredWorkLots.value]
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
       .slice(0, 6)
+      .map((lot) => ({
+        ...lot,
+        categoryLabel: workLotCategoryLabel(lot.category),
+      }))
   );
 
   return {
     kpis,
-    workLotTypeSplit,
-    taskStatusSplit,
+    workLotCategorySplit,
+    workLotStatusSplit,
     monthlyTrend,
-    recentTasks,
-    isOverdue,
+    recentWorkLots,
+    isWorkLotOverdue,
   };
 }

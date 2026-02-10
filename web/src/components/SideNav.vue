@@ -101,11 +101,6 @@ const primaryItems = [
     path: "/landbank/site-boundaries",
     icon: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8'><path d='M4 5l6-2 6 2 4 4-4 9-6 3-6-3-2-7 2-6z'/></svg>",
   },
-  {
-    label: "Tasks & Ops",
-    path: "/tasks-ops",
-    icon: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8'><path d='M4 7h16M4 12h16M4 17h10'/></svg>",
-  },
 ];
 
 const settingsItems = [

@@ -46,11 +46,18 @@
             <el-switch v-model="showSiteBoundaryProxy" />
           </div>
           <div class="panel-row">
-            <span>Work Lots</span>
+            <span>Work Lots (Group)</span>
             <el-switch v-model="showWorkLotsProxy" />
           </div>
+          <div class="panel-row panel-row-nested">
+            <span>BU Business Undertaking</span>
+            <el-switch v-model="showWorkLotsBusinessProxy" />
+          </div>
+          <div class="panel-row panel-row-nested">
+            <span>Domestic</span>
+            <el-switch v-model="showWorkLotsDomesticProxy" />
+          </div>
         </div>
-
       </el-tab-pane>
 
       <el-tab-pane label="Scope Results" name="scope">
@@ -116,7 +123,7 @@
                       {{ lot.status }}
                     </el-tag>
                   </div>
-                  <div class="list-meta">{{ lot.id }}</div>
+                  <div class="list-meta">{{ lot.id }} · {{ workCategoryLabel(lot.category) }}</div>
                 </button>
               </div>
             </section>
@@ -127,43 +134,6 @@
             class="scope-empty"
             description="Use Scope/Circle tool to draw a range"
           />
-        </div>
-      </el-tab-pane>
-
-      <el-tab-pane label="Tasks" name="tasks">
-        <div class="panel-section">
-          <el-select v-model="taskFilterProxy" size="small" style="width: 140px">
-            <el-option label="All" value="All" />
-            <el-option label="Open" value="Open" />
-            <el-option label="Done" value="Done" />
-            <el-option label="Overdue" value="Overdue" />
-          </el-select>
-        </div>
-        <div class="task-list-global">
-          <button
-            v-for="task in filteredTasks"
-            :key="task.id"
-            class="task-card"
-            type="button"
-            @click="emit('focus-task', task)"
-          >
-            <div class="task-card-top">
-              <span class="task-title">{{ task.title }}</span>
-              <div class="task-tags">
-                <el-tag size="small" :type="task.status === 'Done' ? 'success' : 'info'">
-                  {{ task.status }}
-                </el-tag>
-                <el-tag v-if="isOverdue(task)" size="small" type="danger">Overdue</el-tag>
-              </div>
-            </div>
-            <div class="task-card-meta">
-              <span>{{ workLotName(task.workLotId) }}</span>
-              <span>
-                {{ task.assignee }} · <TimeText :value="task.dueDate" mode="date" />
-              </span>
-            </div>
-          </button>
-          <el-empty v-if="filteredTasks.length === 0" description="No tasks" />
         </div>
       </el-tab-pane>
 
@@ -185,7 +155,10 @@
                 {{ lot.status }}
               </el-tag>
             </div>
-            <div class="list-meta">{{ lot.id }}</div>
+            <div class="list-meta">{{ lot.id }} · {{ workCategoryLabel(lot.category) }}</div>
+            <div class="list-meta subtle">
+              {{ lot.responsiblePerson || "Unassigned" }} · Due {{ lot.dueDate || "—" }}
+            </div>
           </button>
           <el-empty v-if="workLotResults.length === 0" description="No work lots" />
         </div>
@@ -232,11 +205,9 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import TimeText from "../../../components/TimeText.vue";
 
 const props = defineProps({
   leftTab: { type: String, required: true },
-  taskFilter: { type: String, required: true },
   workSearchQuery: { type: String, required: true },
   siteBoundarySearchQuery: { type: String, required: true },
   showBasemap: { type: Boolean, required: true },
@@ -244,20 +215,19 @@ const props = defineProps({
   showIntLand: { type: Boolean, required: true },
   showSiteBoundary: { type: Boolean, required: true },
   showWorkLots: { type: Boolean, required: true },
-  filteredTasks: { type: Array, required: true },
+  showWorkLotsBusiness: { type: Boolean, required: true },
+  showWorkLotsDomestic: { type: Boolean, required: true },
   workLotResults: { type: Array, required: true },
   siteBoundaryResults: { type: Array, required: true },
   scopeWorkLotResults: { type: Array, required: true },
   scopeSiteBoundaryResults: { type: Array, required: true },
   scopeModeName: { type: String, required: true },
-  workLotName: { type: Function, required: true },
-  isOverdue: { type: Function, required: true },
   workStatusStyle: { type: Function, required: true },
+  workCategoryLabel: { type: Function, required: true },
 });
 
 const emit = defineEmits([
   "update:leftTab",
-  "update:taskFilter",
   "update:workSearchQuery",
   "update:siteBoundarySearchQuery",
   "update:showBasemap",
@@ -265,7 +235,8 @@ const emit = defineEmits([
   "update:showIntLand",
   "update:showSiteBoundary",
   "update:showWorkLots",
-  "focus-task",
+  "update:showWorkLotsBusiness",
+  "update:showWorkLotsDomestic",
   "focus-work",
   "focus-site-boundary",
 ]);
@@ -273,10 +244,6 @@ const emit = defineEmits([
 const leftTabProxy = computed({
   get: () => props.leftTab,
   set: (value) => emit("update:leftTab", value),
-});
-const taskFilterProxy = computed({
-  get: () => props.taskFilter,
-  set: (value) => emit("update:taskFilter", value),
 });
 const workSearchProxy = computed({
   get: () => props.workSearchQuery,
@@ -304,7 +271,25 @@ const showSiteBoundaryProxy = computed({
 });
 const showWorkLotsProxy = computed({
   get: () => props.showWorkLots,
-  set: (value) => emit("update:showWorkLots", value),
+  set: (value) => {
+    emit("update:showWorkLots", value);
+    emit("update:showWorkLotsBusiness", value);
+    emit("update:showWorkLotsDomestic", value);
+  },
+});
+const showWorkLotsBusinessProxy = computed({
+  get: () => props.showWorkLotsBusiness,
+  set: (value) => {
+    emit("update:showWorkLotsBusiness", value);
+    emit("update:showWorkLots", value || props.showWorkLotsDomestic);
+  },
+});
+const showWorkLotsDomesticProxy = computed({
+  get: () => props.showWorkLotsDomestic,
+  set: (value) => {
+    emit("update:showWorkLotsDomestic", value);
+    emit("update:showWorkLots", value || props.showWorkLotsBusiness);
+  },
 });
 
 const MOBILE_BREAKPOINT = 900;
@@ -314,7 +299,6 @@ const isMobile = ref(false);
 const TAB_TITLES = {
   layers: "Layers",
   scope: "Scope Results",
-  tasks: "Tasks",
   worklots: "Work Lots",
   siteboundaries: "Site Boundaries",
 };
@@ -587,54 +571,9 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
-.task-list-global {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.task-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  text-align: left;
-  cursor: pointer;
-}
-
-.task-card:hover {
-  border-color: rgba(15, 118, 110, 0.4);
-  background: #f1f5f9;
-}
-
-.task-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.task-tags {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.task-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.task-card-meta {
-  font-size: 11px;
-  color: var(--muted);
-  display: flex;
-  justify-content: space-between;
+.panel-row-nested {
+  padding-left: 16px;
+  color: #475569;
 }
 
 .list-scroll {
@@ -675,6 +614,11 @@ onBeforeUnmount(() => {
 .list-meta {
   font-size: 11px;
   color: var(--muted);
+}
+
+.list-meta.subtle {
+  margin-top: 2px;
+  color: #64748b;
 }
 
 .scope-summary {
@@ -731,11 +675,6 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
-}
-
-.scope-meta {
-  font-size: 11px;
-  color: var(--muted);
 }
 
 .list-subtitle {
@@ -819,35 +758,42 @@ onBeforeUnmount(() => {
   }
 
   .mobile-sheet-title {
-    font-size: 13px;
+    text-align: center;
+    font-size: 12px;
     font-weight: 600;
     color: #334155;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    letter-spacing: 0.02em;
   }
 
   .mobile-sheet-close-btn {
-    border: 0;
-    background: transparent;
-    color: #64748b;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #ffffff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
+    color: #64748b;
     cursor: pointer;
+    padding: 0;
   }
 
   .mobile-sheet-close-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
   }
 
   .panel-tabs {
-    height: calc(100% - 52px);
+    min-height: 0;
+  }
+
+  .panel-tabs :deep(.el-tabs__header) {
+    padding: 4px 10px 0 10px;
+  }
+
+  .panel-tabs :deep(.el-tabs__content) {
+    padding: 8px 10px 12px 10px;
   }
 
   .resize-corner {

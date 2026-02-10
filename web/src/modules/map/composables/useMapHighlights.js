@@ -1,6 +1,10 @@
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import { highlightSiteBoundaryStyle, highlightWorkLotStyle } from "../ol/styles";
+import {
+  normalizeWorkLotCategory,
+  WORK_LOT_CATEGORY,
+} from "../../../shared/utils/worklot";
 
 export const useMapHighlights = ({
   createWorkFeature,
@@ -74,7 +78,18 @@ export const useMapHighlights = ({
   };
 
   const updateHighlightVisibility = () => {
-    workHighlightLayer.setVisible(uiStore.showWorkLots);
+    const selectedCategory = selectedWorkLot.value
+      ? normalizeWorkLotCategory(selectedWorkLot.value.category ?? selectedWorkLot.value.type)
+      : null;
+    const canShowBusiness =
+      uiStore.showWorkLots &&
+      uiStore.showWorkLotsBusiness &&
+      (selectedCategory === null || selectedCategory === WORK_LOT_CATEGORY.BU);
+    const canShowDomestic =
+      uiStore.showWorkLots &&
+      uiStore.showWorkLotsDomestic &&
+      (selectedCategory === null || selectedCategory === WORK_LOT_CATEGORY.DOMESTIC);
+    workHighlightLayer.setVisible(canShowBusiness || canShowDomestic);
     siteBoundaryHighlightLayer.setVisible(uiStore.showSiteBoundary);
   };
 

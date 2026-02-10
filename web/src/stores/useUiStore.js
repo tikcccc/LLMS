@@ -11,6 +11,8 @@ export const useUiStore = defineStore("ui", {
     showIntLand: true,
     showSiteBoundary: true,
     showWorkLots: true,
+    showWorkLotsBusiness: true,
+    showWorkLotsDomestic: true,
     selectedIntLandId: null,
     selectedSiteBoundaryId: null,
   }),

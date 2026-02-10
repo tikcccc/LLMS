@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { formatHongKong } from "./time";
+import { workLotCategoryLabel } from "./worklot";
 
 const ensureXlsxName = (filename) => (filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`);
 
@@ -23,12 +24,27 @@ const downloadExcel = (filename, headers, rows, sheetName = "Sheet1") => {
 };
 
 export function exportWorkLots(workLots) {
-  const headers = ["ID", "Operator", "Type", "Status", "Updated At", "Updated By"];
+  const headers = [
+    "ID",
+    "Work Lot",
+    "Category",
+    "Responsible Person",
+    "Due Date",
+    "Status",
+    "Description",
+    "Remark",
+    "Updated At",
+    "Updated By",
+  ];
   const rows = workLots.map((lot) => [
     lot.id,
     lot.operatorName,
-    lot.type,
+    workLotCategoryLabel(lot.category),
+    lot.responsiblePerson || "",
+    formatHongKong(lot.dueDate, { mode: "date" }),
     lot.status,
+    lot.description || "",
+    lot.remark || "",
     formatHongKong(lot.updatedAt),
     lot.updatedBy,
   ]);

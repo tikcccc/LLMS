@@ -16,8 +16,13 @@
         <el-select v-model="statusFilter" size="small" style="width: 140px">
           <el-option v-for="option in statusOptions" :key="option" :label="option" :value="option" />
         </el-select>
-        <el-select v-model="typeFilter" size="small" style="width: 140px">
-          <el-option v-for="option in typeOptions" :key="option" :label="option" :value="option" />
+        <el-select v-model="categoryFilter" size="small" style="width: 200px">
+          <el-option
+            v-for="option in categoryOptions"
+            :key="option"
+            :label="option === 'All' ? 'All' : workCategoryLabel(option)"
+            :value="option"
+          />
         </el-select>
         <el-button type="primary" @click="exportExcel">Export Work Lots</el-button>
       </div>
@@ -25,9 +30,19 @@
 
     <el-table :data="filteredWorkLots" height="calc(100vh - 260px)">
       <el-table-column prop="id" label="ID" width="150" />
-      <el-table-column prop="operatorName" label="Operator" min-width="200" />
-      <el-table-column prop="type" label="Type" width="120" />
-      <el-table-column prop="status" label="Status" width="140" />
+      <el-table-column prop="operatorName" label="Work Lot" min-width="200" />
+      <el-table-column label="Category" min-width="190">
+        <template #default="{ row }">
+          {{ workCategoryLabel(row.category) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="responsiblePerson" label="Responsible Person" min-width="160" />
+      <el-table-column label="Due Date" width="130">
+        <template #default="{ row }">
+          <TimeText :value="row.dueDate" mode="date" />
+        </template>
+      </el-table-column>
+      <el-table-column prop="status" label="Status" width="170" />
       <el-table-column label="Updated At" min-width="180">
         <template #default="{ row }">
           <TimeText :value="row.updatedAt" />
@@ -50,6 +65,11 @@ import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { exportWorkLots } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import TimeText from "../../components/TimeText.vue";
+import {
+  WORK_LOT_CATEGORIES,
+  WORK_LOT_STATUSES,
+  workLotCategoryLabel as toWorkLotCategoryLabel,
+} from "../../shared/utils/worklot";
 
 const workLotStore = useWorkLotStore();
 const router = useRouter();
@@ -58,17 +78,28 @@ const workLots = computed(() => workLotStore.workLots);
 
 const searchQuery = ref("");
 const statusFilter = ref("All");
-const typeFilter = ref("All");
+const categoryFilter = ref("All");
 
-const statusOptions = ["All", "Pending", "In-Progress", "Handover", "Difficult"];
-const typeOptions = ["All", "Business", "Household"];
+const statusOptions = ["All", ...WORK_LOT_STATUSES];
+const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];
+const workCategoryLabel = (category) => toWorkLotCategoryLabel(category);
 
 const filteredWorkLots = computed(() =>
   workLots.value.filter((lot) => {
     if (statusFilter.value !== "All" && lot.status !== statusFilter.value) return false;
-    if (typeFilter.value !== "All" && lot.type !== typeFilter.value) return false;
+    if (categoryFilter.value !== "All" && lot.category !== categoryFilter.value) return false;
     return fuzzyMatchAny(
-      [lot.id, lot.operatorName, lot.type, lot.status, lot.updatedBy],
+      [
+        lot.id,
+        lot.operatorName,
+        workCategoryLabel(lot.category),
+        lot.responsiblePerson,
+        lot.dueDate,
+        lot.status,
+        lot.updatedBy,
+        lot.description,
+        lot.remark,
+      ],
       searchQuery.value
     );
   })

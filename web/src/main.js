@@ -6,6 +6,7 @@ import "element-plus/dist/index.css";
 import "./style.css";
 import App from "./App.vue";
 import router from "./router";
+import { useWorkLotStore } from "./stores/useWorkLotStore";
 
 const LEGACY_MOCK_DATA_KEYS = ["ND_LLM_V1_worklots", "ND_LLM_V1_tasks"];
 const MOCK_DATA_CLEANUP_FLAG = "ND_LLM_V1_mock_data_cleanup_done";
@@ -19,6 +20,8 @@ const app = createApp(App);
 const pinia = createPinia();
 
 pinia.use(piniaPersist);
+
+useWorkLotStore(pinia).normalizeLegacyWorkLots();
 
 app.use(pinia);
 app.use(router);
