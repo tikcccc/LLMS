@@ -123,6 +123,7 @@ export const useMapInteractions = ({
   const hasPendingModify = ref(false);
   const pendingModifiedIds = new Set();
   let selectedModifyFeature = null;
+  let modifyLayerType = null;
 
   let draftFeature = null;
   let draftSource = null;
@@ -228,6 +229,7 @@ export const useMapInteractions = ({
     hasPendingModify.value = false;
     pendingModifiedIds.clear();
     selectedModifyFeature = null;
+    modifyLayerType = null;
     modifyBackup.clear();
   };
 
@@ -445,30 +447,29 @@ export const useMapInteractions = ({
     const features = event.target.getFeatures();
     const selected = event.selected[0];
 
-    if (!selectedModifyFeature && !selected) {
-      return;
-    }
-
-    if (!selectedModifyFeature && selected) {
-      selectedModifyFeature = selected;
-      const refId = selected.get("refId") || selected.getId();
-      modifySelectedId.value = refId;
-      const layerType = selected.get("layerType");
-      if (layerType === "work") {
-        uiStore.selectWorkLot(refId);
-      } else if (layerType === "siteBoundary") {
-        uiStore.selectSiteBoundary(refId);
-      } else {
+    if (!selected) {
+      if (!selectedModifyFeature) {
         return;
       }
-      setHighlightFeature(layerType, selected);
+      features.clear();
+      features.push(selectedModifyFeature);
       return;
     }
 
-    if (selectedModifyFeature) {
-      features.clear();
-      features.push(selectedModifyFeature);
+    const layerType = selected.get("layerType");
+    if (layerType !== "work" && layerType !== "siteBoundary") {
+      return;
     }
+
+    selectedModifyFeature = selected;
+    const refId = selected.get("refId") || selected.getId();
+    modifySelectedId.value = refId;
+    if (layerType === "work") {
+      uiStore.selectWorkLot(refId);
+    } else {
+      uiStore.selectSiteBoundary(refId);
+    }
+    setHighlightFeature(layerType, selected);
   };
 
   const saveModify = () => {
@@ -556,6 +557,9 @@ export const useMapInteractions = ({
     ensureScopeLayer();
     ensureMeasureLayer();
     clearInteractions();
+    if (uiStore.tool !== "MODIFY") {
+      modifyLayerType = null;
+    }
 
     if (uiStore.tool === "PAN") {
       const selectableLayers = [...(workLayers || [])].filter(Boolean);
@@ -611,6 +615,13 @@ export const useMapInteractions = ({
 
     const layerType = activeLayerType.value;
     if (!layerType) return;
+    if (uiStore.tool === "MODIFY" && modifyLayerType && modifyLayerType !== layerType) {
+      // Switching edit target layer during modify should not keep stale selected feature.
+      restoreModifyBackup();
+      clearModifyState();
+      uiStore.clearSelection();
+      clearHighlightOverride();
+    }
 
     const targetSource =
       layerType === "siteBoundary" ? siteBoundarySource : workSources?.[0];
@@ -621,6 +632,7 @@ export const useMapInteractions = ({
     if (!targetSource || targetLayers.length === 0) return;
 
     if (uiStore.tool === "MODIFY") {
+      modifyLayerType = layerType;
       selectInteraction.value = new Select({ layers: targetLayers, style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleModifySelect);

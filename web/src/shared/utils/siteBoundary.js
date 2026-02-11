@@ -170,6 +170,7 @@ export const parseSiteBoundaryGeojson = (geojson = {}) => {
       {
         id: normalizeFeatureId(properties.landId ?? properties.land_id ?? feature?.id),
         rawId,
+        geometry: feature?.geometry,
         sourceRef: buildSiteBoundarySourceRef(
           {
             sourceRef: properties.sourceRef ?? properties.source_ref,

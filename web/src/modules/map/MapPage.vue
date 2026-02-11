@@ -45,7 +45,7 @@
 
     <MapDrawer
       :selected-work-lot="drawerWorkLot"
-      :selected-site-boundary="selectedSiteBoundary"
+      :selected-site-boundary="drawerSiteBoundary"
       :related-work-lots="selectedSiteBoundaryRelatedWorkLots"
       :related-site-boundaries="selectedWorkLotRelatedSites"
       :work-status-style="workStatusStyle"
@@ -161,6 +161,9 @@ const selectedWorkLot = computed(
 
 const drawerWorkLot = computed(() =>
   uiStore.tool === "MODIFY" ? null : selectedWorkLot.value
+);
+const drawerSiteBoundary = computed(() =>
+  uiStore.tool === "MODIFY" ? null : selectedSiteBoundary.value
 );
 
 const workCategoryLabel = (category) => workLotCategoryLabel(category);

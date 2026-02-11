@@ -2,6 +2,7 @@ import { normalizeSiteBoundary } from "./siteBoundary";
 
 const SITE_BOUNDARY_JSON_SCHEMA = "llms.site-boundaries.json.v1";
 const DEFAULT_FILENAME = "site-boundaries.json";
+const SUPPORTED_GEOMETRY_TYPES = new Set(["Polygon", "MultiPolygon"]);
 
 const normalizeText = (value) => {
   if (value === null || value === undefined) return "";
@@ -19,6 +20,12 @@ const cloneValue = (value) => {
   return JSON.parse(JSON.stringify(value));
 };
 
+const isPolygonGeometry = (geometry) =>
+  !!geometry &&
+  typeof geometry === "object" &&
+  SUPPORTED_GEOMETRY_TYPES.has(geometry.type) &&
+  Array.isArray(geometry.coordinates);
+
 const toExportBoundary = (boundary = {}) => ({
   id: normalizeText(boundary.id),
   sourceRef: normalizeText(boundary.sourceRef),
@@ -32,6 +39,7 @@ const toExportBoundary = (boundary = {}) => ({
   plannedHandoverDate: normalizeText(boundary.plannedHandoverDate),
   completionDate: normalizeText(boundary.completionDate),
   others: normalizeText(boundary.others),
+  geometry: isPolygonGeometry(boundary.geometry) ? cloneValue(boundary.geometry) : null,
 });
 
 export const buildSiteBoundaryJson = (siteBoundaries = []) => {

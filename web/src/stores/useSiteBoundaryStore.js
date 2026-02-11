@@ -7,6 +7,11 @@ import {
 } from "../shared/utils/siteBoundary";
 
 const sourceRefKey = (value) => String(value || "").trim().toLowerCase();
+const hasPolygonGeometry = (geometry) =>
+  !!geometry &&
+  typeof geometry === "object" &&
+  (geometry.type === "Polygon" || geometry.type === "MultiPolygon") &&
+  Array.isArray(geometry.coordinates);
 
 const mergeSiteBoundaryRecord = (base, existing = null, index = 0, existingIds = new Set()) => {
   const normalizedBase = normalizeSiteBoundary(
@@ -66,6 +71,46 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
           { existingIds }
         )
       );
+    },
+    hydrateMissingGeometry(boundaries = []) {
+      if (!Array.isArray(boundaries) || boundaries.length === 0) return;
+
+      const fallbackById = new Map();
+      const fallbackBySourceRef = new Map();
+      boundaries.forEach((boundary, index) => {
+        const sourceRef = sourceRefKey(buildSiteBoundarySourceRef(boundary, index));
+        const id = String(boundary?.id || "").trim().toLowerCase();
+        if (id) fallbackById.set(id, boundary);
+        if (sourceRef) fallbackBySourceRef.set(sourceRef, boundary);
+      });
+
+      this.siteBoundaries = this.siteBoundaries.map((boundary, index) => {
+        if (hasPolygonGeometry(boundary?.geometry)) return boundary;
+
+        const sourceRef = sourceRefKey(buildSiteBoundarySourceRef(boundary, index));
+        const id = String(boundary?.id || "").trim().toLowerCase();
+        const fallback =
+          fallbackBySourceRef.get(sourceRef) ||
+          fallbackById.get(id) ||
+          null;
+        if (!hasPolygonGeometry(fallback?.geometry)) {
+          return boundary;
+        }
+
+        const area =
+          Number.isFinite(Number(boundary?.area)) && Number(boundary.area) > 0
+            ? Number(boundary.area)
+            : Number.isFinite(Number(fallback?.area))
+              ? Number(fallback.area)
+              : 0;
+
+        return {
+          ...boundary,
+          geometry: fallback.geometry,
+          area,
+          hectare: area > 0 ? area / 10000 : 0,
+        };
+      });
     },
     mergeBoundaries(boundaries = []) {
       const existingById = this.byId;
@@ -151,7 +196,11 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
     },
     async ensureLoaded(force = false) {
       if (this.loading) return;
-      if (this.loaded && !force) return;
+      const needsGeometryHydration =
+        this.loaded &&
+        !force &&
+        this.siteBoundaries.some((boundary) => !hasPolygonGeometry(boundary?.geometry));
+      if (this.loaded && !force && !needsGeometryHydration) return;
       this.loading = true;
       try {
         const response = await fetch(SITE_BOUNDARY_GEOJSON_URL, { cache: "no-cache" });
@@ -160,7 +209,11 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
         }
         const data = await response.json();
         const parsed = parseSiteBoundaryGeojson(data);
-        this.mergeBoundaries(parsed);
+        if (this.loaded && !force) {
+          this.hydrateMissingGeometry(parsed);
+        } else {
+          this.mergeBoundaries(parsed);
+        }
       } catch (error) {
         console.warn("[site-boundary-store] load failed", error);
       } finally {
