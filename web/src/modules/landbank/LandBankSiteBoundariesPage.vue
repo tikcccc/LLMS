@@ -1,8 +1,8 @@
 <template>
   <section class="page">
     <div class="header">
-      <div>
-        <h2>Land Bank · Site Boundaries</h2>
+      <div class="header-copy">
+        <h2>Site Boundaries</h2>
         <p class="muted">
           Land denominator for KPI and planned handover tracking.
         </p>
@@ -24,19 +24,11 @@
               :value="option.value"
             />
           </el-select>
-          <el-input-number
-            v-model="floatThresholdMonths"
-            size="small"
-            :min="0"
-            :max="24"
-            :step="1"
-            controls-position="right"
-            style="width: 170px"
-          />
         </div>
         <div class="action-buttons">
-          <el-button @click="openImportJsonPicker">Import JSON</el-button>
+          <el-button size="small" @click="openImportJsonPicker">Import JSON</el-button>
           <el-button
+            size="small"
             type="primary"
             plain
             :disabled="selectedBoundaries.length === 0"
@@ -44,7 +36,7 @@
           >
             Export JSON
           </el-button>
-          <el-button type="primary" @click="exportExcel">Export Site Boundaries</el-button>
+          <el-button size="small" type="primary" @click="exportExcel">Export Site Boundaries</el-button>
         </div>
       </div>
     </div>
@@ -169,10 +161,10 @@ import {
 const router = useRouter();
 const workLotStore = useWorkLotStore();
 const siteBoundaryStore = useSiteBoundaryStore();
+const FLOAT_THRESHOLD_MONTHS = 3;
 
 const searchQuery = ref("");
 const statusFilter = ref("All");
-const floatThresholdMonths = ref(3);
 const loading = ref(false);
 const showEditDialog = ref(false);
 const selectedBoundaries = ref([]);
@@ -215,7 +207,7 @@ const enrichedBoundaries = computed(() => {
       boundary,
       relatedLots,
       {
-        floatThresholdMonths: floatThresholdMonths.value,
+        floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
       }
     );
     const statusTagType =
@@ -262,7 +254,7 @@ const filteredBoundaries = computed(() =>
 
 const exportExcel = () => {
   exportSiteBoundaries(filteredBoundaries.value, workLotStore.workLots, {
-    floatThresholdMonths: floatThresholdMonths.value,
+    floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
   });
 };
 
@@ -368,15 +360,27 @@ onMounted(() => {
 
 .header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
 }
 
 .filters {
@@ -384,6 +388,7 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  flex: 1 1 420px;
 }
 
 .action-buttons {
@@ -391,6 +396,8 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .muted {
@@ -438,5 +445,16 @@ onMounted(() => {
 
 .hidden-file-input {
   display: none;
+}
+
+@media (max-width: 1120px) {
+  .toolbar {
+    align-items: flex-start;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
   <section class="page">
     <div class="header">
-      <div>
-        <h2>Land Bank · Work Lots</h2>
+      <div class="header-copy">
+        <h2>Work Lots</h2>
         <p class="muted">Inventory view of all work lots.</p>
       </div>
       <div class="toolbar">
@@ -27,8 +27,9 @@
           </el-select>
         </div>
         <div class="action-buttons">
-          <el-button @click="openImportJsonPicker">Import JSON</el-button>
+          <el-button size="small" @click="openImportJsonPicker">Import JSON</el-button>
           <el-button
+            size="small"
             type="primary"
             plain
             :disabled="selectedWorkLots.length === 0"
@@ -36,7 +37,7 @@
           >
             Export JSON
           </el-button>
-          <el-button type="primary" @click="exportExcel">Export Work Lots</el-button>
+          <el-button size="small" type="primary" @click="exportExcel">Export Work Lots</el-button>
         </div>
       </div>
     </div>
@@ -414,15 +415,27 @@ onMounted(() => {
 
 .header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
 }
 
 .filters {
@@ -430,6 +443,7 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  flex: 1 1 520px;
 }
 
 .action-buttons {
@@ -437,6 +451,8 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .muted {
@@ -451,5 +467,16 @@ onMounted(() => {
 
 .hidden-file-input {
   display: none;
+}
+
+@media (max-width: 1120px) {
+  .toolbar {
+    align-items: flex-start;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
