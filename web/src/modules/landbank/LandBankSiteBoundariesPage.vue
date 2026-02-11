@@ -36,7 +36,15 @@
           >
             Export JSON
           </el-button>
-          <el-button size="small" type="primary" @click="exportExcel">Export Site Boundaries</el-button>
+          <el-select v-model="reportFormat" size="small" style="width: 140px">
+            <el-option
+              v-for="option in reportFormatOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+          <el-button size="small" type="primary" @click="exportReport">Export Report</el-button>
         </div>
       </div>
     </div>
@@ -143,12 +151,15 @@ import SiteBoundaryProgress from "../../components/SiteBoundaryProgress.vue";
 import SiteBoundaryDialog from "../map/components/SiteBoundaryDialog.vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
-import { exportSiteBoundaries } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import {
   downloadSiteBoundaryJson,
   parseSiteBoundaryJson,
 } from "../../shared/utils/siteBoundaryJson";
+import {
+  REPORT_FORMAT_OPTIONS,
+  exportSiteBoundariesReport,
+} from "../../shared/utils/reportExport";
 import {
   createSiteBoundaryEditForm,
   buildSiteBoundaryUpdatePayload,
@@ -170,6 +181,8 @@ const showEditDialog = ref(false);
 const selectedBoundaries = ref([]);
 const importInputRef = ref(null);
 const editForm = ref(createSiteBoundaryEditForm());
+const reportFormat = ref("excel");
+const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 
 const statusOptions = [
   { label: "All", value: "All" },
@@ -252,10 +265,18 @@ const filteredBoundaries = computed(() =>
   })
 );
 
-const exportExcel = () => {
-  exportSiteBoundaries(filteredBoundaries.value, workLotStore.workLots, {
-    floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
-  });
+const exportReport = async () => {
+  try {
+    await exportSiteBoundariesReport({
+      siteBoundaries: filteredBoundaries.value,
+      workLots: workLotStore.workLots,
+      format: reportFormat.value,
+      floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
+    });
+    ElMessage.success(`Site boundaries report exported (${reportFormat.value.toUpperCase()}).`);
+  } catch (error) {
+    ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
+  }
 };
 
 const boundaryCountText = (count) =>

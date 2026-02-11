@@ -60,9 +60,9 @@
         </div>
       </div>
       <div class="card">
-        <h3>Lot Acquisition Trend</h3>
+        <h3>Site Boundaries by Management Status</h3>
         <div class="chart-wrap">
-          <canvas ref="lineRef"></canvas>
+          <canvas ref="siteBarRef"></canvas>
         </div>
       </div>
       <div class="card">
@@ -111,9 +111,6 @@ import {
   Chart,
   DoughnutController,
   ArcElement,
-  LineController,
-  LineElement,
-  PointElement,
   CategoryScale,
   LinearScale,
   BarController,
@@ -131,9 +128,6 @@ import { workStatusStyle } from "../map/utils/statusStyle";
 Chart.register(
   DoughnutController,
   ArcElement,
-  LineController,
-  LineElement,
-  PointElement,
   CategoryScale,
   LinearScale,
   BarController,
@@ -145,17 +139,17 @@ Chart.register(
 const timeRange = ref("12M");
 const floatThresholdMonths = ref(3);
 const donutRef = ref(null);
-const lineRef = ref(null);
+const siteBarRef = ref(null);
 const barRef = ref(null);
 let donutChart;
-let lineChart;
+let siteBarChart;
 let barChart;
 
 const workLotStore = useWorkLotStore();
 const siteBoundaryStore = useSiteBoundaryStore();
 const router = useRouter();
 
-const { kpis, workLotCategorySplit, workLotStatusSplit, monthlyTrend, recentWorkLots } =
+const { kpis, workLotCategorySplit, workLotStatusSplit, siteBoundaryStatusSplit, recentWorkLots } =
   useDashboardMetrics({
     workLots: computed(() => workLotStore.workLots),
     siteBoundaries: computed(() => siteBoundaryStore.siteBoundaries),
@@ -216,19 +210,22 @@ const buildCharts = () => {
     });
   }
 
-  if (lineRef.value) {
-    lineChart = new Chart(lineRef.value, {
-      type: "line",
+  if (siteBarRef.value) {
+    siteBarChart = new Chart(siteBarRef.value, {
+      type: "bar",
       data: {
-        labels: [],
+        labels: [
+          "Pending Clearance",
+          "In Progress",
+          "Critical / Risk",
+          "Handover Ready",
+          "Handed Over",
+        ],
         datasets: [
           {
-            label: "Lots",
-            data: [],
-            borderColor: "#ef4444",
-            tension: 0.35,
-            fill: false,
-            pointRadius: 3,
+            data: [0, 0, 0, 0, 0],
+            backgroundColor: ["#94a3b8", "#3b82f6", "#ef4444", "#f59e0b", "#22c55e"],
+            borderRadius: 10,
           },
         ],
       },
@@ -238,12 +235,14 @@ const buildCharts = () => {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { color: "#94a3b8", font: { family: "IBM Plex Sans", size: 10 } },
+            ticks: {
+              color: "#94a3b8",
+              font: { family: "IBM Plex Sans", size: 10 },
+              maxRotation: 22,
+              minRotation: 22,
+            },
           },
-          y: {
-            grid: { color: "#eef2f7" },
-            ticks: { color: "#94a3b8", font: { family: "IBM Plex Sans", size: 10 } },
-          },
+          y: { display: false },
         },
       },
     });
@@ -305,10 +304,20 @@ const updateCharts = () => {
     barChart.update();
   }
 
-  if (lineChart) {
-    lineChart.data.labels = monthlyTrend.value.labels;
-    lineChart.data.datasets[0].data = monthlyTrend.value.data;
-    lineChart.update();
+  const pendingClearanceCount = siteBoundaryStatusSplit.value.pendingClearance;
+  const inProgressCount = siteBoundaryStatusSplit.value.inProgress;
+  const criticalRiskCount = siteBoundaryStatusSplit.value.criticalRisk;
+  const handoverReadyCount = siteBoundaryStatusSplit.value.handoverReady;
+  const handedOverCount = siteBoundaryStatusSplit.value.handedOver;
+  if (siteBarChart) {
+    siteBarChart.data.datasets[0].data = [
+      pendingClearanceCount,
+      inProgressCount,
+      criticalRiskCount,
+      handoverReadyCount,
+      handedOverCount,
+    ];
+    siteBarChart.update();
   }
 };
 
@@ -319,13 +328,13 @@ onMounted(() => {
 });
 
 watch(
-  [timeRange, workLotCategorySplit, workLotStatusSplit, monthlyTrend],
+  [timeRange, workLotCategorySplit, workLotStatusSplit, siteBoundaryStatusSplit],
   updateCharts
 );
 
 onBeforeUnmount(() => {
   donutChart?.destroy();
-  lineChart?.destroy();
+  siteBarChart?.destroy();
   barChart?.destroy();
 });
 </script>

@@ -37,7 +37,15 @@
           >
             Export JSON
           </el-button>
-          <el-button size="small" type="primary" @click="exportExcel">Export Work Lots</el-button>
+          <el-select v-model="reportFormat" size="small" style="width: 140px">
+            <el-option
+              v-for="option in reportFormatOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+          <el-button size="small" type="primary" @click="exportReport">Export Report</el-button>
         </div>
       </div>
     </div>
@@ -166,12 +174,15 @@ import ConfirmDialog from "../../components/ConfirmDialog.vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { useAuthStore } from "../../stores/useAuthStore";
-import { exportWorkLots } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import {
   downloadWorkLotGeojson,
   parseWorkLotGeojson,
 } from "../../shared/utils/worklotGeojson";
+import {
+  REPORT_FORMAT_OPTIONS,
+  exportWorkLotsReport,
+} from "../../shared/utils/reportExport";
 import { nowIso, todayHongKong } from "../../shared/utils/time";
 import TimeText from "../../components/TimeText.vue";
 import {
@@ -200,6 +211,9 @@ const showEditDialog = ref(false);
 const showDeleteConfirm = ref(false);
 const pendingDeleteWorkLot = ref(null);
 const editForm = ref(createWorkLotEditForm());
+const reportFormat = ref("excel");
+const reportFormatOptions = REPORT_FORMAT_OPTIONS;
+const FLOAT_THRESHOLD_MONTHS = 3;
 
 const statusOptions = ["All", ...WORK_LOT_STATUSES];
 const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];
@@ -276,8 +290,18 @@ const deleteWorkLotMessage = computed(() => {
   return id ? `Delete work lot "${name}" (${id})?` : `Delete work lot "${name}"?`;
 });
 
-const exportExcel = () => {
-  exportWorkLots(filteredWorkLots.value);
+const exportReport = async () => {
+  try {
+    await exportWorkLotsReport({
+      workLots: filteredWorkLots.value,
+      siteBoundaries: siteBoundaryStore.siteBoundaries,
+      format: reportFormat.value,
+      floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
+    });
+    ElMessage.success(`Work lots report exported (${reportFormat.value.toUpperCase()}).`);
+  } catch (error) {
+    ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
+  }
 };
 
 const workLotCountText = (count) => (count === 1 ? "1 work lot" : `${count} work lots`);

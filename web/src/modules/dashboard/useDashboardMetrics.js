@@ -10,26 +10,6 @@ import {
   summarizeSiteBoundary,
 } from "../../shared/utils/siteBoundary";
 
-const MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-const toMonthKey = (date) => {
-  const d = new Date(date);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-};
-
 const getRangeStart = (range) => {
   const now = new Date();
   if (range === "ALL") return null;
@@ -49,42 +29,6 @@ const filterByRange = (items, dateField, range) => {
     if (!value) return false;
     return new Date(value) >= start;
   });
-};
-
-const buildMonthlySeries = (items, dateField, range) => {
-  const start = getRangeStart(range);
-  if (!start) {
-    const byMonth = new Map();
-    items.forEach((item) => {
-      const key = toMonthKey(item[dateField]);
-      byMonth.set(key, (byMonth.get(key) || 0) + 1);
-    });
-    const keys = Array.from(byMonth.keys()).sort();
-    return {
-      labels: keys.map((key) => {
-        const [year, month] = key.split("-").map(Number);
-        return `${MONTH_LABELS[month - 1]} ${String(year).slice(2)}`;
-      }),
-      data: keys.map((key) => byMonth.get(key) || 0),
-    };
-  }
-
-  const labels = [];
-  const data = [];
-  const startMonth = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
-  const now = new Date();
-  const endMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-
-  let cursor = new Date(startMonth);
-  while (cursor <= endMonth) {
-    const key = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`;
-    labels.push(`${MONTH_LABELS[cursor.getUTCMonth()]} ${String(cursor.getUTCFullYear()).slice(2)}`);
-    const count = items.filter((item) => toMonthKey(item[dateField]) === key).length;
-    data.push(count);
-    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-  }
-
-  return { labels, data };
 };
 
 const isWorkLotOverdue = (lot) => {
@@ -164,9 +108,23 @@ export function useDashboardMetrics({
     ).length,
   }));
 
-  const monthlyTrend = computed(() =>
-    buildMonthlySeries(filteredWorkLots.value, "updatedAt", timeRange.value)
-  );
+  const siteBoundaryStatusSplit = computed(() => ({
+    pendingClearance: boundarySummaries.value.filter(
+      (item) => item.statusKey === "PENDING_CLEARANCE"
+    ).length,
+    inProgress: boundarySummaries.value.filter(
+      (item) => item.statusKey === "IN_PROGRESS"
+    ).length,
+    criticalRisk: boundarySummaries.value.filter(
+      (item) => item.statusKey === "CRITICAL_RISK"
+    ).length,
+    handoverReady: boundarySummaries.value.filter(
+      (item) => item.statusKey === "HANDOVER_READY"
+    ).length,
+    handedOver: boundarySummaries.value.filter(
+      (item) => item.statusKey === "HANDED_OVER"
+    ).length,
+  }));
 
   const recentWorkLots = computed(() =>
     [...filteredWorkLots.value]
@@ -183,7 +141,7 @@ export function useDashboardMetrics({
     boundarySummaries,
     workLotCategorySplit,
     workLotStatusSplit,
-    monthlyTrend,
+    siteBoundaryStatusSplit,
     recentWorkLots,
     isWorkLotOverdue,
   };

@@ -11,6 +11,8 @@
   "dependencies": {
     "chart.js": "^4.5.1",
     "element-plus": "^2.13.2",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "ol": "^10.7.0",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
