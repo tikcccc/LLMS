@@ -8,24 +8,26 @@
         </p>
       </div>
       <div class="filters">
-        <el-input-number
-          v-model="floatThresholdMonths"
-          size="small"
-          :min="0"
-          :max="24"
-          :step="1"
-          controls-position="right"
-          style="width: 180px"
-        />
-        <el-button size="small" :type="timeRange === '12M' ? 'primary' : 'default'" @click="timeRange = '12M'">
-          12 Months
-        </el-button>
-        <el-button size="small" :type="timeRange === 'YTD' ? 'primary' : 'default'" @click="timeRange = 'YTD'">
-          YTD
-        </el-button>
-        <el-button size="small" :type="timeRange === 'ALL' ? 'primary' : 'default'" @click="timeRange = 'ALL'">
-          All Time
-        </el-button>
+        <div class="filter-item">
+          <span class="filter-label">Float &lt; X Months</span>
+          <el-input-number
+            v-model="floatThresholdMonths"
+            size="small"
+            :min="0"
+            :max="24"
+            :step="1"
+            controls-position="right"
+            style="width: 132px"
+          />
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">Date Range</span>
+          <el-radio-group v-model="timeRange" size="small">
+            <el-radio-button label="12M">12 Months</el-radio-button>
+            <el-radio-button label="YTD">YTD</el-radio-button>
+            <el-radio-button label="ALL">All Time</el-radio-button>
+          </el-radio-group>
+        </div>
       </div>
     </div>
 
@@ -350,12 +352,33 @@ onBeforeUnmount(() => {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .filters {
   display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.filter-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .kpis {
@@ -428,5 +451,12 @@ onBeforeUnmount(() => {
 
 .table-header h3 {
   margin: 0;
+}
+
+@media (max-width: 980px) {
+  .filters {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

@@ -37,15 +37,23 @@
           >
             Export JSON
           </el-button>
-          <el-select v-model="reportFormat" size="small" style="width: 140px">
-            <el-option
-              v-for="option in reportFormatOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-          <el-button size="small" type="primary" @click="exportReport">Export Report</el-button>
+          <el-dropdown trigger="click" @command="handleExportReportCommand">
+            <el-button size="small" type="primary">
+              Export Report
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="option in reportFormatOptions"
+                  :key="option.value"
+                  :command="option.value"
+                >
+                  {{ option.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
     </div>
@@ -169,6 +177,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { ArrowDown } from "@element-plus/icons-vue";
 import WorkLotDialog from "../map/components/WorkLotDialog.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
@@ -211,7 +220,6 @@ const showEditDialog = ref(false);
 const showDeleteConfirm = ref(false);
 const pendingDeleteWorkLot = ref(null);
 const editForm = ref(createWorkLotEditForm());
-const reportFormat = ref("excel");
 const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 const FLOAT_THRESHOLD_MONTHS = 3;
 
@@ -290,18 +298,23 @@ const deleteWorkLotMessage = computed(() => {
   return id ? `Delete work lot "${name}" (${id})?` : `Delete work lot "${name}"?`;
 });
 
-const exportReport = async () => {
+const exportReport = async (format = "excel") => {
+  const selectedFormat = String(format || "excel");
   try {
     await exportWorkLotsReport({
       workLots: filteredWorkLots.value,
       siteBoundaries: siteBoundaryStore.siteBoundaries,
-      format: reportFormat.value,
+      format: selectedFormat,
       floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
     });
-    ElMessage.success(`Work lots report exported (${reportFormat.value.toUpperCase()}).`);
+    ElMessage.success(`Work lots report exported (${selectedFormat.toUpperCase()}).`);
   } catch (error) {
     ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
   }
+};
+
+const handleExportReportCommand = (format) => {
+  exportReport(format);
 };
 
 const workLotCountText = (count) => (count === 1 ? "1 work lot" : `${count} work lots`);

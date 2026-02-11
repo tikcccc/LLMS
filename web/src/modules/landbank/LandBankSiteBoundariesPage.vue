@@ -36,15 +36,23 @@
           >
             Export JSON
           </el-button>
-          <el-select v-model="reportFormat" size="small" style="width: 140px">
-            <el-option
-              v-for="option in reportFormatOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-          <el-button size="small" type="primary" @click="exportReport">Export Report</el-button>
+          <el-dropdown trigger="click" @command="handleExportReportCommand">
+            <el-button size="small" type="primary">
+              Export Report
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="option in reportFormatOptions"
+                  :key="option.value"
+                  :command="option.value"
+                >
+                  {{ option.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
     </div>
@@ -146,6 +154,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { ArrowDown } from "@element-plus/icons-vue";
 import TimeText from "../../components/TimeText.vue";
 import SiteBoundaryProgress from "../../components/SiteBoundaryProgress.vue";
 import SiteBoundaryDialog from "../map/components/SiteBoundaryDialog.vue";
@@ -181,7 +190,6 @@ const showEditDialog = ref(false);
 const selectedBoundaries = ref([]);
 const importInputRef = ref(null);
 const editForm = ref(createSiteBoundaryEditForm());
-const reportFormat = ref("excel");
 const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 
 const statusOptions = [
@@ -265,18 +273,23 @@ const filteredBoundaries = computed(() =>
   })
 );
 
-const exportReport = async () => {
+const exportReport = async (format = "excel") => {
+  const selectedFormat = String(format || "excel");
   try {
     await exportSiteBoundariesReport({
       siteBoundaries: filteredBoundaries.value,
       workLots: workLotStore.workLots,
-      format: reportFormat.value,
+      format: selectedFormat,
       floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
     });
-    ElMessage.success(`Site boundaries report exported (${reportFormat.value.toUpperCase()}).`);
+    ElMessage.success(`Site boundaries report exported (${selectedFormat.toUpperCase()}).`);
   } catch (error) {
     ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
   }
+};
+
+const handleExportReportCommand = (format) => {
+  exportReport(format);
 };
 
 const boundaryCountText = (count) =>
