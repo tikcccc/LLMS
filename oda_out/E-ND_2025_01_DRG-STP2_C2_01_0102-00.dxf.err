@@ -1,0 +1,4 @@
+ODA Warning: Error in drawing header on line/offset 1.
+OdError thrown during readFile of drawing "/home/tikhong/LLMS/E-ND_2025_01_DRG-STP2_C2_01_0102-00.dgn" :
+  Invalid group code
+

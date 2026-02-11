@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=ODAFileConverter
+Comment=ODA SDK® for .dwg files 26.12.0.0, Open Design Alliance Inc.
+Exec=ODAFileConverter
+Icon=ODAFileConverter
+Terminal=false
+Type=Application
+Categories=Graphics;3DGraphics;VectorGraphics;RasterGraphics;Viewer;
+X-AppImage-Version=26.12.0.0
