@@ -3,66 +3,98 @@
     :model-value="isOpen"
     size="420px"
     :modal="false"
-    :show-close="true"
+    :show-close="false"
     :close-on-press-escape="true"
     @close="emit('close')"
   >
     <template #header>
       <div class="drawer-header" v-if="selectedWorkLot">
         <div class="header-text">
-          <div class="drawer-title">{{ selectedWorkLot.operatorName }}</div>
+          <div class="drawer-title" :title="workLotHeaderTitle">{{ workLotHeaderTitle }}</div>
         </div>
-        <div class="header-tags">
-          <el-tag
-            effect="plain"
-            :style="workStatusStyle(selectedWorkLot.status, selectedWorkLot.dueDate)"
+        <div class="header-controls">
+          <div class="header-tags">
+            <el-tag
+              effect="plain"
+              :style="workStatusStyle(selectedWorkLot.status, selectedWorkLot.dueDate)"
+            >
+              {{ selectedWorkLot.status }}
+            </el-tag>
+            <el-button
+              v-if="canEditWork"
+              class="edit-icon-btn"
+              type="primary"
+              text
+              size="small"
+              @click="emit('edit-work-lot')"
+            >
+              Edit
+            </el-button>
+            <el-button
+              v-if="canDeleteWork"
+              class="delete-icon-btn"
+              type="danger"
+              text
+              size="small"
+              @click="requestDeleteWorkLot"
+            >
+              Delete
+            </el-button>
+          </div>
+          <button
+            type="button"
+            class="header-close-btn"
+            aria-label="Close details panel"
+            @click="emit('close')"
           >
-            {{ selectedWorkLot.status }}
-          </el-tag>
-          <el-button
-            v-if="canEditWork"
-            class="edit-icon-btn"
-            type="primary"
-            text
-            size="small"
-            @click="emit('edit-work-lot')"
-          >
-            Edit
-          </el-button>
-          <el-button
-            v-if="canDeleteWork"
-            class="delete-icon-btn"
-            type="danger"
-            text
-            size="small"
-            @click="requestDeleteWorkLot"
-          >
-            Delete
-          </el-button>
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
       </div>
       <div class="drawer-header" v-else-if="selectedSiteBoundary">
         <div class="header-text">
-          <div class="drawer-title">{{ selectedSiteBoundary.name || "Site Boundary" }}</div>
+          <div class="drawer-title" :title="siteBoundaryHeaderTitle">
+            {{ siteBoundaryHeaderTitle }}
+          </div>
         </div>
-        <div class="header-tags">
-          <el-tag effect="plain">Site Boundary</el-tag>
-          <el-button
-            v-if="canEditSiteBoundary"
-            class="edit-icon-btn"
-            type="primary"
-            text
-            size="small"
-            @click="emit('edit-site-boundary')"
+        <div class="header-controls">
+          <div class="header-tags">
+            <el-tag effect="plain">Site Boundary</el-tag>
+            <el-button
+              v-if="canEditSiteBoundary"
+              class="edit-icon-btn"
+              type="primary"
+              text
+              size="small"
+              @click="emit('edit-site-boundary')"
+            >
+              Edit
+            </el-button>
+          </div>
+          <button
+            type="button"
+            class="header-close-btn"
+            aria-label="Close details panel"
+            @click="emit('close')"
           >
-            Edit
-          </el-button>
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
       </div>
       <div class="drawer-header" v-else-if="selectedIntLand">
         <div class="header-text">
           <div class="drawer-title">Drawing Layer</div>
           <div class="drawer-subtitle">{{ selectedIntLand.id }}</div>
+        </div>
+        <div class="header-controls">
+          <button
+            type="button"
+            class="header-close-btn"
+            aria-label="Close details panel"
+            @click="emit('close')"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
       </div>
     </template>
@@ -147,7 +179,9 @@
               @click="emit('focus-site-boundary', site.id)"
             >
               <div class="related-item-head">
-                <span class="related-item-title">{{ site.name || "Site Boundary" }}</span>
+                <span class="related-item-title" :title="site.name || 'Site Boundary'">
+                  {{ site.name || "Site Boundary" }}
+                </span>
                 <el-tag
                   size="small"
                   effect="plain"
@@ -275,7 +309,9 @@
               @click="emit('focus-work-lot', lot.id)"
             >
               <div class="related-item-head">
-                <span class="related-item-title">{{ lot.operatorName || "Work Lot" }}</span>
+                <span class="related-item-title" :title="lot.operatorName || 'Work Lot'">
+                  {{ lot.operatorName || "Work Lot" }}
+                </span>
                 <el-tag
                   size="small"
                   effect="plain"
@@ -362,6 +398,16 @@ const emit = defineEmits([
 const isOpen = computed(
   () => !!props.selectedWorkLot || !!props.selectedSiteBoundary || !!props.selectedIntLand
 );
+const workLotHeaderTitle = computed(() => {
+  const name = String(props.selectedWorkLot?.operatorName || props.selectedWorkLot?.name || "").trim();
+  if (name) return name;
+  const id = String(props.selectedWorkLot?.id || "").trim();
+  return id || "Work Lot";
+});
+const siteBoundaryHeaderTitle = computed(() => {
+  const name = String(props.selectedSiteBoundary?.name || "").trim();
+  return name || "Site Boundary";
+});
 const defaultActiveCollapse = () => [
   "basic",
   "relatedSites",
@@ -484,22 +530,30 @@ watch(
 .drawer-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
-  gap: 12px;
+  gap: 10px;
 }
 
 .header-text {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .drawer-title {
   font-size: 18px;
   font-weight: 600;
-  flex: 1;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -513,7 +567,37 @@ watch(
 .header-tags {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.header-tags :deep(.el-button) {
+  margin: 0;
+}
+
+.header-tags :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.header-close-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.header-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .delete-icon-btn {
@@ -635,6 +719,14 @@ watch(
   font-size: 13px;
   font-weight: 600;
   color: #1e293b;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-item-head :deep(.el-tag) {
+  flex-shrink: 0;
 }
 
 .related-item-meta {
