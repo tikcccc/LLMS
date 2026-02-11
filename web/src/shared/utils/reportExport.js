@@ -4,8 +4,16 @@ import { workLotCategoryCode } from "./worklot";
 import { buildWorkLotsByBoundary, summarizeSiteBoundary } from "./siteBoundary";
 
 const DEFAULT_FLOAT_THRESHOLD_MONTHS = 3;
-const PDF_PAGE_WIDTH = 842;
 const PDF_MARGIN = 40;
+const PDF_CJK_FONT_FAMILY = "NotoSansTC";
+const PDF_CJK_FONT_FILE = "NotoSansTC-500.ttf";
+const PDF_CJK_FONT_URLS = [
+  "/fonts/NotoSansTC-500.ttf",
+  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf",
+  "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf",
+];
+
+let pdfCjkFontBase64Promise = null;
 
 export const REPORT_FORMAT_OPTIONS = [
   { label: "Excel (.xlsx)", value: "excel" },
@@ -187,69 +195,244 @@ const downloadWorkbook = ({ filename, overviewRows, detailHeaders, detailRows })
   downloadBlob(blob, toXlsxFilename(filename));
 };
 
-const drawPdfHeader = (doc, title, generatedAt) => {
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(title, PDF_MARGIN, 32);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Generated at: ${generatedAt}`, PDF_MARGIN, 50);
-  return 64;
+const arrayBufferToBase64 = (arrayBuffer) => {
+  const bytes = new Uint8Array(arrayBuffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 };
 
-const drawPdfOverview = (doc, overview, yStart) => {
+const fetchPdfCjkFontBase64 = async () => {
+  let lastError = null;
+  for (const url of PDF_CJK_FONT_URLS) {
+    try {
+      const response = await fetch(url, { cache: "force-cache" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const fontBuffer = await response.arrayBuffer();
+      return arrayBufferToBase64(fontBuffer);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Failed to load CJK font.");
+};
+
+const loadPdfCjkFontBase64 = () => {
+  if (!pdfCjkFontBase64Promise) {
+    pdfCjkFontBase64Promise = fetchPdfCjkFontBase64().catch((error) => {
+      pdfCjkFontBase64Promise = null;
+      throw error;
+    });
+  }
+  return pdfCjkFontBase64Promise;
+};
+
+const enablePdfCjkFont = async (doc) => {
+  try {
+    const fontBase64 = await loadPdfCjkFontBase64();
+    doc.addFileToVFS(PDF_CJK_FONT_FILE, fontBase64);
+    doc.addFont(PDF_CJK_FONT_FILE, PDF_CJK_FONT_FAMILY, "normal");
+    doc.addFont(PDF_CJK_FONT_FILE, PDF_CJK_FONT_FAMILY, "bold");
+    return true;
+  } catch (error) {
+    console.warn("PDF CJK font load failed, fallback to Helvetica.", error);
+    return false;
+  }
+};
+
+const setPdfFont = (doc, useCjkFont, fontStyle = "normal") => {
+  const style = fontStyle === "bold" ? "bold" : "normal";
+  if (useCjkFont) {
+    doc.setFont(PDF_CJK_FONT_FAMILY, style);
+    return;
+  }
+  doc.setFont("helvetica", style);
+};
+
+const toPdfText = (value) => {
+  if (value === null || value === undefined) return "—";
+  const text = String(value).trim();
+  return text || "—";
+};
+
+const drawPdfPageHeader = (doc, title, generatedAt, useCjkFont, continuation = false) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  setPdfFont(doc, useCjkFont, "bold");
+  doc.setFontSize(14);
+  doc.text(continuation ? `${title} (Continued)` : title, PDF_MARGIN, 32);
+  setPdfFont(doc, useCjkFont, "normal");
+  doc.setFontSize(10);
+  doc.text(`Generated at: ${generatedAt}`, PDF_MARGIN, 50);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.8);
+  doc.line(PDF_MARGIN, 58, pageWidth - PDF_MARGIN, 58);
+  return 74;
+};
+
+const drawPdfOverview = (doc, overview, yStart, recordLabel, recordCount, useCjkFont) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
   const lines = [
+    `${recordLabel}: ${recordCount}`,
+    `KPI Denominator: ${overview.totalLand} site boundaries`,
     `% Land Handover: ${formatPercent(overview.handoverRate)} (${overview.handoverCount}/${overview.totalLand})`,
     `% Land Need Force Eviction: ${formatPercent(overview.forceEvictionRate)} (${overview.forceEvictionCount}/${overview.totalLand})`,
     `% Land with Float < ${overview.floatThresholdMonths} Months: ${formatPercent(overview.lowFloatRate)} (${overview.lowFloatCount}/${overview.totalLand})`,
   ];
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, useCjkFont, "normal");
   doc.setFontSize(10);
-  lines.forEach((line, index) => {
-    doc.text(line, PDF_MARGIN, yStart + index * 14);
+  doc.setTextColor(15, 23, 42);
+  let y = yStart;
+  lines.forEach((line) => {
+    const wrappedLines = doc.splitTextToSize(line, contentWidth);
+    doc.text(wrappedLines, PDF_MARGIN, y);
+    y += Math.max(1, wrappedLines.length) * 14;
   });
-  return yStart + lines.length * 14 + 8;
+  return y + 10;
 };
 
 const loadPdfModules = async () => {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]);
-  return { jsPDF, autoTable };
+  const { jsPDF } = await import("jspdf");
+  return { jsPDF };
 };
 
-const downloadPdf = async ({ filename, title, generatedAt, overview, headers, rows }) => {
-  const { jsPDF, autoTable } = await loadPdfModules();
+const buildPdfRecordTitle = (row, index) => {
+  const id = toPdfText(row?.[0]);
+  const name = toPdfText(row?.[1]);
+  if (name !== "—" && name !== id) {
+    return `${index + 1}. ${name} (${id})`;
+  }
+  return `${index + 1}. ${id}`;
+};
+
+const downloadPdf = async ({
+  filename,
+  title,
+  generatedAt,
+  overview,
+  headers,
+  rows,
+  recordLabel,
+}) => {
+  const { jsPDF } = await loadPdfModules();
   const doc = new jsPDF({
-    orientation: "landscape",
+    orientation: "portrait",
     unit: "pt",
     format: "a4",
   });
+  const useCjkFont = await enablePdfCjkFont(doc);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
+  const lineHeight = 13;
+  const sectionGap = 14;
+  let y = drawPdfPageHeader(doc, title, generatedAt, useCjkFont);
 
-  const afterHeaderY = drawPdfHeader(doc, title, generatedAt);
-  const tableStartY = drawPdfOverview(doc, overview, afterHeaderY);
+  const resetPage = () => {
+    doc.addPage();
+    y = drawPdfPageHeader(doc, title, generatedAt, useCjkFont, true);
+  };
 
-  autoTable(doc, {
-    startY: tableStartY,
-    head: [headers],
-    body: rows,
-    theme: "grid",
-    styles: {
-      fontSize: 8,
-      cellPadding: 3,
-      overflow: "linebreak",
-      lineColor: [226, 232, 240],
-      lineWidth: 0.5,
-      textColor: [31, 41, 55],
-    },
-    headStyles: {
-      fillColor: [15, 118, 110],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-    },
-    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
-    tableWidth: PDF_PAGE_WIDTH - PDF_MARGIN * 2,
+  y = drawPdfOverview(doc, overview, y, recordLabel, rows.length, useCjkFont);
+  if (y + 24 > pageHeight - PDF_MARGIN) {
+    resetPage();
+  }
+
+  setPdfFont(doc, useCjkFont, "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text("Details", PDF_MARGIN, y);
+  y += 16;
+
+  setPdfFont(doc, useCjkFont, "bold");
+  doc.setFontSize(10);
+  const labelWidth = Math.min(
+    180,
+    Math.max(
+      96,
+      ...headers.map((header) => doc.getTextWidth(`${toPdfText(header)}:`))
+    ) + 12
+  );
+  const valueWidth = Math.max(120, contentWidth - labelWidth);
+
+  if (!rows.length) {
+    setPdfFont(doc, useCjkFont, "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(51, 65, 85);
+    doc.text("No records selected.", PDF_MARGIN, y);
+    doc.save(toPdfFilename(filename));
+    return;
+  }
+
+  rows.forEach((row, rowIndex) => {
+    setPdfFont(doc, useCjkFont, "normal");
+    doc.setFontSize(10);
+    const entries = headers.map((header, colIndex) => {
+      const value = toPdfText(row?.[colIndex]);
+      const wrappedValue = doc.splitTextToSize(value, valueWidth);
+      return {
+        label: toPdfText(header),
+        lines: wrappedValue.length ? wrappedValue : ["—"],
+      };
+    });
+
+    const estimatedSectionHeight =
+      20 +
+      entries.reduce(
+        (sum, entry) => sum + Math.max(1, entry.lines.length) * lineHeight + 2,
+        0
+      ) +
+      sectionGap;
+
+    if (y + estimatedSectionHeight > pageHeight - PDF_MARGIN) {
+      resetPage();
+    }
+
+    const recordTitle = buildPdfRecordTitle(row, rowIndex);
+    setPdfFont(doc, useCjkFont, "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text(recordTitle, PDF_MARGIN, y);
+    y += 12;
+
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.6);
+    doc.line(PDF_MARGIN, y, pageWidth - PDF_MARGIN, y);
+    y += 8;
+
+    entries.forEach((entry) => {
+      const entryHeight = Math.max(1, entry.lines.length) * lineHeight + 2;
+      if (y + entryHeight > pageHeight - PDF_MARGIN) {
+        resetPage();
+        setPdfFont(doc, useCjkFont, "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${recordTitle} (cont.)`, PDF_MARGIN, y);
+        y += 12;
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.6);
+        doc.line(PDF_MARGIN, y, pageWidth - PDF_MARGIN, y);
+        y += 8;
+      }
+
+      setPdfFont(doc, useCjkFont, "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`${entry.label}:`, PDF_MARGIN, y);
+
+      setPdfFont(doc, useCjkFont, "normal");
+      doc.setTextColor(17, 24, 39);
+      doc.text(entry.lines, PDF_MARGIN + labelWidth, y);
+      y += entryHeight;
+    });
+
+    y += sectionGap;
   });
 
   doc.save(toPdfFilename(filename));
@@ -356,24 +539,14 @@ export async function exportWorkLotsReport({
   const detailRows = toWorkLotReportRows(exportedWorkLots, availableBoundaries);
 
   if (normalizedFormat === "pdf") {
-    const pdfHeaders = [
-      "System ID",
-      "Name",
-      "Related Site Boundaries",
-      "Category",
-      "Area (ha)",
-      "Float",
-      "Force Eviction",
-      "Status",
-    ];
-    const pdfRows = detailRows.map((row) => [row[0], row[1], row[2], row[3], row[5], row[10], row[11], row[12]]);
     await downloadPdf({
       filename: "work-lots-report",
       title: "Work Lots Report",
       generatedAt,
       overview,
-      headers: pdfHeaders,
-      rows: pdfRows,
+      headers: detailHeaders,
+      rows: detailRows,
+      recordLabel: "Work Lots Exported",
     });
     return;
   }
@@ -431,24 +604,14 @@ export async function exportSiteBoundariesReport({
   );
 
   if (normalizedFormat === "pdf") {
-    const pdfHeaders = [
-      "System ID",
-      "Name",
-      "Area (ha)",
-      "Handover Date",
-      "Status",
-      "Operator Progress",
-      "Need Force Eviction",
-      "Min Float",
-    ];
-    const pdfRows = detailRows.map((row) => [row[0], row[1], row[3], row[6], row[8], row[9], row[10], row[11]]);
     await downloadPdf({
       filename: "site-boundaries-report",
       title: "Site Boundaries Report",
       generatedAt,
       overview,
-      headers: pdfHeaders,
-      rows: pdfRows,
+      headers: detailHeaders,
+      rows: detailRows,
+      recordLabel: "Site Boundaries Exported",
     });
     return;
   }
