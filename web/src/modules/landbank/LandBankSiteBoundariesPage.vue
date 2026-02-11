@@ -31,7 +31,6 @@
             size="small"
             type="primary"
             plain
-            :disabled="selectedBoundaries.length === 0"
             @click="exportSelectedJson"
           >
             Export JSON
@@ -272,17 +271,29 @@ const filteredBoundaries = computed(() =>
     );
   })
 );
+const boundariesForExport = computed(() =>
+  selectedBoundaries.value.length > 0 ? selectedBoundaries.value : filteredBoundaries.value
+);
+const hasSelectedBoundaries = computed(() => selectedBoundaries.value.length > 0);
 
 const exportReport = async (format = "excel") => {
   const selectedFormat = String(format || "excel");
+  const targets = boundariesForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No site boundaries to export.");
+    return;
+  }
   try {
     await exportSiteBoundariesReport({
-      siteBoundaries: filteredBoundaries.value,
+      siteBoundaries: targets,
       workLots: workLotStore.workLots,
       format: selectedFormat,
       floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
     });
-    ElMessage.success(`Site boundaries report exported (${selectedFormat.toUpperCase()}).`);
+    const scopeLabel = hasSelectedBoundaries.value ? "selected" : "all listed";
+    ElMessage.success(
+      `Exported ${boundaryCountText(targets.length)} (${scopeLabel}) report as ${selectedFormat.toUpperCase()}.`
+    );
   } catch (error) {
     ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
   }
@@ -300,13 +311,18 @@ const handleSelectionChange = (rows) => {
 };
 
 const exportSelectedJson = () => {
-  if (!selectedBoundaries.value.length) {
-    ElMessage.warning("Please select at least 1 site boundary.");
+  const targets = boundariesForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No site boundaries to export.");
     return;
   }
-  downloadSiteBoundaryJson(selectedBoundaries.value, "site-boundaries-selected.json");
+  const selectedMode = hasSelectedBoundaries.value;
+  downloadSiteBoundaryJson(
+    targets,
+    selectedMode ? "site-boundaries-selected.json" : "site-boundaries.json"
+  );
   ElMessage.success(
-    `Exported ${boundaryCountText(selectedBoundaries.value.length)} to JSON.`
+    `Exported ${boundaryCountText(targets.length)} (${selectedMode ? "selected" : "all listed"}) to JSON.`
   );
 };
 

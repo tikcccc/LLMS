@@ -32,7 +32,6 @@
             size="small"
             type="primary"
             plain
-            :disabled="selectedWorkLots.length === 0"
             @click="exportSelectedJson"
           >
             Export JSON
@@ -281,6 +280,10 @@ const filteredWorkLots = computed(() =>
     );
   })
 );
+const workLotsForExport = computed(() =>
+  selectedWorkLots.value.length > 0 ? selectedWorkLots.value : filteredWorkLots.value
+);
+const hasSelectedWorkLots = computed(() => selectedWorkLots.value.length > 0);
 const editRelatedSiteBoundaryNames = computed(() =>
   (Array.isArray(editForm.value.relatedSiteBoundaryIds)
     ? editForm.value.relatedSiteBoundaryIds
@@ -300,14 +303,22 @@ const deleteWorkLotMessage = computed(() => {
 
 const exportReport = async (format = "excel") => {
   const selectedFormat = String(format || "excel");
+  const targets = workLotsForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No work lots to export.");
+    return;
+  }
   try {
     await exportWorkLotsReport({
-      workLots: filteredWorkLots.value,
+      workLots: targets,
       siteBoundaries: siteBoundaryStore.siteBoundaries,
       format: selectedFormat,
       floatThresholdMonths: FLOAT_THRESHOLD_MONTHS,
     });
-    ElMessage.success(`Work lots report exported (${selectedFormat.toUpperCase()}).`);
+    const scopeLabel = hasSelectedWorkLots.value ? "selected" : "all listed";
+    ElMessage.success(
+      `Exported ${workLotCountText(targets.length)} (${scopeLabel}) report as ${selectedFormat.toUpperCase()}.`
+    );
   } catch (error) {
     ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
   }
@@ -324,12 +335,19 @@ const handleSelectionChange = (rows) => {
 };
 
 const exportSelectedJson = () => {
-  if (!selectedWorkLots.value.length) {
-    ElMessage.warning("Please select at least 1 work lot.");
+  const targets = workLotsForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No work lots to export.");
     return;
   }
-  downloadWorkLotGeojson(selectedWorkLots.value, "work-lots-selected.geojson");
-  ElMessage.success(`Exported ${workLotCountText(selectedWorkLots.value.length)} to JSON.`);
+  const selectedMode = hasSelectedWorkLots.value;
+  downloadWorkLotGeojson(
+    targets,
+    selectedMode ? "work-lots-selected.geojson" : "work-lots.geojson"
+  );
+  ElMessage.success(
+    `Exported ${workLotCountText(targets.length)} (${selectedMode ? "selected" : "all listed"}) to JSON.`
+  );
 };
 
 const resetImportInput = () => {
