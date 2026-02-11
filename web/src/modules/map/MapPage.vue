@@ -124,6 +124,14 @@ import {
   WORK_LOT_STATUS,
   workLotCategoryLabel,
 } from "../../shared/utils/worklot";
+import {
+  createWorkLotEditForm,
+  buildWorkLotUpdatePayload,
+} from "../../shared/utils/workLotEdit";
+import {
+  createSiteBoundaryEditForm,
+  buildSiteBoundaryUpdatePayload,
+} from "../../shared/utils/siteBoundaryEdit";
 import { useMapCore } from "./composables/useMapCore";
 import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapLayers } from "./composables/useMapLayers";
@@ -352,23 +360,12 @@ const editSelectedWorkLot = () => {
   const lot = selectedWorkLot.value;
   workDialogMode.value = "edit";
   editingWorkLotId.value = lot.id;
-  workForm.value = {
-    operatorName: lot.operatorName || "",
-    category: normalizeWorkLotCategory(lot.category ?? lot.type),
+  workForm.value = createWorkLotEditForm(lot, {
     relatedSiteBoundaryIds: withRelatedIdFallback(
       resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry),
       lot.relatedSiteBoundaryIds
     ),
-    responsiblePerson: lot.responsiblePerson || "",
-    assessDate: lot.assessDate || "",
-    dueDate: lot.dueDate || todayHongKong(),
-    completionDate: lot.completionDate || "",
-    floatMonths: lot.floatMonths ?? null,
-    forceEviction: !!lot.forceEviction,
-    status: lot.status || WORK_LOT_STATUS.WAITING_ASSESSMENT,
-    description: lot.description || "",
-    remark: lot.remark || "",
-  };
+  });
   showWorkDialog.value = true;
 };
 
@@ -376,14 +373,7 @@ const editSelectedSiteBoundary = () => {
   if (!canEditWork.value || !selectedSiteBoundary.value) return;
   const boundary = selectedSiteBoundary.value;
   editingSiteBoundaryId.value = String(boundary.id || "");
-  siteBoundaryForm.value = {
-    name: boundary.name || "",
-    contractNo: boundary.contractNo || "",
-    futureUse: boundary.futureUse || "",
-    plannedHandoverDate: boundary.plannedHandoverDate || "",
-    completionDate: boundary.completionDate || "",
-    others: boundary.others || "",
-  };
+  siteBoundaryForm.value = createSiteBoundaryEditForm(boundary);
   showSiteBoundaryDialog.value = true;
 };
 
@@ -749,24 +739,16 @@ const confirmWork = () => {
       resolveRelatedSiteBoundaryIdsByGeometryObject(existing?.geometry),
       existing?.relatedSiteBoundaryIds
     );
-    const workLotName =
-      workForm.value.operatorName.trim() || existing?.operatorName || `Work Lot ${workLotId}`;
-    workLotStore.updateWorkLot(workLotId, {
-      operatorName: workLotName,
-      category: workForm.value.category,
-      relatedSiteBoundaryIds: autoRelatedIds,
-      responsiblePerson: workForm.value.responsiblePerson,
-      assessDate: workForm.value.assessDate,
-      dueDate: workForm.value.dueDate || todayHongKong(),
-      completionDate: workForm.value.completionDate,
-      floatMonths: workForm.value.floatMonths,
-      forceEviction: workForm.value.forceEviction,
-      status: workForm.value.status,
-      description: workForm.value.description,
-      remark: workForm.value.remark,
-      updatedBy: authStore.roleName,
-      updatedAt: nowIso(),
-    });
+    workLotStore.updateWorkLot(
+      workLotId,
+      buildWorkLotUpdatePayload(workForm.value, {
+        workLotId,
+        fallbackOperatorName: existing?.operatorName || `Work Lot ${workLotId}`,
+        relatedSiteBoundaryIds: autoRelatedIds,
+        updatedBy: authStore.roleName,
+        updatedAt: nowIso(),
+      })
+    );
     showWorkDialog.value = false;
     resetWorkDialogEditState();
     return;
@@ -811,14 +793,10 @@ const cancelWork = () => {
 
 const confirmSiteBoundary = () => {
   if (!editingSiteBoundaryId.value) return;
-  siteBoundaryStore.updateSiteBoundary(editingSiteBoundaryId.value, {
-    name: siteBoundaryForm.value.name,
-    contractNo: siteBoundaryForm.value.contractNo,
-    futureUse: siteBoundaryForm.value.futureUse,
-    plannedHandoverDate: siteBoundaryForm.value.plannedHandoverDate,
-    completionDate: siteBoundaryForm.value.completionDate,
-    others: siteBoundaryForm.value.others,
-  });
+  siteBoundaryStore.updateSiteBoundary(
+    editingSiteBoundaryId.value,
+    buildSiteBoundaryUpdatePayload(siteBoundaryForm.value)
+  );
   showSiteBoundaryDialog.value = false;
   editingSiteBoundaryId.value = "";
 };

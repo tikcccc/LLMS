@@ -27,8 +27,11 @@ export const useWorkLotStore = defineStore("workLots", {
   }),
   actions: {
     normalizeLegacyWorkLots() {
+      this.replaceWorkLots(this.workLots);
+    },
+    replaceWorkLots(workLots = []) {
       const existingIds = new Set();
-      this.workLots = this.workLots.map((lot) => {
+      this.workLots = (Array.isArray(workLots) ? workLots : []).map((lot) => {
         const normalized = normalizeWorkLot(lot);
         const id = ensureWorkLotId(normalized, existingIds);
         existingIds.add(id.toLowerCase());

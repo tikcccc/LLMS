@@ -24,18 +24,36 @@
             :value="option"
           />
         </el-select>
+        <el-button @click="openImportJsonPicker">Import JSON</el-button>
+        <el-button
+          type="primary"
+          plain
+          :disabled="selectedWorkLots.length === 0"
+          @click="exportSelectedJson"
+        >
+          Export JSON
+        </el-button>
         <el-button type="primary" @click="exportExcel">Export Work Lots</el-button>
       </div>
     </div>
 
-    <el-table :data="filteredWorkLots" height="calc(100vh - 260px)">
+    <el-table
+      :data="filteredWorkLots"
+      height="calc(100vh - 260px)"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="46" />
       <el-table-column prop="id" label="System ID" width="150" />
       <el-table-column label="Related Lands" min-width="220">
         <template #default="{ row }">
           {{ relatedLandText(row) }}
         </template>
       </el-table-column>
-      <el-table-column prop="operatorName" label="Work Lot" min-width="200" />
+      <el-table-column label="Name" min-width="200">
+        <template #default="{ row }">
+          {{ workLotName(row) }}
+        </template>
+      </el-table-column>
       <el-table-column label="Category" min-width="190">
         <template #default="{ row }">
           {{ workCategoryLabel(row.category) }}
@@ -88,26 +106,88 @@
           <el-button link type="primary" @click="viewOnMap(row.id)">View</el-button>
         </template>
       </el-table-column>
+      <el-table-column label="" width="80" align="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
+        </template>
+      </el-table-column>
+      <el-table-column label="" width="90" align="right">
+        <template #default="{ row }">
+          <el-button link type="danger" @click="requestDeleteWorkLot(row)">Delete</el-button>
+        </template>
+      </el-table-column>
     </el-table>
+    <WorkLotDialog
+      v-model="showEditDialog"
+      title="Edit Work Lot"
+      confirm-text="Save"
+      :work-lot-id="editForm.id"
+      :related-site-boundary-ids="editForm.relatedSiteBoundaryIds"
+      :related-site-boundary-names="editRelatedSiteBoundaryNames"
+      v-model:operatorName="editForm.operatorName"
+      v-model:category="editForm.category"
+      v-model:responsiblePerson="editForm.responsiblePerson"
+      v-model:assessDate="editForm.assessDate"
+      v-model:dueDate="editForm.dueDate"
+      v-model:completionDate="editForm.completionDate"
+      v-model:floatMonths="editForm.floatMonths"
+      v-model:forceEviction="editForm.forceEviction"
+      v-model:status="editForm.status"
+      v-model:description="editForm.description"
+      v-model:remark="editForm.remark"
+      @confirm="saveEditWorkLot"
+      @cancel="cancelEditWorkLot"
+    />
+    <ConfirmDialog
+      v-model="showDeleteConfirm"
+      title="Delete Work Lot"
+      :message="deleteWorkLotMessage"
+      description="This action cannot be undone."
+      confirm-text="Delete"
+      confirm-type="danger"
+      @confirm="confirmDeleteWorkLot"
+      @cancel="cancelDeleteWorkLot"
+    />
+    <input
+      ref="importInputRef"
+      class="hidden-file-input"
+      type="file"
+      accept=".geojson,.json,application/geo+json,application/json"
+      @change="handleImportFileChange"
+    />
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
+import WorkLotDialog from "../map/components/WorkLotDialog.vue";
+import ConfirmDialog from "../../components/ConfirmDialog.vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
+import { useAuthStore } from "../../stores/useAuthStore";
 import { exportWorkLots } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
+import {
+  downloadWorkLotGeojson,
+  parseWorkLotGeojson,
+} from "../../shared/utils/worklotGeojson";
+import { nowIso, todayHongKong } from "../../shared/utils/time";
 import TimeText from "../../components/TimeText.vue";
 import {
   WORK_LOT_CATEGORIES,
   WORK_LOT_STATUSES,
   workLotCategoryLabel as toWorkLotCategoryLabel,
 } from "../../shared/utils/worklot";
+import {
+  createWorkLotEditForm,
+  buildWorkLotUpdatePayload,
+} from "../../shared/utils/workLotEdit";
 
 const workLotStore = useWorkLotStore();
 const siteBoundaryStore = useSiteBoundaryStore();
+const authStore = useAuthStore();
 const router = useRouter();
 
 const workLots = computed(() => workLotStore.workLots);
@@ -115,6 +195,12 @@ const workLots = computed(() => workLotStore.workLots);
 const searchQuery = ref("");
 const statusFilter = ref("All");
 const categoryFilter = ref("All");
+const selectedWorkLots = ref([]);
+const importInputRef = ref(null);
+const showEditDialog = ref(false);
+const showDeleteConfirm = ref(false);
+const pendingDeleteWorkLot = ref(null);
+const editForm = ref(createWorkLotEditForm());
 
 const statusOptions = ["All", ...WORK_LOT_STATUSES];
 const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];
@@ -135,6 +221,10 @@ const relatedLandText = (lot) => {
     })
     .join(", ");
 };
+const workLotName = (lot) => {
+  const name = String(lot?.operatorName || lot?.name || "").trim();
+  return name || "—";
+};
 const formatArea = (area) => {
   const value = Number(area);
   if (!Number.isFinite(value) || value <= 0) return "—";
@@ -152,7 +242,7 @@ const filteredWorkLots = computed(() =>
       [
         lot.id,
         relatedLandText(lot),
-        lot.operatorName,
+        workLotName(lot),
         workCategoryLabel(lot.category),
         lot.responsiblePerson,
         lot.assessDate,
@@ -170,13 +260,148 @@ const filteredWorkLots = computed(() =>
     );
   })
 );
+const editRelatedSiteBoundaryNames = computed(() =>
+  (Array.isArray(editForm.value.relatedSiteBoundaryIds)
+    ? editForm.value.relatedSiteBoundaryIds
+    : []
+  ).map((id) => {
+    const normalized = String(id).toLowerCase();
+    return siteBoundaryNameById.value.get(normalized) || String(id);
+  })
+);
+const deleteWorkLotMessage = computed(() => {
+  const row = pendingDeleteWorkLot.value;
+  if (!row) return "Delete this work lot?";
+  const id = String(row.id || "").trim();
+  const name = workLotName(row);
+  return id ? `Delete work lot "${name}" (${id})?` : `Delete work lot "${name}"?`;
+});
 
 const exportExcel = () => {
   exportWorkLots(filteredWorkLots.value);
 };
 
+const workLotCountText = (count) => (count === 1 ? "1 work lot" : `${count} work lots`);
+
+const handleSelectionChange = (rows) => {
+  selectedWorkLots.value = Array.isArray(rows) ? rows : [];
+};
+
+const exportSelectedJson = () => {
+  if (!selectedWorkLots.value.length) {
+    ElMessage.warning("Please select at least 1 work lot.");
+    return;
+  }
+  downloadWorkLotGeojson(selectedWorkLots.value, "work-lots-selected.geojson");
+  ElMessage.success(`Exported ${workLotCountText(selectedWorkLots.value.length)} to JSON.`);
+};
+
+const resetImportInput = () => {
+  if (importInputRef.value) {
+    importInputRef.value.value = "";
+  }
+};
+
+const openImportJsonPicker = () => {
+  importInputRef.value?.click();
+};
+
+const isDialogCancel = (error) =>
+  error === "cancel" ||
+  error === "close" ||
+  (error && typeof error === "object" && error.action === "cancel");
+
+const handleImportFileChange = async (event) => {
+  const file = event?.target?.files?.[0];
+  resetImportInput();
+  if (!file) return;
+
+  let imported = [];
+  try {
+    const text = await file.text();
+    imported = parseWorkLotGeojson(JSON.parse(text));
+  } catch (error) {
+    ElMessage.error(`Import failed: ${error?.message || "invalid JSON format."}`);
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `Import ${workLotCountText(imported.length)} from "${file.name}"? This will replace current ${workLotCountText(workLots.value.length)}.`,
+      "Import Work Lots JSON",
+      {
+        type: "warning",
+        confirmButtonText: "Import",
+        cancelButtonText: "Cancel",
+      }
+    );
+  } catch (error) {
+    if (isDialogCancel(error)) return;
+    ElMessage.error(`Import canceled: ${error?.message || "unknown error."}`);
+    return;
+  }
+
+  workLotStore.replaceWorkLots(imported);
+  selectedWorkLots.value = [];
+  ElMessage.success(`Imported ${workLotCountText(imported.length)} from JSON.`);
+};
+
 const viewOnMap = (workLotId) => {
   router.push({ path: "/map", query: { workLotId } });
+};
+
+const openEditDialog = (row) => {
+  editForm.value = createWorkLotEditForm(row);
+  showEditDialog.value = true;
+};
+
+const cancelEditWorkLot = () => {
+  showEditDialog.value = false;
+};
+
+const saveEditWorkLot = () => {
+  const workLotId = String(editForm.value.id || "").trim();
+  if (!workLotId) return;
+  workLotStore.updateWorkLot(
+    workLotId,
+    buildWorkLotUpdatePayload(editForm.value, {
+      workLotId,
+      fallbackOperatorName: `Work Lot ${workLotId}`,
+      updatedBy: authStore.roleName,
+      updatedAt: nowIso(),
+      defaultDueDate: todayHongKong(),
+    })
+  );
+  showEditDialog.value = false;
+  ElMessage.success("Work lot updated.");
+};
+
+const requestDeleteWorkLot = (row) => {
+  pendingDeleteWorkLot.value = row || null;
+  showDeleteConfirm.value = !!row;
+};
+
+const cancelDeleteWorkLot = () => {
+  showDeleteConfirm.value = false;
+  pendingDeleteWorkLot.value = null;
+};
+
+const confirmDeleteWorkLot = () => {
+  const row = pendingDeleteWorkLot.value;
+  const workLotId = String(row?.id || "").trim();
+  if (!workLotId) {
+    cancelDeleteWorkLot();
+    return;
+  }
+  workLotStore.removeWorkLot(workLotId);
+  selectedWorkLots.value = selectedWorkLots.value.filter(
+    (item) => String(item?.id || "") !== workLotId
+  );
+  if (showEditDialog.value && String(editForm.value.id || "") === workLotId) {
+    showEditDialog.value = false;
+  }
+  cancelDeleteWorkLot();
+  ElMessage.success("Work lot deleted.");
 };
 
 onMounted(() => {
@@ -205,5 +430,9 @@ onMounted(() => {
 
 .muted {
   color: var(--muted);
+}
+
+.hidden-file-input {
+  display: none;
 }
 </style>

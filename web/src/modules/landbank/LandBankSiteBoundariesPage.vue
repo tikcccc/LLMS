@@ -32,6 +32,15 @@
           controls-position="right"
           style="width: 170px"
         />
+        <el-button @click="openImportJsonPicker">Import JSON</el-button>
+        <el-button
+          type="primary"
+          plain
+          :disabled="selectedBoundaries.length === 0"
+          @click="exportSelectedJson"
+        >
+          Export JSON
+        </el-button>
         <el-button type="primary" @click="exportExcel">Export Site Boundaries</el-button>
       </div>
     </div>
@@ -40,7 +49,9 @@
       :data="filteredBoundaries"
       height="calc(100vh - 260px)"
       :empty-text="loading ? 'Loading…' : 'No data'"
+      @selection-change="handleSelectionChange"
     >
+      <el-table-column type="selection" width="46" />
       <el-table-column prop="id" label="System ID" width="170" />
       <el-table-column prop="name" label="Name" min-width="190" />
       <el-table-column label="Handover Date" width="140">
@@ -90,68 +101,49 @@
         </template>
       </el-table-column>
     </el-table>
-
-    <el-dialog
+    <input
+      ref="importInputRef"
+      class="hidden-file-input"
+      type="file"
+      accept=".json,application/json"
+      @change="handleImportFileChange"
+    />
+    <SiteBoundaryDialog
       v-model="showEditDialog"
       title="Edit Site Boundary"
-      width="520px"
-      destroy-on-close
-    >
-      <el-form :model="editForm" label-position="top">
-        <el-form-item label="System ID">
-          <el-input :model-value="editForm.id" disabled />
-        </el-form-item>
-        <el-form-item label="Name">
-          <el-input v-model="editForm.name" placeholder="e.g. HKSTP No.1" />
-        </el-form-item>
-        <el-form-item label="Contract No.">
-          <el-input v-model="editForm.contractNo" placeholder="Contract No." />
-        </el-form-item>
-        <el-form-item label="Future Use">
-          <el-input v-model="editForm.futureUse" placeholder="Future use" />
-        </el-form-item>
-        <el-form-item label="Handover Date">
-          <el-date-picker
-            v-model="editForm.plannedHandoverDate"
-            type="date"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="Completion Date">
-          <el-date-picker
-            v-model="editForm.completionDate"
-            type="date"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="Remarks">
-          <el-input
-            v-model="editForm.others"
-            type="textarea"
-            :autosize="{ minRows: 2, maxRows: 4 }"
-            placeholder="Additional notes"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showEditDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="saveEditBoundary">Save</el-button>
-      </template>
-    </el-dialog>
+      confirm-text="Save"
+      :boundary-id="String(editForm.id || '')"
+      v-model:name="editForm.name"
+      v-model:contractNo="editForm.contractNo"
+      v-model:futureUse="editForm.futureUse"
+      v-model:plannedHandoverDate="editForm.plannedHandoverDate"
+      v-model:completionDate="editForm.completionDate"
+      v-model:others="editForm.others"
+      @confirm="saveEditBoundary"
+      @cancel="cancelEditBoundary"
+    />
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
 import TimeText from "../../components/TimeText.vue";
 import SiteBoundaryProgress from "../../components/SiteBoundaryProgress.vue";
+import SiteBoundaryDialog from "../map/components/SiteBoundaryDialog.vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { exportSiteBoundaries } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
+import {
+  downloadSiteBoundaryJson,
+  parseSiteBoundaryJson,
+} from "../../shared/utils/siteBoundaryJson";
+import {
+  createSiteBoundaryEditForm,
+  buildSiteBoundaryUpdatePayload,
+} from "../../shared/utils/siteBoundaryEdit";
 import {
   buildWorkLotsByBoundary,
   summarizeSiteBoundary,
@@ -166,15 +158,9 @@ const statusFilter = ref("All");
 const floatThresholdMonths = ref(3);
 const loading = ref(false);
 const showEditDialog = ref(false);
-const editForm = ref({
-  id: "",
-  name: "",
-  contractNo: "",
-  futureUse: "",
-  plannedHandoverDate: "",
-  completionDate: "",
-  others: "",
-});
+const selectedBoundaries = ref([]);
+const importInputRef = ref(null);
+const editForm = ref(createSiteBoundaryEditForm());
 
 const statusOptions = [
   { label: "All", value: "All" },
@@ -253,29 +239,89 @@ const exportExcel = () => {
   });
 };
 
+const boundaryCountText = (count) =>
+  count === 1 ? "1 site boundary" : `${count} site boundaries`;
+
+const handleSelectionChange = (rows) => {
+  selectedBoundaries.value = Array.isArray(rows) ? rows : [];
+};
+
+const exportSelectedJson = () => {
+  if (!selectedBoundaries.value.length) {
+    ElMessage.warning("Please select at least 1 site boundary.");
+    return;
+  }
+  downloadSiteBoundaryJson(selectedBoundaries.value, "site-boundaries-selected.json");
+  ElMessage.success(
+    `Exported ${boundaryCountText(selectedBoundaries.value.length)} to JSON.`
+  );
+};
+
+const resetImportInput = () => {
+  if (importInputRef.value) {
+    importInputRef.value.value = "";
+  }
+};
+
+const openImportJsonPicker = () => {
+  importInputRef.value?.click();
+};
+
+const isDialogCancel = (error) =>
+  error === "cancel" ||
+  error === "close" ||
+  (error && typeof error === "object" && error.action === "cancel");
+
+const handleImportFileChange = async (event) => {
+  const file = event?.target?.files?.[0];
+  resetImportInput();
+  if (!file) return;
+
+  let imported = [];
+  try {
+    const text = await file.text();
+    imported = parseSiteBoundaryJson(JSON.parse(text));
+  } catch (error) {
+    ElMessage.error(`Import failed: ${error?.message || "invalid JSON format."}`);
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `Import ${boundaryCountText(imported.length)} from "${file.name}"? This will replace current ${boundaryCountText(boundaries.value.length)}.`,
+      "Import Site Boundaries JSON",
+      {
+        type: "warning",
+        confirmButtonText: "Import",
+        cancelButtonText: "Cancel",
+      }
+    );
+  } catch (error) {
+    if (isDialogCancel(error)) return;
+    ElMessage.error(`Import canceled: ${error?.message || "unknown error."}`);
+    return;
+  }
+
+  siteBoundaryStore.mergeBoundaries(imported);
+  selectedBoundaries.value = [];
+  ElMessage.success(`Imported ${boundaryCountText(imported.length)} from JSON.`);
+};
+
 const openEditDialog = (row) => {
-  editForm.value = {
-    id: row.id,
-    name: row.name || "",
-    contractNo: row.contractNo || "",
-    futureUse: row.futureUse || "",
-    plannedHandoverDate: row.plannedHandoverDate || "",
-    completionDate: row.completionDate || "",
-    others: row.others || "",
-  };
+  editForm.value = createSiteBoundaryEditForm(row);
   showEditDialog.value = true;
 };
 
 const saveEditBoundary = () => {
   if (!editForm.value.id) return;
-  siteBoundaryStore.updateSiteBoundary(editForm.value.id, {
-    name: editForm.value.name,
-    contractNo: editForm.value.contractNo,
-    futureUse: editForm.value.futureUse,
-    plannedHandoverDate: editForm.value.plannedHandoverDate,
-    completionDate: editForm.value.completionDate,
-    others: editForm.value.others,
-  });
+  siteBoundaryStore.updateSiteBoundary(
+    editForm.value.id,
+    buildSiteBoundaryUpdatePayload(editForm.value)
+  );
+  showEditDialog.value = false;
+};
+
+const cancelEditBoundary = () => {
   showEditDialog.value = false;
 };
 
@@ -309,5 +355,9 @@ onMounted(() => {
 
 .muted {
   color: var(--muted);
+}
+
+.hidden-file-input {
+  display: none;
 }
 </style>
