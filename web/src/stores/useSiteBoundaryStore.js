@@ -89,28 +89,36 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
       this.loaded = true;
     },
     updateSiteBoundary(id, payload = {}) {
-      const normalizedId = String(id);
+      const normalizedId = String(id || "").trim();
+      if (!normalizedId) return;
+      const normalizedIdLower = normalizedId.toLowerCase();
       const index = this.siteBoundaries.findIndex(
-        (boundary) => String(boundary.id) === normalizedId
+        (boundary) => String(boundary.id || "").trim().toLowerCase() === normalizedIdLower
       );
       if (index === -1) return;
+      const currentBoundary = this.siteBoundaries[index];
+      const canonicalId = String(currentBoundary.id);
       const existingIds = new Set(
         this.siteBoundaries
           .filter((_, rowIndex) => rowIndex !== index)
-          .map((boundary) => String(boundary.id))
+          .map((boundary) => String(boundary.id || "").trim().toLowerCase())
       );
-      const updated = normalizeSiteBoundary(
+      const normalizedBoundary = normalizeSiteBoundary(
         {
-          ...this.siteBoundaries[index],
+          ...currentBoundary,
           ...payload,
-          id: normalizedId,
+          id: canonicalId,
           sourceRef:
-            this.siteBoundaries[index]?.sourceRef ??
-            buildSiteBoundarySourceRef(this.siteBoundaries[index], index),
+            currentBoundary?.sourceRef ??
+            buildSiteBoundarySourceRef(currentBoundary, index),
         },
         index,
         { existingIds }
       );
+      const updated = {
+        ...normalizedBoundary,
+        id: canonicalId,
+      };
       this.siteBoundaries.splice(index, 1, updated);
     },
     async ensureLoaded(force = false) {

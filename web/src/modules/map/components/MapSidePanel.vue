@@ -122,7 +122,11 @@
                 >
                   <div class="list-title-row">
                     <span class="list-title">{{ lot.operatorName }}</span>
-                    <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
+                    <el-tag
+                      size="small"
+                      effect="plain"
+                      :style="workStatusStyle(lot.status, lot.dueDate)"
+                    >
                       {{ lot.status }}
                     </el-tag>
                   </div>
@@ -153,7 +157,11 @@
           >
             <div class="list-title-row">
               <span class="list-title">{{ lot.operatorName }}</span>
-              <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
+              <el-tag
+                size="small"
+                effect="plain"
+                :style="workStatusStyle(lot.status, lot.dueDate)"
+              >
                 {{ lot.status }}
               </el-tag>
             </div>
@@ -188,7 +196,17 @@
           >
             <div class="list-title-row">
               <span class="list-title">{{ boundary.name }}</span>
-              <el-tag size="small" effect="plain">Site Boundary</el-tag>
+              <el-tag
+                size="small"
+                effect="plain"
+                :style="siteBoundaryStatusStyle(boundary.boundaryStatusKey, boundary.overdue)"
+              >
+                {{ boundary.boundaryStatus || "Pending Clearance" }}
+              </el-tag>
+            </div>
+            <div class="list-meta subtle">
+              {{ siteBoundaryWorkLotCountText(boundary) }} · Handover
+              {{ boundary.plannedHandoverDate || "—" }}
             </div>
           </button>
           <el-empty v-if="siteBoundaryResults.length === 0" description="No site boundaries" />
@@ -210,6 +228,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { siteBoundaryStatusStyle } from "../utils/siteBoundaryStatusStyle";
 
 const props = defineProps({
   leftTab: { type: String, required: true },
@@ -315,6 +334,12 @@ const showWorkLotsGovernmentProxy = computed({
     );
   },
 });
+
+const siteBoundaryWorkLotCountText = (boundary) => {
+  const count = Number(boundary?.workLotCount);
+  if (!Number.isFinite(count) || count <= 0) return "No work lots";
+  return count === 1 ? "1 work lot" : `${count} work lots`;
+};
 
 const MOBILE_BREAKPOINT = 900;
 const mobilePanelOpen = ref(true);

@@ -41,7 +41,7 @@
       height="calc(100vh - 260px)"
       :empty-text="loading ? 'Loading…' : 'No data'"
     >
-      <el-table-column prop="id" label="Land ID" width="170" />
+      <el-table-column prop="id" label="System ID" width="170" />
       <el-table-column prop="name" label="Name" min-width="190" />
       <el-table-column label="Handover Date" width="140">
         <template #default="{ row }">
@@ -57,16 +57,14 @@
       <el-table-column prop="futureUse" label="Future Use" min-width="160" />
       <el-table-column label="Progress" min-width="180">
         <template #default="{ row }">
-          <div class="progress-cell">
-            <el-progress
-              :percentage="row.progressPercent"
-              :status="row.overdue ? 'exception' : undefined"
-              :stroke-width="10"
-            />
-            <span class="progress-meta">
-              {{ row.completedOperators }}/{{ row.totalOperators }} operators
-            </span>
-          </div>
+          <SiteBoundaryProgress
+            :percentage="row.progressPercent"
+            :completed="row.completedOperators"
+            :total="row.totalOperators"
+            :status-key="row.statusKey"
+            :overdue="row.overdue"
+            :stroke-width="10"
+          />
         </template>
       </el-table-column>
       <el-table-column label="Related Work Lots" min-width="220">
@@ -100,7 +98,7 @@
       destroy-on-close
     >
       <el-form :model="editForm" label-position="top">
-        <el-form-item label="Land ID">
+        <el-form-item label="System ID">
           <el-input :model-value="editForm.id" disabled />
         </el-form-item>
         <el-form-item label="Name">
@@ -128,7 +126,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="Others">
+        <el-form-item label="Remarks">
           <el-input
             v-model="editForm.others"
             type="textarea"
@@ -149,6 +147,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import TimeText from "../../components/TimeText.vue";
+import SiteBoundaryProgress from "../../components/SiteBoundaryProgress.vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
 import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { exportSiteBoundaries } from "../../shared/utils/excel";
@@ -228,13 +227,13 @@ const enrichedBoundaries = computed(() => {
       ...boundary,
       ...summary,
       statusTagType,
-      relatedWorkLotIds: relatedLots.map((lot) => String(lot.id)),
+      relatedWorkLotNames: relatedLots.map((lot) => lot.operatorName || String(lot.id)),
     };
   });
 });
 
 const relatedWorkLotText = (row) => {
-  const related = Array.isArray(row?.relatedWorkLotIds) ? row.relatedWorkLotIds : [];
+  const related = Array.isArray(row?.relatedWorkLotNames) ? row.relatedWorkLotNames : [];
   return related.length ? related.join(", ") : "—";
 };
 
@@ -306,17 +305,6 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.progress-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.progress-meta {
-  font-size: 11px;
-  color: var(--muted);
 }
 
 .muted {

@@ -79,7 +79,7 @@
         <el-button link type="primary" @click="goWorkLots">View All</el-button>
       </div>
       <el-table :data="recentRows" height="360px">
-        <el-table-column prop="id" label="ID" width="130" />
+        <el-table-column prop="id" label="System ID" width="130" />
         <el-table-column label="Related Lands" min-width="220">
           <template #default="{ row }">
             {{ relatedLandText(row) }}
@@ -165,9 +165,21 @@ const { kpis, workLotCategorySplit, workLotStatusSplit, monthlyTrend, recentWork
 
 const recentRows = computed(() => recentWorkLots.value);
 const statusStyle = (status) => workStatusStyle(status);
+const siteBoundaryNameById = computed(() =>
+  siteBoundaryStore.siteBoundaries.reduce((map, boundary) => {
+    map.set(String(boundary.id).toLowerCase(), boundary.name || "");
+    return map;
+  }, new Map())
+);
 const relatedLandText = (lot) => {
   const related = Array.isArray(lot?.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : [];
-  return related.length ? related.join(", ") : "—";
+  if (!related.length) return "—";
+  return related
+    .map((id) => {
+      const normalized = String(id).toLowerCase();
+      return siteBoundaryNameById.value.get(normalized) || String(id);
+    })
+    .join(", ");
 };
 const goWorkLots = () => router.push("/landbank/work-lots");
 
@@ -245,7 +257,7 @@ const buildCharts = () => {
           "Waiting for Assessment",
           "EGA Approved",
           "Waiting for Clearance",
-          "Cleared / Completed",
+          "Completed",
         ],
         datasets: [
           {

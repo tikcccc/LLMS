@@ -7,7 +7,7 @@
     @close="handleCancel"
   >
     <el-form :model="formProxy" label-position="top">
-      <el-form-item label="Land ID">
+      <el-form-item label="System ID">
         <el-input :model-value="boundaryId" disabled />
       </el-form-item>
 
@@ -41,7 +41,7 @@
         />
       </el-form-item>
 
-      <el-form-item label="Others">
+      <el-form-item label="Remarks">
         <el-input
           v-model="othersProxy"
           type="textarea"

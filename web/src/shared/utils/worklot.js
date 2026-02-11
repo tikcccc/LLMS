@@ -18,7 +18,7 @@ export const WORK_LOT_STATUS = {
   WAITING_ASSESSMENT: "Waiting for Assessment",
   EGA_APPROVED: "EGA Approved",
   WAITING_CLEARANCE: "Waiting for Clearance",
-  CLEARED_COMPLETED: "Cleared / Completed",
+  CLEARED_COMPLETED: "Completed",
 };
 
 export const WORK_LOT_STATUSES = [

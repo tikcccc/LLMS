@@ -1,8 +1,30 @@
 import { Fill, Stroke, Style, Text } from "ol/style";
+import { todayHongKong } from "../../../shared/utils/time";
 
 const workStyleCache = new Map();
 const highlightWorkStyleCache = new Map();
 const siteBoundaryStyleCache = new Map();
+let todayHongKongCache = "";
+let todayHongKongCacheAt = 0;
+
+const getTodayHongKongCached = () => {
+  const now = Date.now();
+  if (!todayHongKongCache || now - todayHongKongCacheAt > 60 * 1000) {
+    todayHongKongCache = todayHongKong();
+    todayHongKongCacheAt = now;
+  }
+  return todayHongKongCache;
+};
+
+const isYyyyMmDd = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+const isCompletedStatus = (status) =>
+  status === "Completed" || status === "Cleared / Completed";
+
+const isWorkLotOverdue = (status, dueDate) => {
+  if (isCompletedStatus(status)) return false;
+  if (!isYyyyMmDd(dueDate)) return false;
+  return String(dueDate) < getTodayHongKongCached();
+};
 
 const intLandStroke = new Stroke({ color: "rgba(14, 116, 144, 0.8)", width: 2.2 });
 const intLandFill = new Fill({ color: "rgba(14, 116, 144, 0.18)" });
@@ -16,12 +38,15 @@ export function intLandStyle() {
 }
 
 const siteBoundaryPalette = {
-  DEFAULT: { stroke: "rgba(217, 119, 6, 0.95)", fill: "rgba(217, 119, 6, 0.12)" },
+  DEFAULT: {
+    stroke: "rgba(100, 116, 139, 0.95)",
+    fill: "rgba(148, 163, 184, 0.1)",
+  },
   PENDING_CLEARANCE: {
     stroke: "rgba(100, 116, 139, 0.95)",
     fill: "rgba(148, 163, 184, 0.1)",
   },
-  IN_PROGRESS: { stroke: "rgba(202, 138, 4, 0.95)", fill: "rgba(250, 204, 21, 0.12)" },
+  IN_PROGRESS: { stroke: "rgba(180, 83, 9, 0.95)", fill: "rgba(245, 158, 11, 0.14)" },
   CRITICAL_RISK: { stroke: "rgba(220, 38, 38, 0.95)", fill: "rgba(248, 113, 113, 0.16)" },
   HANDOVER_READY: { stroke: "rgba(22, 163, 74, 0.95)", fill: "rgba(34, 197, 94, 0.14)" },
   HANDED_OVER: { stroke: "rgba(5, 150, 105, 0.95)", fill: "rgba(16, 185, 129, 0.16)" },
@@ -78,23 +103,29 @@ export function highlightSiteBoundaryStyle() {
 export function workLotStyle(feature) {
   const status = feature.get("status");
   const category = feature.get("workCategory");
+  const dueDate = feature.get("dueDate");
+  const overdue = isWorkLotOverdue(status, dueDate);
   let fillColor = "rgba(148, 163, 184, 0.62)";
   let strokeColor = "#64748b";
   let strokeWidth = 3;
 
-  if (status === "Waiting for Assessment") {
+  if (overdue) {
+    fillColor = "rgba(248, 113, 113, 0.72)";
+    strokeColor = "#dc2626";
+    strokeWidth = 3.2;
+  } else if (status === "Waiting for Assessment") {
     fillColor = "rgba(148, 163, 184, 0.62)";
     strokeColor = "#64748b";
     strokeWidth = 2.8;
   } else if (status === "EGA Approved") {
-    fillColor = "rgba(59, 130, 246, 0.72)";
-    strokeColor = "#1d4ed8";
+    fillColor = "rgba(250, 204, 21, 0.72)";
+    strokeColor = "#a16207";
     strokeWidth = 3.2;
   } else if (status === "Waiting for Clearance") {
-    fillColor = "rgba(250, 204, 21, 0.74)";
-    strokeColor = "#ca8a04";
+    fillColor = "rgba(245, 158, 11, 0.74)";
+    strokeColor = "#b45309";
     strokeWidth = 3.2;
-  } else if (status === "Cleared / Completed") {
+  } else if (isCompletedStatus(status)) {
     fillColor = "rgba(34, 197, 94, 0.72)";
     strokeColor = "#15803d";
     strokeWidth = 3.2;
@@ -106,7 +137,7 @@ export function workLotStyle(feature) {
       : category === "GL_GOVERNMENT_LAND"
         ? [2, 4]
         : undefined;
-  const cacheKey = `${status || "unknown"}:${category || "unknown"}`;
+  const cacheKey = `${status || "unknown"}:${category || "unknown"}:${overdue ? "overdue" : "normal"}`;
 
   if (!workStyleCache.has(cacheKey)) {
     workStyleCache.set(
@@ -136,16 +167,21 @@ export function workLotStyle(feature) {
 export function highlightWorkLotStyle(feature) {
   const status = feature.get("status");
   const category = feature.get("workCategory");
+  const dueDate = feature.get("dueDate");
+  const overdue = isWorkLotOverdue(status, dueDate);
 
   let fillColor = "rgba(148, 163, 184, 0.84)";
   let strokeColor = "#475569";
-  if (status === "EGA Approved") {
-    fillColor = "rgba(59, 130, 246, 0.9)";
-    strokeColor = "#1d4ed8";
-  } else if (status === "Waiting for Clearance") {
+  if (overdue) {
+    fillColor = "rgba(248, 113, 113, 0.9)";
+    strokeColor = "#dc2626";
+  } else if (status === "EGA Approved") {
     fillColor = "rgba(250, 204, 21, 0.9)";
     strokeColor = "#a16207";
-  } else if (status === "Cleared / Completed") {
+  } else if (status === "Waiting for Clearance") {
+    fillColor = "rgba(245, 158, 11, 0.9)";
+    strokeColor = "#b45309";
+  } else if (isCompletedStatus(status)) {
     fillColor = "rgba(34, 197, 94, 0.9)";
     strokeColor = "#15803d";
   }
@@ -156,7 +192,7 @@ export function highlightWorkLotStyle(feature) {
       : category === "GL_GOVERNMENT_LAND"
         ? [2, 5]
         : undefined;
-  const cacheKey = `${status || "unknown"}:${category || "unknown"}`;
+  const cacheKey = `${status || "unknown"}:${category || "unknown"}:${overdue ? "overdue" : "normal"}`;
   if (!highlightWorkStyleCache.has(cacheKey)) {
     highlightWorkStyleCache.set(
       cacheKey,

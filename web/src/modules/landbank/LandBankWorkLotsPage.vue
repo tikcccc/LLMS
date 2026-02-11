@@ -29,7 +29,7 @@
     </div>
 
     <el-table :data="filteredWorkLots" height="calc(100vh - 260px)">
-      <el-table-column prop="id" label="ID" width="150" />
+      <el-table-column prop="id" label="System ID" width="150" />
       <el-table-column label="Related Lands" min-width="220">
         <template #default="{ row }">
           {{ relatedLandText(row) }}
@@ -93,9 +93,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
+import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { exportWorkLots } from "../../shared/utils/excel";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import TimeText from "../../components/TimeText.vue";
@@ -106,6 +107,7 @@ import {
 } from "../../shared/utils/worklot";
 
 const workLotStore = useWorkLotStore();
+const siteBoundaryStore = useSiteBoundaryStore();
 const router = useRouter();
 
 const workLots = computed(() => workLotStore.workLots);
@@ -117,9 +119,21 @@ const categoryFilter = ref("All");
 const statusOptions = ["All", ...WORK_LOT_STATUSES];
 const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];
 const workCategoryLabel = (category) => toWorkLotCategoryLabel(category);
+const siteBoundaryNameById = computed(() =>
+  siteBoundaryStore.siteBoundaries.reduce((map, boundary) => {
+    map.set(String(boundary.id).toLowerCase(), boundary.name || "");
+    return map;
+  }, new Map())
+);
 const relatedLandText = (lot) => {
   const related = Array.isArray(lot?.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : [];
-  return related.length ? related.join(", ") : "—";
+  if (!related.length) return "—";
+  return related
+    .map((id) => {
+      const normalized = String(id).toLowerCase();
+      return siteBoundaryNameById.value.get(normalized) || String(id);
+    })
+    .join(", ");
 };
 const formatArea = (area) => {
   const value = Number(area);
@@ -164,6 +178,10 @@ const exportExcel = () => {
 const viewOnMap = (workLotId) => {
   router.push({ path: "/map", query: { workLotId } });
 };
+
+onMounted(() => {
+  siteBoundaryStore.ensureLoaded();
+});
 </script>
 
 <style scoped>

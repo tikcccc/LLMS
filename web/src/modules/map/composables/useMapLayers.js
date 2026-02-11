@@ -10,7 +10,6 @@ import {
 import {
   buildSiteBoundarySourceRef,
   buildWorkLotsByBoundary,
-  defaultSiteBoundaryName,
   summarizeSiteBoundary,
 } from "../../../shared/utils/siteBoundary";
 import { generateLandId } from "../../../shared/utils/id";
@@ -169,7 +168,7 @@ export const useMapLayers = ({
         },
         workLotsByBoundary.get(id) || []
       );
-      feature.set("name", boundaryMeta?.name || feature.get("name") || `Site Boundary ${id}`);
+      feature.set("name", boundaryMeta?.name ?? feature.get("name") ?? "");
       feature.set(
         "plannedHandoverDate",
         boundaryMeta?.plannedHandoverDate ?? feature.get("plannedHandoverDate") ?? ""
@@ -294,7 +293,7 @@ export const useMapLayers = ({
         feature.set("landId", assignedId);
         feature.set(
           "name",
-          meta?.name || feature.get("name") || defaultSiteBoundaryName(index)
+          meta?.name ?? feature.get("name") ?? ""
         );
         feature.set(
           "plannedHandoverDate",

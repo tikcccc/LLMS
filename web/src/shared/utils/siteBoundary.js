@@ -66,8 +66,6 @@ export const normalizeFeatureId = (value) => {
   return text || null;
 };
 
-export const defaultSiteBoundaryName = (index) => `HKSTP No.${index + 1}`;
-
 const collectExistingIdSet = (existingIds) => {
   const set = new Set();
   if (!existingIds || typeof existingIds[Symbol.iterator] !== "function") {
@@ -127,7 +125,7 @@ export const normalizeSiteBoundary = (boundary = {}, index = 0, options = {}) =>
   return {
     id,
     sourceRef: buildSiteBoundarySourceRef(boundary, index),
-    name: normalizeText(boundary.name) || defaultSiteBoundaryName(index),
+    name: normalizeText(boundary.name),
     layer: normalizeText(boundary.layer) || "—",
     entity: normalizeText(boundary.entity) || "Polygon",
     area,

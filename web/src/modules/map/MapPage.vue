@@ -38,6 +38,7 @@
       />
 
       <MapScaleBar :map="mapRef" />
+      <MapLegend />
     </main>
 
     <MapDrawer
@@ -64,6 +65,7 @@
       :confirm-text="workDialogConfirmText"
       :work-lot-id="workDialogWorkLotId"
       :related-site-boundary-ids="workForm.relatedSiteBoundaryIds"
+      :related-site-boundary-names="workFormRelatedSiteBoundaryNames"
       v-model:operatorName="workForm.operatorName"
       v-model:category="workForm.category"
       v-model:responsiblePerson="workForm.responsiblePerson"
@@ -108,6 +110,7 @@ import MapDrawer from "./components/MapDrawer.vue";
 import WorkLotDialog from "./components/WorkLotDialog.vue";
 import SiteBoundaryDialog from "./components/SiteBoundaryDialog.vue";
 import MapScaleBar from "./components/MapScaleBar.vue";
+import MapLegend from "./components/MapLegend.vue";
 
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
@@ -234,6 +237,19 @@ const workDialogConfirmText = computed(() =>
 );
 const workDialogWorkLotId = computed(() =>
   workDialogMode.value === "edit" ? String(editingWorkLotId.value ?? "") : ""
+);
+const workFormRelatedSiteBoundaryNames = computed(() =>
+  (Array.isArray(workForm.value.relatedSiteBoundaryIds)
+    ? workForm.value.relatedSiteBoundaryIds
+    : []
+  ).map((id) => {
+    const normalized = String(id).trim().toLowerCase();
+    if (!normalized) return String(id);
+    const found = siteBoundaryStore.siteBoundaries.find(
+      (boundary) => String(boundary.id).trim().toLowerCase() === normalized
+    );
+    return found?.name || String(id);
+  })
 );
 const siteBoundaryDialogBoundaryId = computed(() =>
   String(editingSiteBoundaryId.value || "")
@@ -477,7 +493,7 @@ const selectedSiteBoundary = computed(() => {
     .map((lot) => String(lot.id));
   return {
     id: normalizedBoundaryId,
-    name: feature.get("name") ?? "Site Boundary",
+    name: feature.get("name") ?? "",
     layer: feature.get("layer") ?? "—",
     entity: feature.get("entity") ?? "Polygon",
     area,
@@ -512,7 +528,7 @@ const selectedWorkLotRelatedSites = computed(() => {
       const feature = findSiteBoundaryFeatureById(siteBoundaryId);
       return {
         id: String(feature?.getId() ?? siteBoundaryId),
-        name: feature?.get("name") ?? "Site Boundary",
+        name: feature?.get("name") ?? "",
         status: feature?.get("boundaryStatus") ?? "Pending Clearance",
         statusKey: feature?.get("kpiStatus") ?? "PENDING_CLEARANCE",
         plannedHandoverDate: feature?.get("plannedHandoverDate") ?? "",
@@ -559,18 +575,50 @@ const siteBoundaryResults = computed(() => {
   siteBoundarySourceVersion.value;
   if (!siteBoundarySource) return [];
 
+  const workLotCountByBoundaryId = workLotStore.workLots.reduce((map, lot) => {
+    const relatedIds = Array.isArray(lot?.relatedSiteBoundaryIds)
+      ? lot.relatedSiteBoundaryIds
+      : [];
+    relatedIds
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean)
+      .forEach((normalizedId) => {
+        map.set(normalizedId, (map.get(normalizedId) || 0) + 1);
+      });
+    return map;
+  }, new Map());
+
   const query = siteBoundarySearchQuery.value.trim().toLowerCase();
   return siteBoundarySource
     .getFeatures()
-    .map((feature, index) => ({
-      id: String(feature.getId() ?? `site_boundary_${String(index + 1).padStart(5, "0")}`),
-      name: feature.get("name") ?? "Site Boundary",
-    }))
+    .map((feature, index) => {
+      const id = String(feature.getId() ?? `site_boundary_${String(index + 1).padStart(5, "0")}`);
+      const fallbackCount = Number(feature.get("operatorTotal"));
+      const mappedCount = workLotCountByBoundaryId.get(id.toLowerCase());
+      const workLotCount = Number.isFinite(mappedCount)
+        ? mappedCount
+        : Number.isFinite(fallbackCount)
+          ? fallbackCount
+          : 0;
+
+      return {
+        id,
+        name: feature.get("name") ?? "",
+        plannedHandoverDate: feature.get("plannedHandoverDate") ?? "",
+        boundaryStatus: feature.get("boundaryStatus") ?? "Pending Clearance",
+        boundaryStatusKey: feature.get("kpiStatus") ?? "PENDING_CLEARANCE",
+        overdue: !!feature.get("overdue"),
+        workLotCount,
+      };
+    })
     .filter((item) => {
       if (!query) return true;
       return (
         item.id.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query)
+        item.name.toLowerCase().includes(query) ||
+        item.boundaryStatus.toLowerCase().includes(query) ||
+        item.plannedHandoverDate.toLowerCase().includes(query) ||
+        String(item.workLotCount).includes(query)
       );
     })
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
@@ -591,7 +639,7 @@ const scopeSiteBoundaryResults = computed(() => {
     .filter(Boolean)
     .map((feature) => ({
       id: String(feature.getId() ?? feature.get("refId")),
-      name: feature.get("name") ?? "Site Boundary",
+      name: feature.get("name") ?? "",
     }));
 });
 

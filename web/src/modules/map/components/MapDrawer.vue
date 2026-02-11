@@ -13,7 +13,10 @@
           <div class="drawer-title">{{ selectedWorkLot.operatorName }}</div>
         </div>
         <div class="header-tags">
-          <el-tag effect="plain" :style="workStatusStyle(selectedWorkLot.status)">
+          <el-tag
+            effect="plain"
+            :style="workStatusStyle(selectedWorkLot.status, selectedWorkLot.dueDate)"
+          >
             {{ selectedWorkLot.status }}
           </el-tag>
           <el-button
@@ -69,7 +72,7 @@
         <el-collapse-item name="basic" title="Basic Information">
           <div class="info-grid">
             <div class="info-item">
-              <span class="info-label">ID</span>
+              <span class="info-label">System ID</span>
               <span class="info-value">{{ selectedWorkLot.id }}</span>
             </div>
             <div class="info-item">
@@ -145,7 +148,11 @@
             >
               <div class="related-item-head">
                 <span class="related-item-title">{{ site.name || "Site Boundary" }}</span>
-                <el-tag size="small" effect="light" :type="siteBoundaryTagType(site)">
+                <el-tag
+                  size="small"
+                  effect="plain"
+                  :style="siteBoundaryStatusStyle(site.statusKey, site.overdue)"
+                >
                   {{ site.status || "Pending Clearance" }}
                 </el-tag>
               </div>
@@ -182,7 +189,7 @@
         <el-collapse-item name="basic" title="Basic Information">
           <div class="info-grid">
             <div class="info-item">
-              <span class="info-label">Land ID</span>
+              <span class="info-label">System ID</span>
               <span class="info-value">{{ selectedSiteBoundary.id }}</span>
             </div>
             <div class="info-item">
@@ -206,31 +213,62 @@
             <div class="info-item">
               <span class="info-label">Management Status</span>
               <span class="info-value">
-                <el-tag size="small" :type="siteBoundaryStatusTagType" effect="light">
+                <el-tag
+                  size="small"
+                  effect="plain"
+                  :style="
+                    siteBoundaryStatusStyle(
+                      selectedSiteBoundary.boundaryStatusKey,
+                      !!selectedSiteBoundary.overdue
+                    )
+                  "
+                >
                   {{ selectedSiteBoundary.boundaryStatus || "Pending Clearance" }}
                 </el-tag>
               </span>
             </div>
             <div class="info-item info-item-wide">
               <span class="info-label">Handover Progress</span>
-              <div class="progress-wrap">
-                <el-progress
-                  :percentage="siteBoundaryProgressPercent"
-                  :status="siteBoundaryProgressStatus"
-                />
-                <div class="progress-meta">
-                  {{ selectedSiteBoundary.operatorCompleted || 0 }} /
-                  {{ selectedSiteBoundary.operatorTotal || 0 }} operators completed
-                </div>
-              </div>
+              <SiteBoundaryProgress
+                :percentage="siteBoundaryProgressPercent"
+                :completed="selectedSiteBoundary.operatorCompleted || 0"
+                :total="selectedSiteBoundary.operatorTotal || 0"
+                :status-key="selectedSiteBoundary.boundaryStatusKey"
+                :overdue="!!selectedSiteBoundary.overdue"
+              />
             </div>
           </div>
         </el-collapse-item>
 
         <el-collapse-item name="relatedWorkLots" title="Related Work Lots">
-          <div v-if="relatedWorkLots.length > 0" class="related-list">
+          <div v-if="relatedWorkLots.length > 0" class="related-filters">
+            <el-input
+              v-model="relatedWorkLotsKeyword"
+              size="small"
+              clearable
+              placeholder="Search related work lots"
+            />
+            <el-select v-model="relatedWorkLotsStatusFilter" size="small">
+              <el-option
+                v-for="option in relatedWorkLotStatusOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <el-select v-model="relatedWorkLotsDueFilter" size="small">
+              <el-option
+                v-for="option in RELATED_WORKLOT_DUE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </div>
+
+          <div v-if="filteredRelatedWorkLots.length > 0" class="related-list">
             <button
-              v-for="lot in relatedWorkLots"
+              v-for="lot in filteredRelatedWorkLots"
               :key="lot.id"
               class="related-item"
               type="button"
@@ -238,7 +276,11 @@
             >
               <div class="related-item-head">
                 <span class="related-item-title">{{ lot.operatorName || "Work Lot" }}</span>
-                <el-tag size="small" effect="plain" :style="workStatusStyle(lot.status)">
+                <el-tag
+                  size="small"
+                  effect="plain"
+                  :style="workStatusStyle(lot.status, lot.dueDate)"
+                >
                   {{ lot.status }}
                 </el-tag>
               </div>
@@ -247,7 +289,15 @@
               </div>
             </button>
           </div>
-          <el-empty v-else :image-size="60" description="No related work lots" />
+          <el-empty
+            v-else
+            :image-size="60"
+            :description="
+              relatedWorkLots.length > 0
+                ? 'No related work lots match filters'
+                : 'No related work lots'
+            "
+          />
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -283,6 +333,9 @@
 import { computed, ref, watch } from "vue";
 import TimeText from "../../../components/TimeText.vue";
 import ConfirmDialog from "../../../components/ConfirmDialog.vue";
+import SiteBoundaryProgress from "../../../components/SiteBoundaryProgress.vue";
+import { todayHongKong } from "../../../shared/utils/time";
+import { siteBoundaryStatusStyle } from "../utils/siteBoundaryStatusStyle";
 
 const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
@@ -351,61 +404,57 @@ const siteBoundaryProgressPercent = computed(() => {
   return Math.max(0, Math.min(100, Math.round(value)));
 });
 
-const siteBoundaryStatusTagType = computed(() => {
-  if (
-    props.selectedSiteBoundary?.overdue &&
-    props.selectedSiteBoundary?.boundaryStatusKey !== "HANDED_OVER" &&
-    props.selectedSiteBoundary?.boundaryStatusKey !== "HANDOVER_READY"
-  ) {
-    return "danger";
-  }
-  switch (props.selectedSiteBoundary?.boundaryStatusKey) {
-    case "HANDED_OVER":
-      return "success";
-    case "HANDOVER_READY":
-      return "success";
-    case "CRITICAL_RISK":
-      return "danger";
-    case "IN_PROGRESS":
-      return "warning";
-    default:
-      return "info";
-  }
+const RELATED_WORKLOT_DUE_OPTIONS = [
+  { label: "All Due Dates", value: "ALL" },
+  { label: "Overdue", value: "OVERDUE" },
+  { label: "No Due Date", value: "NO_DUE_DATE" },
+];
+
+const relatedWorkLotsKeyword = ref("");
+const relatedWorkLotsStatusFilter = ref("ALL");
+const relatedWorkLotsDueFilter = ref("ALL");
+
+const relatedWorkLotStatusOptions = computed(() => {
+  const statuses = Array.from(
+    new Set(props.relatedWorkLots.map((lot) => String(lot.status || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+  return [{ label: "All Statuses", value: "ALL" }].concat(
+    statuses.map((status) => ({ label: status, value: status }))
+  );
 });
 
-const siteBoundaryProgressStatus = computed(() => {
-  if (props.selectedSiteBoundary?.boundaryStatusKey === "CRITICAL_RISK") {
-    return "exception";
-  }
-  if (props.selectedSiteBoundary?.boundaryStatusKey === "HANDED_OVER") {
-    return "success";
-  }
-  if (props.selectedSiteBoundary?.boundaryStatusKey === "HANDOVER_READY") {
-    return "success";
-  }
-  return undefined;
+const isYyyyMmDd = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+
+const filteredRelatedWorkLots = computed(() => {
+  const keyword = relatedWorkLotsKeyword.value.trim().toLowerCase();
+  const today = todayHongKong();
+  return props.relatedWorkLots.filter((lot) => {
+    if (
+      relatedWorkLotsStatusFilter.value !== "ALL" &&
+      String(lot.status || "") !== relatedWorkLotsStatusFilter.value
+    ) {
+      return false;
+    }
+
+    const dueDate = String(lot.dueDate || "").trim();
+    if (relatedWorkLotsDueFilter.value === "OVERDUE") {
+      if (!isYyyyMmDd(dueDate) || dueDate >= today) return false;
+    }
+    if (relatedWorkLotsDueFilter.value === "NO_DUE_DATE" && !!dueDate) {
+      return false;
+    }
+
+    if (!keyword) return true;
+    return [lot.id, lot.operatorName, lot.status, lot.dueDate]
+      .map((value) => String(value || "").toLowerCase())
+      .some((value) => value.includes(keyword));
+  });
 });
 
-const siteBoundaryTagType = (boundary) => {
-  if (
-    boundary?.overdue &&
-    boundary?.statusKey !== "HANDED_OVER" &&
-    boundary?.statusKey !== "HANDOVER_READY"
-  ) {
-    return "danger";
-  }
-  switch (boundary?.statusKey) {
-    case "HANDED_OVER":
-      return "success";
-    case "HANDOVER_READY":
-      return "success";
-    case "CRITICAL_RISK":
-      return "danger";
-    case "IN_PROGRESS":
-      return "warning";
-    default:
-      return "info";
-  }
+const resetRelatedWorkLotFilters = () => {
+  relatedWorkLotsKeyword.value = "";
+  relatedWorkLotsStatusFilter.value = "ALL";
+  relatedWorkLotsDueFilter.value = "ALL";
 };
 
 const requestDeleteWorkLot = () => {
@@ -419,8 +468,16 @@ const handleConfirmDeleteWorkLot = () => {
 watch(isOpen, (value) => {
   if (value) {
     activeCollapse.value = defaultActiveCollapse();
+    resetRelatedWorkLotFilters();
   }
 });
+
+watch(
+  () => props.selectedSiteBoundary?.id,
+  () => {
+    resetRelatedWorkLotFilters();
+  }
+);
 </script>
 
 <style scoped>
@@ -545,6 +602,14 @@ watch(isOpen, (value) => {
   padding: 0 2px;
 }
 
+.related-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px 128px;
+  gap: 8px;
+  padding: 0 2px;
+  margin-bottom: 8px;
+}
+
 .related-item {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -578,19 +643,12 @@ watch(isOpen, (value) => {
   color: #64748b;
 }
 
-.progress-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.progress-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-
 @media (max-width: 900px) {
   .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .related-filters {
     grid-template-columns: 1fr;
   }
 }

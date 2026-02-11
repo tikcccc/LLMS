@@ -11,7 +11,7 @@
     </div>
 
     <el-table :data="workLots" height="calc(100vh - 220px)">
-      <el-table-column prop="id" label="ID" width="150" />
+      <el-table-column prop="id" label="System ID" width="150" />
       <el-table-column label="Related Lands" min-width="220">
         <template #default="{ row }">
           {{ relatedLandText(row) }}
@@ -51,19 +51,33 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useWorkLotStore } from "../../stores/useWorkLotStore";
+import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { exportWorkLots } from "../../shared/utils/excel";
 import TimeText from "../../components/TimeText.vue";
 import { workLotCategoryLabel as toWorkLotCategoryLabel } from "../../shared/utils/worklot";
 
 const workLotStore = useWorkLotStore();
+const siteBoundaryStore = useSiteBoundaryStore();
 
 const workLots = computed(() => workLotStore.workLots);
 const workCategoryLabel = (category) => toWorkLotCategoryLabel(category);
+const siteBoundaryNameById = computed(() =>
+  siteBoundaryStore.siteBoundaries.reduce((map, boundary) => {
+    map.set(String(boundary.id).toLowerCase(), boundary.name || "");
+    return map;
+  }, new Map())
+);
 const relatedLandText = (lot) => {
   const related = Array.isArray(lot?.relatedSiteBoundaryIds) ? lot.relatedSiteBoundaryIds : [];
-  return related.length ? related.join(", ") : "—";
+  if (!related.length) return "—";
+  return related
+    .map((id) => {
+      const normalized = String(id).toLowerCase();
+      return siteBoundaryNameById.value.get(normalized) || String(id);
+    })
+    .join(", ");
 };
 const formatArea = (area) => {
   const value = Number(area);
@@ -77,6 +91,10 @@ const formatArea = (area) => {
 const exportExcel = () => {
   exportWorkLots(workLots.value);
 };
+
+onMounted(() => {
+  siteBoundaryStore.ensureLoaded();
+});
 </script>
 
 <style scoped>

@@ -6,7 +6,7 @@
     @close="handleCancel"
   >
     <el-form :model="formProxy" label-width="120px" label-position="top">
-      <el-form-item v-if="workLotId" label="ID">
+      <el-form-item v-if="workLotId" label="System ID">
         <el-input :model-value="workLotId" disabled />
       </el-form-item>
 
@@ -139,6 +139,7 @@ const props = defineProps({
   operatorName: { type: String, default: "" },
   category: { type: String, required: true },
   relatedSiteBoundaryIds: { type: Array, default: () => [] },
+  relatedSiteBoundaryNames: { type: Array, default: () => [] },
   responsiblePerson: { type: String, default: "" },
   assessDate: { type: String, default: "" },
   dueDate: { type: String, default: "" },
@@ -238,7 +239,12 @@ const formProxy = computed(() => ({
 }));
 
 const relatedLandText = computed(() =>
-  (props.relatedSiteBoundaryIds || []).map((item) => String(item)).join(", ")
+  (props.relatedSiteBoundaryNames?.length
+    ? props.relatedSiteBoundaryNames
+    : props.relatedSiteBoundaryIds
+  )
+    .map((item) => String(item))
+    .join(", ")
 );
 
 const handleCancel = () => {

@@ -31,7 +31,7 @@ const downloadExcel = (filename, headers, rows, sheetName = "Sheet1") => {
 
 export function exportWorkLots(workLots) {
   const headers = [
-    "ID",
+    "System ID",
     "Related Lands",
     "Work Lot",
     "Operator Type",
@@ -76,7 +76,7 @@ export function exportSiteBoundaries(
 ) {
   const { floatThresholdMonths = 3 } = options;
   const headers = [
-    "Land ID",
+    "System ID",
     "Name",
     "Hectare",
     "BU/HH/GL",
@@ -88,7 +88,7 @@ export function exportSiteBoundaries(
     "Float (Months)",
     "Status",
     "Need Force Eviction",
-    "Others",
+    "Remarks",
     "Operator Progress",
     "Related Work Lots",
   ];
