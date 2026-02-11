@@ -5,35 +5,39 @@
         <h2>Land Bank · Work Lots</h2>
         <p class="muted">Inventory view of all work lots.</p>
       </div>
-      <div class="actions">
-        <el-input
-          v-model="searchQuery"
-          size="small"
-          placeholder="Search work lots"
-          clearable
-          style="width: 200px"
-        />
-        <el-select v-model="statusFilter" size="small" style="width: 140px">
-          <el-option v-for="option in statusOptions" :key="option" :label="option" :value="option" />
-        </el-select>
-        <el-select v-model="categoryFilter" size="small" style="width: 200px">
-          <el-option
-            v-for="option in categoryOptions"
-            :key="option"
-            :label="option === 'All' ? 'All' : workCategoryLabel(option)"
-            :value="option"
+      <div class="toolbar">
+        <div class="filters">
+          <el-input
+            v-model="searchQuery"
+            size="small"
+            placeholder="Search work lots"
+            clearable
+            style="width: 200px"
           />
-        </el-select>
-        <el-button @click="openImportJsonPicker">Import JSON</el-button>
-        <el-button
-          type="primary"
-          plain
-          :disabled="selectedWorkLots.length === 0"
-          @click="exportSelectedJson"
-        >
-          Export JSON
-        </el-button>
-        <el-button type="primary" @click="exportExcel">Export Work Lots</el-button>
+          <el-select v-model="statusFilter" size="small" style="width: 140px">
+            <el-option v-for="option in statusOptions" :key="option" :label="option" :value="option" />
+          </el-select>
+          <el-select v-model="categoryFilter" size="small" style="width: 200px">
+            <el-option
+              v-for="option in categoryOptions"
+              :key="option"
+              :label="option === 'All' ? 'All' : workCategoryLabel(option)"
+              :value="option"
+            />
+          </el-select>
+        </div>
+        <div class="action-buttons">
+          <el-button @click="openImportJsonPicker">Import JSON</el-button>
+          <el-button
+            type="primary"
+            plain
+            :disabled="selectedWorkLots.length === 0"
+            @click="exportSelectedJson"
+          >
+            Export JSON
+          </el-button>
+          <el-button type="primary" @click="exportExcel">Export Work Lots</el-button>
+        </div>
       </div>
     </div>
 
@@ -42,8 +46,8 @@
       height="calc(100vh - 260px)"
       @selection-change="handleSelectionChange"
     >
-      <el-table-column type="selection" width="46" />
-      <el-table-column prop="id" label="System ID" width="150" />
+      <el-table-column type="selection" width="46" fixed="left" />
+      <el-table-column prop="id" label="System ID" width="150" fixed="left" />
       <el-table-column label="Related Lands" min-width="220">
         <template #default="{ row }">
           {{ relatedLandText(row) }}
@@ -101,19 +105,13 @@
         </template>
       </el-table-column>
       <el-table-column prop="updatedBy" label="Updated By" min-width="140" />
-      <el-table-column label="" width="90" align="right">
+      <el-table-column label="Actions" width="220" align="right" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="viewOnMap(row.id)">View</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="80" align="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="90" align="right">
-        <template #default="{ row }">
-          <el-button link type="danger" @click="requestDeleteWorkLot(row)">Delete</el-button>
+          <div class="row-actions">
+            <el-button link type="primary" @click="viewOnMap(row.id)">View</el-button>
+            <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
+            <el-button link type="danger" @click="requestDeleteWorkLot(row)">Delete</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -421,7 +419,20 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.actions {
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -430,6 +441,12 @@ onMounted(() => {
 
 .muted {
   color: var(--muted);
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .hidden-file-input {

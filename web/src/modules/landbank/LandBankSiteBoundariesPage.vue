@@ -7,41 +7,45 @@
           Land denominator for KPI and planned handover tracking.
         </p>
       </div>
-      <div class="actions">
-        <el-input
-          v-model="searchQuery"
-          size="small"
-          placeholder="Search site boundaries"
-          clearable
-          style="width: 220px"
-        />
-        <el-select v-model="statusFilter" size="small" style="width: 170px">
-          <el-option
-            v-for="option in statusOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
+      <div class="toolbar">
+        <div class="filters">
+          <el-input
+            v-model="searchQuery"
+            size="small"
+            placeholder="Search site boundaries"
+            clearable
+            style="width: 220px"
           />
-        </el-select>
-        <el-input-number
-          v-model="floatThresholdMonths"
-          size="small"
-          :min="0"
-          :max="24"
-          :step="1"
-          controls-position="right"
-          style="width: 170px"
-        />
-        <el-button @click="openImportJsonPicker">Import JSON</el-button>
-        <el-button
-          type="primary"
-          plain
-          :disabled="selectedBoundaries.length === 0"
-          @click="exportSelectedJson"
-        >
-          Export JSON
-        </el-button>
-        <el-button type="primary" @click="exportExcel">Export Site Boundaries</el-button>
+          <el-select v-model="statusFilter" size="small" style="width: 170px">
+            <el-option
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+          <el-input-number
+            v-model="floatThresholdMonths"
+            size="small"
+            :min="0"
+            :max="24"
+            :step="1"
+            controls-position="right"
+            style="width: 170px"
+          />
+        </div>
+        <div class="action-buttons">
+          <el-button @click="openImportJsonPicker">Import JSON</el-button>
+          <el-button
+            type="primary"
+            plain
+            :disabled="selectedBoundaries.length === 0"
+            @click="exportSelectedJson"
+          >
+            Export JSON
+          </el-button>
+          <el-button type="primary" @click="exportExcel">Export Site Boundaries</el-button>
+        </div>
       </div>
     </div>
 
@@ -51,8 +55,8 @@
       :empty-text="loading ? 'Loading…' : 'No data'"
       @selection-change="handleSelectionChange"
     >
-      <el-table-column type="selection" width="46" />
-      <el-table-column prop="id" label="System ID" width="170" />
+      <el-table-column type="selection" width="46" fixed="left" />
+      <el-table-column prop="id" label="System ID" width="170" fixed="left" />
       <el-table-column prop="name" label="Name" min-width="190" />
       <el-table-column label="Handover Date" width="140">
         <template #default="{ row }">
@@ -80,7 +84,22 @@
       </el-table-column>
       <el-table-column label="Related Work Lots" min-width="220">
         <template #default="{ row }">
-          {{ relatedWorkLotText(row) }}
+          <span v-if="relatedWorkLotNames(row).length === 0">—</span>
+          <el-popover v-else trigger="hover" placement="top-start" :width="360">
+            <template #reference>
+              <button type="button" class="related-worklots-trigger">
+                {{ relatedWorkLotSummary(row) }}
+              </button>
+            </template>
+            <div class="related-worklots-popover">
+              <div class="popover-title">
+                {{ relatedWorkLotNames(row).length }} related work lots
+              </div>
+              <ul class="popover-list">
+                <li v-for="name in relatedWorkLotNames(row)" :key="name">{{ name }}</li>
+              </ul>
+            </div>
+          </el-popover>
         </template>
       </el-table-column>
       <el-table-column label="Management Status" min-width="160">
@@ -90,14 +109,12 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="" width="90" align="right">
+      <el-table-column label="Actions" width="170" align="right" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="viewOnMap(row.id)">View</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="80" align="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
+          <div class="row-actions">
+            <el-button link type="primary" @click="viewOnMap(row.id)">View</el-button>
+            <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -221,6 +238,16 @@ const enrichedBoundaries = computed(() => {
 const relatedWorkLotText = (row) => {
   const related = Array.isArray(row?.relatedWorkLotNames) ? row.relatedWorkLotNames : [];
   return related.length ? related.join(", ") : "—";
+};
+const relatedWorkLotNames = (row) =>
+  (Array.isArray(row?.relatedWorkLotNames) ? row.relatedWorkLotNames : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+const relatedWorkLotSummary = (row) => {
+  const names = relatedWorkLotNames(row);
+  if (!names.length) return "—";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
 };
 
 const filteredBoundaries = computed(() =>
@@ -346,7 +373,20 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.actions {
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -355,6 +395,45 @@ onMounted(() => {
 
 .muted {
   color: var(--muted);
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.related-worklots-trigger {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.related-worklots-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popover-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.popover-list {
+  margin: 0;
+  padding-left: 16px;
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: #334155;
 }
 
 .hidden-file-input {
