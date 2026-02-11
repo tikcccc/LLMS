@@ -1,5 +1,5 @@
 export const siteBoundaryStatusStyle = (statusKey, overdue = false) => {
-  if (overdue && statusKey !== "HANDED_OVER" && statusKey !== "HANDOVER_READY") {
+  if (overdue && statusKey !== "HANDED_OVER") {
     return {
       backgroundColor: "rgba(248,113,113,0.2)",
       borderColor: "rgba(220,38,38,0.48)",
@@ -8,7 +8,6 @@ export const siteBoundaryStatusStyle = (statusKey, overdue = false) => {
   }
   switch (statusKey) {
     case "HANDED_OVER":
-    case "HANDOVER_READY":
       return {
         backgroundColor: "rgba(34,197,94,0.2)",
         borderColor: "rgba(22,163,74,0.46)",

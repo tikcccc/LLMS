@@ -22,6 +22,17 @@ const normalizeNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const normalizeGeometry = (geometry) => {
+  if (!geometry || typeof geometry !== "object") return null;
+  const { type, coordinates } = geometry;
+  if (!type || !Array.isArray(coordinates)) return null;
+  if (type !== "Polygon" && type !== "MultiPolygon") return null;
+  return {
+    type,
+    coordinates,
+  };
+};
+
 const ringArea = (ring = []) => {
   if (!Array.isArray(ring) || ring.length < 3) return 0;
   let area = 0;
@@ -120,7 +131,9 @@ export const normalizeSiteBoundary = (boundary = {}, index = 0, options = {}) =>
   const existingIds = options.existingIds || new Set();
   const preservedLandId = normalizeLandId(boundary.id ?? boundary.landId ?? boundary.land_id);
   const id = reserveId(preservedLandId, existingIds);
-  const area = Number.isFinite(boundary.area) ? boundary.area : 0;
+  const geometry = normalizeGeometry(boundary.geometry);
+  const areaFromPayload = Number.isFinite(boundary.area) ? boundary.area : null;
+  const area = areaFromPayload !== null ? areaFromPayload : geometryAreaSqm(geometry);
   const hectare = area > 0 ? area / 10000 : 0;
   return {
     id,
@@ -138,6 +151,7 @@ export const normalizeSiteBoundary = (boundary = {}, index = 0, options = {}) =>
     ),
     completionDate: normalizeDateText(boundary.completionDate),
     others: normalizeText(boundary.others ?? boundary.remark),
+    geometry,
   };
 };
 
@@ -268,12 +282,9 @@ export const summarizeSiteBoundary = (
 
   let status = "Pending Clearance";
   let statusKey = "PENDING_CLEARANCE";
-  if (handedOver) {
+  if (handedOver || handoverReady) {
     status = "Handed Over";
     statusKey = "HANDED_OVER";
-  } else if (handoverReady) {
-    status = "Handover Ready";
-    statusKey = "HANDOVER_READY";
   } else if (requiresForceEviction || hasLowFloat) {
     status = "Critical / Risk";
     statusKey = "CRITICAL_RISK";

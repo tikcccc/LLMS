@@ -48,7 +48,6 @@ const siteBoundaryPalette = {
   },
   IN_PROGRESS: { stroke: "rgba(180, 83, 9, 0.95)", fill: "rgba(245, 158, 11, 0.14)" },
   CRITICAL_RISK: { stroke: "rgba(220, 38, 38, 0.95)", fill: "rgba(248, 113, 113, 0.16)" },
-  HANDOVER_READY: { stroke: "rgba(22, 163, 74, 0.95)", fill: "rgba(34, 197, 94, 0.14)" },
   HANDED_OVER: { stroke: "rgba(5, 150, 105, 0.95)", fill: "rgba(16, 185, 129, 0.16)" },
 };
 
@@ -73,10 +72,7 @@ const createSiteBoundaryStyle = (statusKey = "DEFAULT") => {
 export function siteBoundaryStyle(feature) {
   const rawStatusKey = feature?.get?.("kpiStatus") || "DEFAULT";
   const overdue = !!feature?.get?.("overdue");
-  const statusKey =
-    overdue && rawStatusKey !== "HANDED_OVER" && rawStatusKey !== "HANDOVER_READY"
-      ? "CRITICAL_RISK"
-      : rawStatusKey;
+  const statusKey = overdue && rawStatusKey !== "HANDED_OVER" ? "CRITICAL_RISK" : rawStatusKey;
   if (!siteBoundaryStyleCache.has(statusKey)) {
     siteBoundaryStyleCache.set(statusKey, createSiteBoundaryStyle(statusKey));
   }

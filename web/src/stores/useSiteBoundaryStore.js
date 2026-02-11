@@ -27,12 +27,15 @@ const mergeSiteBoundaryRecord = (base, existing = null, index = 0, existingIds =
     ...normalizedBase,
     sourceRef: normalizedExisting.sourceRef || normalizedBase.sourceRef,
     name: normalizedExisting.name || normalizedBase.name,
+    area: normalizedExisting.geometry ? normalizedExisting.area : normalizedBase.area,
+    hectare: normalizedExisting.geometry ? normalizedExisting.hectare : normalizedBase.hectare,
     contractNo: normalizedExisting.contractNo,
     futureUse: normalizedExisting.futureUse,
     assessDate: normalizedExisting.assessDate,
     plannedHandoverDate: normalizedExisting.plannedHandoverDate,
     completionDate: normalizedExisting.completionDate,
     others: normalizedExisting.others,
+    geometry: normalizedExisting.geometry || normalizedBase.geometry,
   };
 };
 
@@ -88,6 +91,24 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
       );
       this.loaded = true;
     },
+    addSiteBoundary(payload = {}) {
+      const existingIds = new Set(
+        this.siteBoundaries.map((boundary) => String(boundary.id || "").trim().toLowerCase())
+      );
+      const index = this.siteBoundaries.length;
+      const explicitSourceRef = String(payload?.sourceRef || "").trim();
+      const normalizedBoundary = normalizeSiteBoundary(
+        {
+          ...payload,
+          sourceRef: explicitSourceRef,
+        },
+        index,
+        { existingIds }
+      );
+      normalizedBoundary.sourceRef = explicitSourceRef || `manual:${normalizedBoundary.id}`;
+      this.siteBoundaries.push(normalizedBoundary);
+      return normalizedBoundary;
+    },
     updateSiteBoundary(id, payload = {}) {
       const normalizedId = String(id || "").trim();
       if (!normalizedId) return;
@@ -120,6 +141,13 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
         id: canonicalId,
       };
       this.siteBoundaries.splice(index, 1, updated);
+    },
+    removeSiteBoundary(id) {
+      const normalizedId = String(id || "").trim().toLowerCase();
+      if (!normalizedId) return;
+      this.siteBoundaries = this.siteBoundaries.filter(
+        (boundary) => String(boundary.id || "").trim().toLowerCase() !== normalizedId
+      );
     },
     async ensureLoaded(force = false) {
       if (this.loading) return;

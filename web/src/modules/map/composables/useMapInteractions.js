@@ -99,17 +99,21 @@ export const useMapInteractions = ({
   workSources,
   workLayers,
   getWorkFeatureById,
+  getSiteBoundaryFeatureById,
   siteBoundarySource,
   siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
   workLotStore,
+  siteBoundaryStore,
   format,
   pendingGeometry,
   showWorkDialog,
+  showSiteBoundaryDialog,
   hasDraft,
   onScopeQueryResult,
+  onSiteBoundaryDrawStart,
 }) => {
   let drawInteraction = null;
   let modifyInteraction = null;
@@ -178,6 +182,9 @@ export const useMapInteractions = ({
     draftSource = null;
     pendingGeometry.value = null;
     showWorkDialog.value = false;
+    if (showSiteBoundaryDialog) {
+      showSiteBoundaryDialog.value = false;
+    }
     hasDraft.value = false;
   };
 
@@ -203,8 +210,10 @@ export const useMapInteractions = ({
 
   const restoreModifyBackup = () => {
     if (!modifyBackup.size) return;
+    const findFeatureById = (id) =>
+      getWorkFeatureById?.(id) || getSiteBoundaryFeatureById?.(id);
     modifyBackup.forEach((geometry, id) => {
-      const feature = getWorkFeatureById?.(id);
+      const feature = findFeatureById(id);
       if (feature) {
         feature.setGeometry(geometry);
       }
@@ -289,6 +298,9 @@ export const useMapInteractions = ({
         uiStore.setLayerVisibility("showWorkLotsDomestic", true);
         uiStore.setLayerVisibility("showWorkLotsGovernment", true);
       }
+      if (activeLayerType.value === "siteBoundary" && !uiStore.showSiteBoundary) {
+        uiStore.setLayerVisibility("showSiteBoundary", true);
+      }
       uiStore.clearSelection();
       clearHighlightOverride();
     }
@@ -366,6 +378,11 @@ export const useMapInteractions = ({
     pendingGeometry.value = geometry;
     if (activeLayerType.value === "work") {
       showWorkDialog.value = true;
+    } else if (activeLayerType.value === "siteBoundary") {
+      onSiteBoundaryDrawStart?.();
+      if (showSiteBoundaryDialog) {
+        showSiteBoundaryDialog.value = true;
+      }
     }
   };
 
@@ -402,12 +419,17 @@ export const useMapInteractions = ({
     const selected = event.selected[0];
     if (!selected) return;
     const id = selected.getId();
-    const layerType = activeLayerType.value;
+    const layerType = selected.get("layerType") || activeLayerType.value;
     if (!layerType) return;
     setHighlightFeature(layerType, selected);
-    ElMessageBox.confirm(`Delete ${id}?`, "Confirm", { type: "warning" })
+    const label = layerType === "siteBoundary" ? "site boundary" : "work lot";
+    ElMessageBox.confirm(`Delete ${label} ${id}?`, "Confirm", { type: "warning" })
       .then(() => {
-        workLotStore.removeWorkLot(id);
+        if (layerType === "siteBoundary") {
+          siteBoundaryStore.removeSiteBoundary(id);
+        } else {
+          workLotStore.removeWorkLot(id);
+        }
         uiStore.clearSelection();
         clearHighlightOverride();
       })
@@ -434,6 +456,8 @@ export const useMapInteractions = ({
       const layerType = selected.get("layerType");
       if (layerType === "work") {
         uiStore.selectWorkLot(refId);
+      } else if (layerType === "siteBoundary") {
+        uiStore.selectSiteBoundary(refId);
       } else {
         return;
       }
@@ -457,7 +481,10 @@ export const useMapInteractions = ({
         if (pendingModifiedIds.size > 0) {
           const updatedAt = nowIso();
           pendingModifiedIds.forEach((id) => {
-            const feature = getWorkFeatureById?.(id);
+            const feature =
+              layerType === "siteBoundary"
+                ? getSiteBoundaryFeatureById?.(id)
+                : getWorkFeatureById?.(id);
             if (!feature) return;
             const featureGeometry = feature.getGeometry();
             if (!featureGeometry) return;
@@ -465,6 +492,17 @@ export const useMapInteractions = ({
               dataProjection: EPSG_2326,
               featureProjection: EPSG_2326,
             });
+            if (layerType === "siteBoundary") {
+              const area =
+                typeof featureGeometry.getArea === "function"
+                  ? featureGeometry.getArea()
+                  : 0;
+              siteBoundaryStore.updateSiteBoundary(id, {
+                geometry,
+                area,
+              });
+              return;
+            }
             const relatedSiteBoundaryIds = findSiteBoundaryIdsForGeometry(
               featureGeometry,
               siteBoundarySource
@@ -574,8 +612,12 @@ export const useMapInteractions = ({
     const layerType = activeLayerType.value;
     if (!layerType) return;
 
-    const targetSource = workSources?.[0];
-    const targetLayers = [...(workLayers || [])].filter(Boolean);
+    const targetSource =
+      layerType === "siteBoundary" ? siteBoundarySource : workSources?.[0];
+    const targetLayers =
+      layerType === "siteBoundary"
+        ? [siteBoundaryLayer].filter(Boolean)
+        : [...(workLayers || [])].filter(Boolean);
     if (!targetSource || targetLayers.length === 0) return;
 
     if (uiStore.tool === "MODIFY") {

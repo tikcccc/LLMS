@@ -95,7 +95,28 @@
       </template>
 
       <template v-else>
-        <el-tooltip content="Create Polygon Lot (P)" placement="bottom" :show-after="450">
+        <div class="layer-segment" role="tablist" aria-label="Edit layer">
+          <button
+            type="button"
+            class="layer-btn"
+            :class="{ active: activeLayerType === 'work' }"
+            :disabled="!canEditLayer"
+            @click="emit('set-active-layer', 'work')"
+          >
+            Work Lot
+          </button>
+          <button
+            type="button"
+            class="layer-btn"
+            :class="{ active: activeLayerType === 'siteBoundary' }"
+            :disabled="!canEditLayer"
+            @click="emit('set-active-layer', 'siteBoundary')"
+          >
+            Site Boundary
+          </button>
+        </div>
+
+        <el-tooltip content="Create Polygon (P)" placement="bottom" :show-after="450">
           <el-button
             size="small"
             class="tool-btn"
@@ -108,7 +129,7 @@
           </el-button>
         </el-tooltip>
 
-        <el-tooltip content="Create Circle Lot (O)" placement="bottom" :show-after="450">
+        <el-tooltip content="Create Circle (O)" placement="bottom" :show-after="450">
           <el-button
             size="small"
             class="tool-btn"
@@ -179,6 +200,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 const props = defineProps({
   tool: { type: String, required: true },
   canEditLayer: { type: Boolean, required: true },
+  activeLayerType: { type: String, default: "work" },
   hasDraft: { type: Boolean, required: true },
   hasScopeQuery: { type: Boolean, default: false },
   canSaveModify: { type: Boolean, default: false },
@@ -186,6 +208,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   "set-tool",
+  "set-active-layer",
   "cancel-tool",
   "save-modify",
 ]);
@@ -387,6 +410,46 @@ onBeforeUnmount(() => {
   padding-bottom: 0;
 }
 
+.layer-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  flex: 0 0 auto;
+}
+
+.layer-btn {
+  border: 0;
+  min-height: 30px;
+  min-width: 90px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: transparent;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.layer-btn:hover {
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.layer-btn.active {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.26);
+}
+
+.layer-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 .tool-btn {
   min-height: 30px;
   border-radius: 8px;
@@ -435,6 +498,15 @@ onBeforeUnmount(() => {
     flex-wrap: wrap;
     overflow-x: visible;
     row-gap: 6px;
+  }
+
+  .layer-segment {
+    width: 100%;
+  }
+
+  .layer-btn {
+    min-width: 0;
+    flex: 1 1 0;
   }
 
   .tool-btn {

@@ -43,17 +43,13 @@ const normalizedTotal = computed(() => {
 });
 
 const progressStatus = computed(() => {
-  if (
-    props.overdue &&
-    props.statusKey !== "HANDED_OVER" &&
-    props.statusKey !== "HANDOVER_READY"
-  ) {
+  if (props.overdue && props.statusKey !== "HANDED_OVER") {
     return "exception";
   }
   if (props.statusKey === "CRITICAL_RISK") {
     return "exception";
   }
-  if (props.statusKey === "HANDED_OVER" || props.statusKey === "HANDOVER_READY") {
+  if (props.statusKey === "HANDED_OVER") {
     return "success";
   }
   return undefined;

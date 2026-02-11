@@ -24,6 +24,7 @@ export const useMapLayers = ({
   uiStore,
   siteBoundaryStore,
 }) => {
+  const featureKey = (value) => String(value || "").trim().toLowerCase();
   const normalizeFeatureId = (value) => {
     if (value === null || value === undefined) return null;
     const normalized = String(value).trim();
@@ -68,6 +69,7 @@ export const useMapLayers = ({
 
   const workSources = [workBusinessSource, workHouseholdSource, workGovernmentSource];
   const workLayers = [workBusinessLayer, workHouseholdLayer, workGovernmentLayer];
+  let cachedSiteBoundaryFeatures = [];
 
   const updateLayerOpacity = () => {
     const opacity = authStore.role === "SITE_ADMIN" || authStore.role === "SITE_OFFICER" ? 1 : 0.8;
@@ -153,6 +155,224 @@ export const useMapLayers = ({
     return lookup.get(normalized) || null;
   };
 
+  const cloneSiteBoundaryGeometry = (feature) => {
+    const geometry = feature?.getGeometry?.();
+    return geometry ? geometry.clone() : null;
+  };
+
+  const buildSourceRefFromFeature = (feature, index = 0) =>
+    buildSiteBoundarySourceRef(
+      {
+        sourceRef: feature?.get("sourceRef") || feature?.get("source_ref"),
+        handle: feature?.get("handle"),
+        rawId:
+          normalizeFeatureId(feature?.getId?.()) ||
+          normalizeFeatureId(feature?.get?.("id")) ||
+          normalizeFeatureId(feature?.get?.("handle")) ||
+          null,
+        layer: feature?.get("layer"),
+        entity: feature?.get("entity"),
+      },
+      index
+    );
+
+  const buildFallbackFeatureLookup = (features = []) => {
+    const byId = new Map();
+    const bySourceRef = new Map();
+    (Array.isArray(features) ? features : []).forEach((feature, index) => {
+      const rawId =
+        normalizeFeatureId(feature.getId?.()) ||
+        normalizeFeatureId(feature.get("landId") || feature.get("land_id")) ||
+        normalizeFeatureId(feature.get("id")) ||
+        normalizeFeatureId(feature.get("handle")) ||
+        null;
+      const sourceRef = buildSourceRefFromFeature(feature, index);
+      if (rawId) {
+        byId.set(featureKey(rawId), feature);
+      }
+      if (sourceRef) {
+        bySourceRef.set(featureKey(sourceRef), feature);
+      }
+    });
+    return { byId, bySourceRef };
+  };
+
+  const createSiteBoundaryFeatureFromRaw = (
+    rawFeature,
+    index,
+    boundaryById,
+    boundaryBySourceRef,
+    existingIds
+  ) => {
+    const rawId =
+      normalizeFeatureId(rawFeature.getId()) ||
+      normalizeFeatureId(rawFeature.get("id")) ||
+      normalizeFeatureId(rawFeature.get("handle")) ||
+      null;
+    const sourceRef = buildSourceRefFromFeature(rawFeature, index);
+    const meta =
+      getBoundaryMetaBySourceRef(sourceRef, boundaryBySourceRef) ||
+      getBoundaryMetaById(rawId, boundaryById);
+    const id = String(
+      meta?.id || normalizeFeatureId(rawFeature.get("landId") || rawFeature.get("land_id")) || ""
+    );
+    const assignedId = id || generateLandId(existingIds);
+    existingIds.add(featureKey(assignedId));
+    const feature = rawFeature.clone();
+    feature.setId(assignedId);
+    feature.set("layerType", "siteBoundary");
+    feature.set("refId", assignedId);
+    feature.set("sourceRef", sourceRef);
+    feature.set("landId", assignedId);
+    feature.set("name", meta?.name ?? rawFeature.get("name") ?? "");
+    feature.set(
+      "plannedHandoverDate",
+      meta?.plannedHandoverDate ||
+        rawFeature.get("plannedHandoverDate") ||
+        rawFeature.get("handoverDate") ||
+        ""
+    );
+    feature.set("contractNo", meta?.contractNo || rawFeature.get("contractNo") || "");
+    feature.set("futureUse", meta?.futureUse || rawFeature.get("futureUse") || "");
+    feature.set("completionDate", meta?.completionDate || rawFeature.get("completionDate") || "");
+    feature.set("others", meta?.others || rawFeature.get("others") || "");
+    const geometry = feature.getGeometry();
+    if (geometry && typeof geometry.getArea === "function") {
+      feature.set("area", geometry.getArea());
+    }
+    return feature;
+  };
+
+  const createSiteBoundaryFeatureFromStore = (
+    boundary,
+    index,
+    fallbackById,
+    fallbackBySourceRef,
+    existingIds
+  ) => {
+    const sourceRef = buildSiteBoundarySourceRef(boundary, index);
+    const fallbackFeature =
+      fallbackBySourceRef.get(featureKey(sourceRef)) ||
+      fallbackById.get(featureKey(boundary?.id)) ||
+      null;
+    let boundaryGeometry = null;
+    if (boundary?.geometry && boundary.geometry.type && Array.isArray(boundary.geometry.coordinates)) {
+      try {
+        boundaryGeometry = format.readGeometry(boundary.geometry, {
+          dataProjection: EPSG_2326,
+          featureProjection: EPSG_2326,
+        });
+      } catch (error) {
+        console.warn("[map] invalid site boundary geometry in store", error);
+      }
+    }
+    const fallbackGeometry = cloneSiteBoundaryGeometry(fallbackFeature);
+    const geometry = boundaryGeometry || fallbackGeometry;
+    if (!geometry) return null;
+
+    const id = normalizeFeatureId(boundary?.id) || generateLandId(existingIds);
+    existingIds.add(featureKey(id));
+    const feature = format.readFeature(
+      {
+        type: "Feature",
+        geometry: format.writeGeometryObject(geometry, {
+          dataProjection: EPSG_2326,
+          featureProjection: EPSG_2326,
+        }),
+        properties: {},
+      },
+      { dataProjection: EPSG_2326, featureProjection: EPSG_2326 }
+    );
+    feature.setId(id);
+    feature.set("layerType", "siteBoundary");
+    feature.set("refId", id);
+    feature.set("sourceRef", sourceRef);
+    feature.set("landId", id);
+    feature.set("name", boundary?.name ?? fallbackFeature?.get("name") ?? "");
+    feature.set(
+      "layer",
+      boundary?.layer ?? fallbackFeature?.get("layer") ?? "—"
+    );
+    feature.set(
+      "entity",
+      boundary?.entity ?? fallbackFeature?.get("entity") ?? "Polygon"
+    );
+    feature.set(
+      "plannedHandoverDate",
+      boundary?.plannedHandoverDate ??
+        fallbackFeature?.get("plannedHandoverDate") ??
+        fallbackFeature?.get("handoverDate") ??
+        ""
+    );
+    feature.set("contractNo", boundary?.contractNo ?? fallbackFeature?.get("contractNo") ?? "");
+    feature.set("futureUse", boundary?.futureUse ?? fallbackFeature?.get("futureUse") ?? "");
+    feature.set(
+      "completionDate",
+      boundary?.completionDate ?? fallbackFeature?.get("completionDate") ?? ""
+    );
+    feature.set("others", boundary?.others ?? fallbackFeature?.get("others") ?? "");
+
+    const featureGeometry = feature.getGeometry();
+    const geometryArea =
+      featureGeometry && typeof featureGeometry.getArea === "function"
+        ? featureGeometry.getArea()
+        : 0;
+    const area =
+      Number.isFinite(Number(boundary?.area)) && Number(boundary?.area) > 0
+        ? Number(boundary.area)
+        : geometryArea;
+    feature.set("area", area);
+    return feature;
+  };
+
+  const refreshSiteBoundarySource = () => {
+    const boundaryById = siteBoundaryStore?.byId || new Map();
+    const boundaryBySourceRef = (siteBoundaryStore?.siteBoundaries || []).reduce(
+      (map, boundary, index) => {
+        const key = featureKey(boundary?.sourceRef ?? buildSiteBoundarySourceRef(boundary, index));
+        if (key) {
+          map.set(key, boundary);
+        }
+        return map;
+      },
+      new Map()
+    );
+    const existingIds = new Set();
+
+    let features = [];
+    if ((siteBoundaryStore?.siteBoundaries || []).length > 0) {
+      const { byId: fallbackById, bySourceRef: fallbackBySourceRef } =
+        buildFallbackFeatureLookup(cachedSiteBoundaryFeatures);
+      features = siteBoundaryStore.siteBoundaries
+        .map((boundary, index) =>
+          createSiteBoundaryFeatureFromStore(
+            boundary,
+            index,
+            fallbackById,
+            fallbackBySourceRef,
+            existingIds
+          )
+        )
+        .filter(Boolean);
+    } else {
+      features = cachedSiteBoundaryFeatures.map((feature, index) =>
+        createSiteBoundaryFeatureFromRaw(
+          feature,
+          index,
+          boundaryById,
+          boundaryBySourceRef,
+          existingIds
+        )
+      );
+    }
+
+    siteBoundarySource.clear(true);
+    if (features.length > 0) {
+      siteBoundarySource.addFeatures(features);
+    }
+    refreshSiteBoundaryState();
+  };
+
   const refreshSiteBoundaryState = () => {
     const boundaryById = siteBoundaryStore?.byId || new Map();
     const workLotsByBoundary = buildWorkLotsByBoundary(workLotStore.workLots);
@@ -217,6 +437,17 @@ export const useMapLayers = ({
     return null;
   };
 
+  const getSiteBoundaryFeatureById = (id) => {
+    if (id === null || id === undefined) return null;
+    const normalized = String(id);
+    return (
+      siteBoundarySource.getFeatureById(normalized) ||
+      siteBoundarySource.getFeatureById(normalized.toUpperCase()) ||
+      siteBoundarySource.getFeatureById(normalized.toLowerCase()) ||
+      null
+    );
+  };
+
   const loadIntLandGeojson = async () => {
     try {
       const response = await fetch(INT_LAND_GEOJSON_URL, { cache: "no-cache" });
@@ -242,78 +473,11 @@ export const useMapLayers = ({
         throw new Error(`Failed to load Site Boundary GeoJSON: ${response.status}`);
       }
       const data = await response.json();
-      const features = format.readFeatures(data, {
+      cachedSiteBoundaryFeatures = format.readFeatures(data, {
         dataProjection: EPSG_2326,
         featureProjection: EPSG_2326,
       });
-      const boundaryById = siteBoundaryStore?.byId || new Map();
-      const boundaryBySourceRef = (siteBoundaryStore?.siteBoundaries || []).reduce(
-        (map, boundary, index) => {
-          const key = String(
-            boundary?.sourceRef ?? buildSiteBoundarySourceRef(boundary, index)
-          )
-            .trim()
-            .toLowerCase();
-          if (key) {
-            map.set(key, boundary);
-          }
-          return map;
-        },
-        new Map()
-      );
-      const existingIds = new Set((siteBoundaryStore?.siteBoundaries || []).map((item) => item.id));
-      features.forEach((feature, index) => {
-        const rawId =
-          normalizeFeatureId(feature.getId()) ||
-          normalizeFeatureId(feature.get("id")) ||
-          normalizeFeatureId(feature.get("handle")) ||
-          null;
-        const sourceRef = buildSiteBoundarySourceRef(
-          {
-            sourceRef: feature.get("sourceRef") || feature.get("source_ref"),
-            handle: feature.get("handle"),
-            rawId,
-            layer: feature.get("layer"),
-            entity: feature.get("entity"),
-          },
-          index
-        );
-        const meta =
-          getBoundaryMetaBySourceRef(sourceRef, boundaryBySourceRef) ||
-          getBoundaryMetaById(rawId, boundaryById);
-        const id = String(
-          meta?.id || normalizeFeatureId(feature.get("landId") || feature.get("land_id")) || ""
-        );
-        const assignedId = id || generateLandId(existingIds);
-        existingIds.add(String(assignedId).toLowerCase());
-        feature.setId(assignedId);
-        feature.set("layerType", "siteBoundary");
-        feature.set("refId", assignedId);
-        feature.set("sourceRef", sourceRef);
-        feature.set("landId", assignedId);
-        feature.set(
-          "name",
-          meta?.name ?? feature.get("name") ?? ""
-        );
-        feature.set(
-          "plannedHandoverDate",
-          meta?.plannedHandoverDate ||
-            feature.get("plannedHandoverDate") ||
-            feature.get("handoverDate") ||
-            ""
-        );
-        feature.set("contractNo", meta?.contractNo || feature.get("contractNo") || "");
-        feature.set("futureUse", meta?.futureUse || feature.get("futureUse") || "");
-        feature.set("completionDate", meta?.completionDate || feature.get("completionDate") || "");
-        feature.set("others", meta?.others || feature.get("others") || "");
-        const geometry = feature.getGeometry();
-        if (geometry && typeof geometry.getArea === "function") {
-          feature.set("area", geometry.getArea());
-        }
-      });
-      siteBoundarySource.clear(true);
-      siteBoundarySource.addFeatures(features);
-      refreshSiteBoundaryState();
+      refreshSiteBoundarySource();
     } catch (error) {
       console.warn("[map] Site Boundary load failed", error);
     }
@@ -338,6 +502,8 @@ export const useMapLayers = ({
     createWorkFeature,
     refreshWorkSources,
     getWorkFeatureById,
+    getSiteBoundaryFeatureById,
+    refreshSiteBoundarySource,
     refreshSiteBoundaryState,
     loadIntLandGeojson,
     loadSiteBoundaryGeojson,

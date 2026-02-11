@@ -196,7 +196,6 @@ const statusOptions = [
   { label: "Pending Clearance", value: "PENDING_CLEARANCE" },
   { label: "In Progress", value: "IN_PROGRESS" },
   { label: "Critical / Risk", value: "CRITICAL_RISK" },
-  { label: "Handover Ready", value: "HANDOVER_READY" },
   { label: "Handed Over", value: "HANDED_OVER" },
 ];
 
@@ -231,7 +230,7 @@ const enrichedBoundaries = computed(() => {
       }
     );
     const statusTagType =
-      summary.statusKey === "HANDED_OVER" || summary.statusKey === "HANDOVER_READY"
+      summary.statusKey === "HANDED_OVER"
         ? "success"
         : summary.statusKey === "CRITICAL_RISK"
           ? "danger"

@@ -30,7 +30,7 @@
       </div>
       <div class="legend-item">
         <span class="legend-swatch state-green"></span>
-        <span>Handover Ready / Handed Over</span>
+        <span>Handed Over</span>
       </div>
       <div class="legend-item">
         <span class="legend-swatch state-red"></span>

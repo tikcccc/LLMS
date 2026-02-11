@@ -6,10 +6,12 @@
       <MapToolbar
         :tool="uiStore.tool"
         :can-edit-layer="canEditLayer"
+        :active-layer-type="activeLayerType || 'work'"
         :has-draft="hasDraft"
         :has-scope-query="hasScopeQuery"
         :can-save-modify="!!modifySelectedId"
         @set-tool="setTool"
+        @set-active-layer="setActiveLayerType"
         @cancel-tool="cancelTool"
         @save-modify="saveModify"
       />
@@ -83,8 +85,8 @@
 
     <SiteBoundaryDialog
       v-model="showSiteBoundaryDialog"
-      title="Edit Site Boundary"
-      confirm-text="Save"
+      :title="siteBoundaryDialogTitle"
+      :confirm-text="siteBoundaryDialogConfirmText"
       :boundary-id="siteBoundaryDialogBoundaryId"
       v-model:name="siteBoundaryForm.name"
       v-model:contractNo="siteBoundaryForm.contractNo"
@@ -150,7 +152,8 @@ const canEditWork = computed(
   () => authStore.role === "SITE_ADMIN" || authStore.role === "SITE_OFFICER"
 );
 const canEditLayer = computed(() => canEditWork.value);
-const activeLayerType = computed(() => (canEditWork.value ? "work" : null));
+const editLayerType = ref("work");
+const activeLayerType = computed(() => (canEditWork.value ? editLayerType.value : null));
 
 const selectedWorkLot = computed(
   () => workLotStore.workLots.find((lot) => lot.id === uiStore.selectedWorkLotId) || null
@@ -178,8 +181,10 @@ const {
   updateLayerVisibility,
   createWorkFeature,
   refreshWorkSources,
+  refreshSiteBoundarySource,
   refreshSiteBoundaryState,
   getWorkFeatureById,
+  getSiteBoundaryFeatureById,
   loadIntLandGeojson,
   loadSiteBoundaryGeojson,
 } = useMapLayers({
@@ -211,6 +216,7 @@ const showWorkDialog = ref(false);
 const workDialogMode = ref("create");
 const editingWorkLotId = ref(null);
 const showSiteBoundaryDialog = ref(false);
+const siteBoundaryDialogMode = ref("create");
 const editingSiteBoundaryId = ref("");
 
 const workForm = ref({
@@ -262,6 +268,12 @@ const workFormRelatedSiteBoundaryNames = computed(() =>
 const siteBoundaryDialogBoundaryId = computed(() =>
   String(editingSiteBoundaryId.value || "")
 );
+const siteBoundaryDialogTitle = computed(() =>
+  siteBoundaryDialogMode.value === "edit" ? "Edit Site Boundary" : "Create Site Boundary"
+);
+const siteBoundaryDialogConfirmText = computed(() =>
+  siteBoundaryDialogMode.value === "edit" ? "Save Changes" : "Save"
+);
 
 const resetWorkForm = () => {
   workForm.value = {
@@ -285,6 +297,15 @@ const resetWorkDialogEditState = () => {
   editingWorkLotId.value = null;
 };
 
+const resetSiteBoundaryForm = () => {
+  siteBoundaryForm.value = createSiteBoundaryEditForm();
+};
+
+const resetSiteBoundaryDialogEditState = () => {
+  siteBoundaryDialogMode.value = "create";
+  editingSiteBoundaryId.value = "";
+};
+
 const leftTab = ref("layers");
 const workSearchQuery = ref("");
 
@@ -297,6 +318,24 @@ const scopeModeName = computed(() =>
 const hasScopeQuery = computed(
   () => scopeWorkLotIds.value.length > 0 || scopeSiteBoundaryIds.value.length > 0
 );
+
+const setActiveLayerType = (layerType) => {
+  if (!canEditLayer.value) return;
+  if (layerType !== "work" && layerType !== "siteBoundary") return;
+  editLayerType.value = layerType;
+  if (layerType === "siteBoundary") {
+    if (!uiStore.showSiteBoundary) {
+      uiStore.setLayerVisibility("showSiteBoundary", true);
+    }
+    return;
+  }
+  if (!uiStore.showWorkLots) {
+    uiStore.setLayerVisibility("showWorkLots", true);
+    uiStore.setLayerVisibility("showWorkLotsBusiness", true);
+    uiStore.setLayerVisibility("showWorkLotsDomestic", true);
+    uiStore.setLayerVisibility("showWorkLotsGovernment", true);
+  }
+};
 
 const workLotResults = computed(() => {
   const query = workSearchQuery.value.trim();
@@ -372,9 +411,16 @@ const editSelectedWorkLot = () => {
 const editSelectedSiteBoundary = () => {
   if (!canEditWork.value || !selectedSiteBoundary.value) return;
   const boundary = selectedSiteBoundary.value;
+  siteBoundaryDialogMode.value = "edit";
   editingSiteBoundaryId.value = String(boundary.id || "");
   siteBoundaryForm.value = createSiteBoundaryEditForm(boundary);
   showSiteBoundaryDialog.value = true;
+};
+
+const startSiteBoundaryDrawCreate = () => {
+  siteBoundaryDialogMode.value = "create";
+  editingSiteBoundaryId.value = "";
+  resetSiteBoundaryForm();
 };
 
 const {
@@ -395,17 +441,21 @@ const {
   workSources,
   workLayers,
   getWorkFeatureById,
+  getSiteBoundaryFeatureById,
   siteBoundarySource,
   siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
   clearHighlightOverride,
   workLotStore,
+  siteBoundaryStore,
   format,
   pendingGeometry,
   showWorkDialog,
+  showSiteBoundaryDialog,
   hasDraft,
   onScopeQueryResult: handleScopeQueryResult,
+  onSiteBoundaryDrawStart: startSiteBoundaryDrawCreate,
 });
 
 const siteBoundarySourceVersion = ref(0);
@@ -425,6 +475,10 @@ const resolveRelatedSiteBoundaryIdsByGeometryObject = (geometryObject) => {
 };
 
 const syncWorkLotBoundaryLinks = () => {
+  const hasSourceFeatures = siteBoundarySource?.getFeatures().length > 0;
+  if (!hasSourceFeatures && siteBoundaryStore.siteBoundaries.length > 0) {
+    return;
+  }
   workLotStore.workLots.forEach((lot) => {
     const autoRelatedIds = resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry).map(
       (item) => String(item)
@@ -450,14 +504,8 @@ const withRelatedIdFallback = (derivedIds, fallbackIds = []) =>
       : [];
 
 const findSiteBoundaryFeatureById = (id) => {
-  if (!id || !siteBoundarySource) return null;
-  const normalizedId = String(id);
-  return (
-    siteBoundarySource.getFeatureById(normalizedId) ||
-    siteBoundarySource.getFeatureById(normalizedId.toUpperCase()) ||
-    siteBoundarySource.getFeatureById(normalizedId.toLowerCase()) ||
-    null
-  );
+  if (!id) return null;
+  return getSiteBoundaryFeatureById(id);
 };
 
 const selectedSiteBoundary = computed(() => {
@@ -792,18 +840,36 @@ const cancelWork = () => {
 };
 
 const confirmSiteBoundary = () => {
-  if (!editingSiteBoundaryId.value) return;
-  siteBoundaryStore.updateSiteBoundary(
-    editingSiteBoundaryId.value,
-    buildSiteBoundaryUpdatePayload(siteBoundaryForm.value)
-  );
-  showSiteBoundaryDialog.value = false;
-  editingSiteBoundaryId.value = "";
+  if (siteBoundaryDialogMode.value === "edit") {
+    if (!editingSiteBoundaryId.value) return;
+    siteBoundaryStore.updateSiteBoundary(
+      editingSiteBoundaryId.value,
+      buildSiteBoundaryUpdatePayload(siteBoundaryForm.value)
+    );
+    showSiteBoundaryDialog.value = false;
+    resetSiteBoundaryDialogEditState();
+    return;
+  }
+  if (!pendingGeometry.value) return;
+  const created = siteBoundaryStore.addSiteBoundary({
+    ...buildSiteBoundaryUpdatePayload(siteBoundaryForm.value),
+    name: String(siteBoundaryForm.value.name || "").trim() || "Site Boundary",
+    geometry: pendingGeometry.value,
+    entity: pendingGeometry.value?.type || "Polygon",
+  });
+  uiStore.selectSiteBoundary(created.id);
+  resetSiteBoundaryForm();
+  clearDraft();
+  resetSiteBoundaryDialogEditState();
 };
 
 const cancelSiteBoundary = () => {
-  showSiteBoundaryDialog.value = false;
-  editingSiteBoundaryId.value = "";
+  if (siteBoundaryDialogMode.value === "edit") {
+    showSiteBoundaryDialog.value = false;
+    resetSiteBoundaryDialogEditState();
+    return;
+  }
+  cancelDraft();
 };
 
 watch(
@@ -820,7 +886,8 @@ watch(
 watch(
   () => siteBoundaryStore.siteBoundaries,
   () => {
-    refreshSiteBoundaryState();
+    refreshSiteBoundarySource();
+    syncWorkLotBoundaryLinks();
     siteBoundarySourceVersion.value += 1;
     refreshHighlights();
   },
@@ -830,6 +897,18 @@ watch(
 watch(
   () => uiStore.tool,
   () => rebuildInteractions()
+);
+
+watch(
+  () => activeLayerType.value,
+  (nextLayerType) => {
+    if (!nextLayerType) return;
+    uiStore.clearSelection();
+    clearHighlightOverride();
+    if (uiStore.tool !== "PAN") {
+      rebuildInteractions();
+    }
+  }
 );
 
 watch(
@@ -889,7 +968,7 @@ watch(
   () => uiStore.selectedSiteBoundaryId,
   (value) => {
     if (value && siteBoundarySource) {
-      const exists = !!siteBoundarySource.getFeatureById(value);
+      const exists = !!findSiteBoundaryFeatureById(value);
       if (!exists) {
         uiStore.clearSelection();
         return;
