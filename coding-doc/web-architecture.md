@@ -20,6 +20,7 @@
 - 執行環境：Browser only
 - 主要資料來源：
 - 靜態檔 `web/public/data/*.geojson`、`web/public/geojson/*.geojson`
+- 地圖圖層檔案：`/geojson/int-land.geojson`、`/geojson/part-of-sites.geojson`、`/data/site-boundaries.geojson`
 - 使用者操作後的資料透過 Pinia Persist 存在 `localStorage`
 - 權限模型：前端角色切換（Site Admin / Site Officer / Field Staff），非真實登入
 
@@ -80,7 +81,7 @@
 `MapPage` 透過 composables 做地圖引擎拆分：
 
 - `useMapCore.js`：地圖實例、底圖/標籤圖層初始化
-- `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入
+- `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入（Drawing/Part of Sites/Site Boundary/Work Lot）
 - `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select）
 - `useMapHighlights.js`：選中要素高亮圖層
 

@@ -37,6 +37,21 @@ export function intLandStyle() {
   return intLandBaseStyle;
 }
 
+const partOfSitesStroke = new Stroke({
+  color: "rgba(180, 83, 9, 0.9)",
+  width: 2.4,
+  lineDash: [10, 4],
+});
+const partOfSitesFill = new Fill({ color: "rgba(245, 158, 11, 0.14)" });
+const partOfSitesBaseStyle = new Style({
+  stroke: partOfSitesStroke,
+  fill: partOfSitesFill,
+});
+
+export function partOfSitesStyle() {
+  return partOfSitesBaseStyle;
+}
+
 const siteBoundaryPalette = {
   DEFAULT: {
     stroke: "rgba(100, 116, 139, 0.95)",

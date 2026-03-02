@@ -59,7 +59,7 @@
 | --- | --- | --- |
 | Soft Copy Plans（圖面） | 可提供（分北/南等區） | 多為示意性，非精測級坐標 |
 | Land Plan / BU-Household 標註圖 | 可逐步提供 | 欄位與格式可能不一致，需先做標準化 |
-| C2 `part of site` drawings | 已提供一套（對應 access date） | 用於定義固定地理邊界，實際日期待起算 |
+| C2 `part of site` drawings | 已提供一套（對應 access date） | 用於定義固定地理邊界；圖面存在局部缺線/錯亂與 block 干擾，轉 GeoJSON 前需先清理與補線；`part name`、`access date` 需人工補錄 |
 | C2 `section of works` drawings | 客戶表示將再提供一套（對應 sectional completion） | 需與 part of site 同步做映射 |
 | Contract Data 時程表（X5、Section 10-13） | 已在 2026-03-02 訊息提供節錄 | 多數日期為「起算日 + 天數」規則，非固定絕對日曆日期 |
 | EPCS 內部資料 | 可能可參考 | 輸出格式不固定，未必可直接匯入 |
@@ -92,6 +92,7 @@
 | 進度與風險可視化 | `/dashboard` KPI、boundary 狀態彙總 | 更細的工程節點告警邏輯待補充 |
 | Access Date 到期提醒 | 現有已有顏色狀態與逾期視覺語意（`dueDate`/`plannedHandoverDate`） | 尚未有明確 `accessDate` 欄位與「access date expiry」專屬規則 |
 | Part of Site / Section of Works 雙軸時程 | 現有有 `assessDate`、`plannedHandoverDate`、`completionDate`、`float` | 尚未有 `partOfSite`、`sectionOfWorks` 結構與 section 完工日期計算規則 |
+| C2 圖面清理與邊界修補 | 既有 DXF 轉 GeoJSON 腳本可透過 `close/snap/bridge tolerance` 修補小斷裂 | Map 工具欄尚未提供 CAD 實體級編輯（刪線段/刪 block/逐段補線），需前處理或新增編輯能力 |
 | 匯出與溝通 | JSON/Excel/PDF 匯出 | 匯出欄位需與客戶最終業務口徑再對齊 |
 | 提醒渠道（Web/Email） | Web 端已可做 in-app 視覺提醒（地圖與清單語意） | 尚未有可配置通知渠道與 email 發送流程 |
 | 角色邊界 | 角色切換與部分權限控制 | 後端硬權限與審計仍未導入 |
@@ -117,6 +118,7 @@
 | --- | --- | --- | --- |
 | 2026-03-02 | `reference-doc/meeting-record/1st_meeting_record.md`、`reference-doc/meeting-record/predemo_meeting_record.md` | 建立初版業務背景、需求、資料口徑與術語 | 本文件（初版） |
 | 2026-03-02 | `reference-doc/emails/email`、`reference-doc/2026-3-2 Project-timeline information/*` | 新增 `part of site`/`access date`、`section of works`/`sectional completion` 時程語意；確認 Demo 以網站提醒為主 | 本文件、`web-pm-business-alignment.md`、`web-functions.md` |
+| 2026-03-02 | 使用者補充（Codex 對話） | 補充 `part of site` drawings 目前有缺線/錯亂需人工修圖；確認 `part name` 與 `date` 需人工輸入 | 本文件、`web-pm-business-alignment.md`、`web-functions.md` |
 
 ## 10) 完成標準
 

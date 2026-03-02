@@ -1,7 +1,12 @@
 import GeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
-import { intLandStyle, siteBoundaryStyle, workLotStyle } from "../ol/styles";
+import {
+  intLandStyle,
+  partOfSitesStyle,
+  siteBoundaryStyle,
+  workLotStyle,
+} from "../ol/styles";
 import { EPSG_2326 } from "../ol/projection";
 import {
   normalizeWorkLotCategory,
@@ -15,6 +20,7 @@ import {
 import { generateLandId } from "../../../shared/utils/id";
 import {
   INT_LAND_GEOJSON_URL,
+  PART_OF_SITES_GEOJSON_URL,
   SITE_BOUNDARY_GEOJSON_URL,
 } from "../../../shared/config/mapApi";
 
@@ -37,6 +43,7 @@ export const useMapLayers = ({
   const workHouseholdSource = new VectorSource();
   const workGovernmentSource = new VectorSource();
   const intLandSource = new VectorSource();
+  const partOfSitesSource = new VectorSource();
   const siteBoundarySource = new VectorSource();
 
   const workBusinessLayer = new VectorLayer({
@@ -52,6 +59,10 @@ export const useMapLayers = ({
     style: workLotStyle,
   });
   const intLandLayer = new VectorLayer({ source: intLandSource, style: intLandStyle });
+  const partOfSitesLayer = new VectorLayer({
+    source: partOfSitesSource,
+    style: partOfSitesStyle,
+  });
   const siteBoundaryLayer = new VectorLayer({
     source: siteBoundarySource,
     style: siteBoundaryStyle,
@@ -62,6 +73,7 @@ export const useMapLayers = ({
   workGovernmentLayer.set("workCategory", WORK_LOT_CATEGORY.GL);
 
   intLandLayer.setZIndex(12);
+  partOfSitesLayer.setZIndex(13);
   siteBoundaryLayer.setZIndex(14);
   workBusinessLayer.setZIndex(20);
   workHouseholdLayer.setZIndex(21);
@@ -82,6 +94,7 @@ export const useMapLayers = ({
     if (basemapLayer) basemapLayer.setVisible(uiStore.showBasemap);
     if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
     intLandLayer.setVisible(uiStore.showIntLand);
+    partOfSitesLayer.setVisible(uiStore.showPartOfSites);
     siteBoundaryLayer.setVisible(uiStore.showSiteBoundary);
     const showGroup = uiStore.showWorkLots;
     workBusinessLayer.setVisible(showGroup && uiStore.showWorkLotsBusiness);
@@ -483,6 +496,24 @@ export const useMapLayers = ({
     }
   };
 
+  const loadPartOfSitesGeojson = async () => {
+    try {
+      const response = await fetch(PART_OF_SITES_GEOJSON_URL, { cache: "no-cache" });
+      if (!response.ok) {
+        throw new Error(`Failed to load Part of Sites GeoJSON: ${response.status}`);
+      }
+      const data = await response.json();
+      const features = format.readFeatures(data, {
+        dataProjection: EPSG_2326,
+        featureProjection: EPSG_2326,
+      });
+      partOfSitesSource.clear(true);
+      partOfSitesSource.addFeatures(features);
+    } catch (error) {
+      console.warn("[map] Part of Sites layer load failed", error);
+    }
+  };
+
   return {
     format,
     workBusinessSource,
@@ -490,12 +521,14 @@ export const useMapLayers = ({
     workGovernmentSource,
     workSources,
     intLandSource,
+    partOfSitesSource,
     siteBoundarySource,
     workBusinessLayer,
     workHouseholdLayer,
     workGovernmentLayer,
     workLayers,
     intLandLayer,
+    partOfSitesLayer,
     siteBoundaryLayer,
     updateLayerOpacity,
     updateLayerVisibility,
@@ -506,6 +539,7 @@ export const useMapLayers = ({
     refreshSiteBoundarySource,
     refreshSiteBoundaryState,
     loadIntLandGeojson,
+    loadPartOfSitesGeojson,
     loadSiteBoundaryGeojson,
   };
 };

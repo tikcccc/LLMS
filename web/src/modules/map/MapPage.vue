@@ -23,6 +23,7 @@
         v-model:showBasemap="uiStore.showBasemap"
         v-model:showLabels="uiStore.showLabels"
         v-model:showIntLand="uiStore.showIntLand"
+        v-model:showPartOfSites="uiStore.showPartOfSites"
         v-model:showSiteBoundary="uiStore.showSiteBoundary"
         v-model:showWorkLots="uiStore.showWorkLots"
         v-model:showWorkLotsBusiness="uiStore.showWorkLotsBusiness"
@@ -178,6 +179,7 @@ const {
   workHouseholdLayer,
   workGovernmentLayer,
   intLandLayer,
+  partOfSitesLayer,
   siteBoundarySource,
   siteBoundaryLayer,
   updateLayerOpacity,
@@ -189,6 +191,7 @@ const {
   getWorkFeatureById,
   getSiteBoundaryFeatureById,
   loadIntLandGeojson,
+  loadPartOfSitesGeojson,
   loadSiteBoundaryGeojson,
 } = useMapLayers({
   workLotStore,
@@ -928,6 +931,7 @@ watch(
     uiStore.showBasemap,
     uiStore.showLabels,
     uiStore.showIntLand,
+    uiStore.showPartOfSites,
     uiStore.showSiteBoundary,
     uiStore.showWorkLots,
     uiStore.showWorkLotsBusiness,
@@ -1048,6 +1052,7 @@ onMounted(async () => {
   await siteBoundaryStore.ensureLoaded();
   initMap([
     intLandLayer,
+    partOfSitesLayer,
     siteBoundaryLayer,
     siteBoundaryHighlightLayer,
     workBusinessLayer,
@@ -1057,6 +1062,7 @@ onMounted(async () => {
   ]);
   refreshWorkSources();
   loadIntLandGeojson();
+  loadPartOfSitesGeojson();
   const shouldAutoFit =
     !getQueryValue(route.query.workLotId) && !getQueryValue(route.query.siteBoundaryId);
   loadSiteBoundaryGeojson().then(() => {

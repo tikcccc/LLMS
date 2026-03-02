@@ -38,10 +38,12 @@
 - 地圖顯示：
 - HK80 底圖 + EN 標籤
 - Drawing Layer（`int-land.geojson`）
+- Part of Sites Layer（`part-of-sites.geojson`）
 - Site Boundary / Work Lot 向量圖層
 - 圖層開關：
 - Basemap/Labels
 - Drawing Layer
+- Part of Sites Layer
 - Site Boundary
 - Work Lots 群組 + BU/HH/GL 子分類
 - 瀏覽工具：
@@ -56,6 +58,7 @@
 - 建立 Site Boundary（多邊形/圓）
 - 幾何修改並儲存
 - 刪除要素（含確認）
+- 編輯目標僅 Work Lot / Site Boundary；不支援 Drawing Layer 的 CAD 實體級操作（線段、block）
 - 詳情抽屜：
 - Work Lot 詳情、關聯 site boundary、編輯/刪除
 - Site Boundary 詳情、進度、關聯 work lot 篩選
@@ -170,6 +173,7 @@
 - 無審計軌跡/操作歷史
 - 無附件/媒體流程
 - 無審批型 workflow 引擎
+- 無 CAD 實體級修圖工具（刪單條線段、刪 block、逐段補線/連線）
 - 無 `partOfSite`、`sectionOfWorks`、`accessDate` 等結構化欄位
 - 無「`access date` 到期提醒」專屬規則（目前逾期語意基於 `dueDate`/`plannedHandoverDate`）
 - 無通知渠道策略配置（web in-app / email）
@@ -181,6 +185,7 @@
 | 業務需求 | 現況判定 | 說明 |
 | --- | --- | --- |
 | 每地塊維護 `Part of the Site` + `access date` | 未支援 | 現有資料模型沒有對應欄位 |
+| `part of site` 圖面需手工修補（刪線段/block、補線） | 未支援 | 現有 map 工具只支援 Work Lot/Site Boundary 幾何編修，非 CAD 實體編修 |
 | `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
 | `section of works` 對應 `sectional completion date` | 未支援 | 無 section 結構與合約天數規則計算 |
 | 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |

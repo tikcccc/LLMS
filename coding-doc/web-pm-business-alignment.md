@@ -39,6 +39,7 @@
 | 追蹤進度與風險 | `/dashboard` KPI 與趨勢、boundary 狀態彙總 | 風險判定邏輯是否可解釋且與現有指標一致 |
 | `access date` 到期提醒（Web in-app） | 地圖與清單已有逾期視覺語意（基於 `dueDate` / `plannedHandoverDate`） | 是否新增 `accessDate` 與專屬到期規則，並明確呈現到期原因 |
 | `part of site` / `section of works` 時程管理 | 現有可維護日期欄位（assess/handover/completion/float） | 是否補齊結構欄位與映射規則，避免把不同時程語意混在單一欄位 |
+| `part of site` 圖面修補與上圖 | 現有可透過 DXF 轉 GeoJSON 腳本與地圖圖層顯示達成 | 是否需要 CAD 級編輯（刪線段/刪 block/補線）；若不做，需定義前處理工具與責任人 |
 | 需要可交付資料給外部單位 | JSON 匯入匯出、Excel/PDF 報表 | 匯出欄位是否滿足業務口徑、格式是否可用 |
 | 多角色操作邊界清晰 | 前端角色切換、路由守衛、地圖編輯限制 | 是否新增越權操作、deny 行為是否明確 |
 
@@ -53,6 +54,7 @@
 5. 權限影響：哪些角色允許/禁止，阻擋時 UI 行為。
 6. 時程規則來源：是否來自合約條款、客戶表格或會議決議，起算日與計算公式為何。
 7. 通知渠道策略：Web in-app、Email 或雙軌；哪個階段啟用。
+8. 圖面品質與前處理：是否需先在 CAD/腳本完成刪線、去 block、補線閉合；哪些屬性（如 `part name`/`access date`）由人工補錄。
 
 ## 6) 開發對齊流程（強制）
 

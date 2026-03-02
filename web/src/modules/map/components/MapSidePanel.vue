@@ -42,6 +42,10 @@
             <el-switch v-model="showIntLandProxy" />
           </div>
           <div class="panel-row">
+            <span>Part of Sites</span>
+            <el-switch v-model="showPartOfSitesProxy" />
+          </div>
+          <div class="panel-row">
             <span>Site Boundary</span>
             <el-switch v-model="showSiteBoundaryProxy" />
           </div>
@@ -237,6 +241,7 @@ const props = defineProps({
   showBasemap: { type: Boolean, required: true },
   showLabels: { type: Boolean, required: true },
   showIntLand: { type: Boolean, required: true },
+  showPartOfSites: { type: Boolean, required: true },
   showSiteBoundary: { type: Boolean, required: true },
   showWorkLots: { type: Boolean, required: true },
   showWorkLotsBusiness: { type: Boolean, required: true },
@@ -258,6 +263,7 @@ const emit = defineEmits([
   "update:showBasemap",
   "update:showLabels",
   "update:showIntLand",
+  "update:showPartOfSites",
   "update:showSiteBoundary",
   "update:showWorkLots",
   "update:showWorkLotsBusiness",
@@ -290,6 +296,10 @@ const showLabelsProxy = computed({
 const showIntLandProxy = computed({
   get: () => props.showIntLand,
   set: (value) => emit("update:showIntLand", value),
+});
+const showPartOfSitesProxy = computed({
+  get: () => props.showPartOfSites,
+  set: (value) => emit("update:showPartOfSites", value),
 });
 const showSiteBoundaryProxy = computed({
   get: () => props.showSiteBoundary,

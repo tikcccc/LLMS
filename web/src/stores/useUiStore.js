@@ -9,6 +9,7 @@ export const useUiStore = defineStore("ui", {
     showBasemap: true,
     showLabels: true,
     showIntLand: false,
+    showPartOfSites: true,
     showSiteBoundary: true,
     showWorkLots: true,
     showWorkLotsBusiness: true,
@@ -33,6 +34,9 @@ export const useUiStore = defineStore("ui", {
       }
       if (typeof this.showIntLand !== "boolean") {
         this.showIntLand = false;
+      }
+      if (typeof this.showPartOfSites !== "boolean") {
+        this.showPartOfSites = true;
       }
       if (
         !this.showWorkLotsBusiness &&
