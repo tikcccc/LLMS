@@ -12,6 +12,7 @@
 | `dxf-geojson-ops` | 處理 DXF -> GeoJSON 轉檔流程、參數調整、輸出檢查與前端路徑同步 | 問「幫我把 DXF 轉成前端可用資料」、「轉檔品質要怎麼驗證」 |
 | `function-update` | 針對新功能或功能變更做端到端更新：實作、文件同步、驗證 | 問「新增一個功能」、「完善現有功能並驗證可用性」 |
 | `pm-business-function-consistency` | 從 PM 業務視角檢查功能需求與客戶痛點/角色場景是否對齊，避免開發偏離業務目標 | 問「這個功能是否符合客戶業務需求」、「請先做業務一致性評估再開發」 |
+| `business-context-qa-sync` | 回答業務問題時同時結合 `reference-doc` 原始資料 + 現有功能文檔，並在你補充業務時同步更新業務基線文件 | 問「這個業務需求代表什麼」、「某術語在客戶語境是什麼」、「我補充一段業務請更新文檔」 |
 
 ## 快速使用建議
 
@@ -20,7 +21,8 @@
 3. DXF 轉檔與 GIS GeoJSON 驗證：`@dxf-geojson-ops`
 4. 新功能新增/功能改造（含驗證與文檔同步）：`@function-update`
 5. PM 提出新需求需先做業務對齊：`@pm-business-function-consistency`
-6. 同時有前端改動 + 文檔同步：`@pm-business-function-consistency` -> `@function-update`（或 `@frontend`）-> `@coding-doc`
+6. 業務背景/術語/需求問答與知識更新：`@business-context-qa-sync`
+7. 同時有前端改動 + 文檔同步：`@pm-business-function-consistency` -> `@function-update`（或 `@frontend`）-> `@coding-doc`
 
 ## 推薦下一批 Skills（可再建立）
 

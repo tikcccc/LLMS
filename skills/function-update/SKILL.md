@@ -15,6 +15,7 @@ Use this skill to deliver feature updates end-to-end: implementation, doc sync, 
    - enhancement/refactor
    - removal/deprecation
 2. Load minimal required docs:
+   - `coding-doc/web-business-reference.md`
    - `coding-doc/web-pm-business-alignment.md`
    - `coding-doc/web-functions.md`
    - `coding-doc/web-architecture.md`
@@ -33,7 +34,7 @@ Use this skill to deliver feature updates end-to-end: implementation, doc sync, 
 ## Mandatory Rules
 
 - Do not finish with code-only changes if user-visible behavior changed; update docs in same task.
-- Before implementation, confirm business objective and role scenario using `web-pm-business-alignment.md`.
+- Before implementation, confirm business objective and role scenario using `web-business-reference.md` and `web-pm-business-alignment.md`.
 - Keep route/module naming consistent between code and docs.
 - If tests are missing, provide explicit manual validation steps.
 

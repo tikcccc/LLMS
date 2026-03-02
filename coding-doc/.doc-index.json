@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-03-02T11:35:52",
+  "generated_at": "2026-03-02T11:48:42",
   "root": "/home/tikhong/LLMS/coding-doc",
-  "count": 9,
+  "count": 10,
   "files": [
     {
       "file": "/home/tikhong/LLMS/coding-doc/dxf-geojson-guide.md",
@@ -83,6 +83,23 @@
         "8) 樣式架構（現況）",
         "9) 架構特性",
         "10) 建議演進路線"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-business-reference.md",
+      "title": "Web Business Reference",
+      "purpose": "本文件集中整理客戶業務背景、核心需求、資料口徑與術語，供產品經理與開發在功能設計時對齊業務。",
+      "h2": [
+        "1) 文件用途",
+        "2) 來源與口徑規則",
+        "3) 客戶業務背景（整理）",
+        "4) 客戶業務需求清單（按優先語意）",
+        "5) 業務資料與可用性口徑",
+        "6) 業務術語詞彙表（Glossary）",
+        "7) 業務語意對應現有 Web 功能",
+        "8) 新業務輸入更新規範（強制）",
+        "9) 增量業務紀錄",
+        "10) 完成標準"
       ]
     },
     {

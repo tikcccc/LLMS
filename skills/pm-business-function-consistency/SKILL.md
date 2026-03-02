@@ -10,6 +10,7 @@ Use this skill to convert PM intent into implementable, verifiable, business-ali
 ## Workflow
 
 1. Load mandatory docs:
+   - `coding-doc/web-business-reference.md`
    - `coding-doc/web-pm-business-alignment.md`
    - `coding-doc/web-functions.md`
 2. Normalize request with template in `references/business-alignment-checklist.md`:

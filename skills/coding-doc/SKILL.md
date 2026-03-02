@@ -40,6 +40,7 @@ Keep `coding-doc/` discoverable and aligned with actual behavior in `web/`.
 - 前端一致性規範：`coding-doc/frontend-consistency.md`
 - 前端元件模式：`coding-doc/frontend-component-patterns.md`
 - PM 業務目標與功能對齊基線：`coding-doc/web-pm-business-alignment.md`
+- 客戶業務背景、需求、資料與術語：`coding-doc/web-business-reference.md`
 
 ## Resources
 

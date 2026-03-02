@@ -13,6 +13,7 @@ Use this map to route requests to the minimum set of target files.
 | `coding-doc/frontend-consistency.md` | Visual/system consistency baseline and CSS governance | "前端樣式規範", "token 應該放哪裡", "響應式規則" | Global token updates, CSS architecture rules, breakpoints, accessibility baseline, interaction consistency changes |
 | `coding-doc/frontend-component-patterns.md` | Reusable page/component layout patterns | "卡片/表格/Dialog/側欄如何做才一致", "可抽共用元件" | Shared component pattern changes, page composition conventions, reusable structure updates |
 | `coding-doc/web-pm-business-alignment.md` | PM view of business goals, user scenarios, and feature-business alignment rules | "這需求是否符合客戶業務", "從 PM 角度定義需求", "功能要怎麼和業務目標對齊" | Business goals changed, role scenarios changed, feature request template changed, business acceptance criteria changed |
+| `coding-doc/web-business-reference.md` | Customer business background, requirement baseline, data availability, and glossary | "客戶業務背景是什麼", "BU/Operator 是什麼", "業務資料目前有什麼" | New business inputs, terminology updates, source-data updates from `reference-doc/`, business requirement refinements |
 
 ## Default Combination Rules
 
@@ -30,4 +31,7 @@ Use this map to route requests to the minimum set of target files.
   - `coding-doc/frontend-component-patterns.md`
 - New feature request + business intent alignment:
   - `coding-doc/web-pm-business-alignment.md`
+  - `coding-doc/web-functions.md`
+- Business Q&A / terminology / data-source clarification:
+  - `coding-doc/web-business-reference.md`
   - `coding-doc/web-functions.md`

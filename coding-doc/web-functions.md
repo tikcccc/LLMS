@@ -184,3 +184,6 @@
 
 5. `web-pm-business-alignment.md`  
 從 PM 角度定義業務目標、角色場景與功能對齊規則，避免需求與客戶業務脫節。
+
+6. `web-business-reference.md`  
+集中整理客戶業務背景、需求、資料口徑與術語，作為業務問答與需求澄清基線。

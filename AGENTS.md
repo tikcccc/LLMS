@@ -10,11 +10,13 @@ A skill is a set of local instructions stored in a `SKILL.md` file. Use the skil
 - dxf-geojson-ops: Execute DXF-to-GeoJSON conversion workflows, tune conversion parameters, validate outputs, and sync map data paths used by frontend. Use for GIS data import/conversion and GeoJSON quality verification tasks. (file: /home/tikhong/LLMS/skills/dxf-geojson-ops/SKILL.md)
 - function-update: Implement new/changed product functions end-to-end, including code changes, doc synchronization, and validation evidence. Use when adding new features, extending behavior, or completing verification for function changes. (file: /home/tikhong/LLMS/skills/function-update/SKILL.md)
 - pm-business-function-consistency: Align new/changed feature requirements with PM business objectives and role scenarios before and after implementation, using current `web/` capability baseline. Use for business-driven requirement clarification, scope validation, and customer-need consistency checks. (file: /home/tikhong/LLMS/skills/pm-business-function-consistency/SKILL.md)
+- business-context-qa-sync: Answer business questions using `reference-doc/` source records plus current product docs, and keep `coding-doc/web-business-reference.md` updated when users provide new business descriptions. Use for business background Q&A, terminology clarification, and business-knowledge maintenance. (file: /home/tikhong/LLMS/skills/business-context-qa-sync/SKILL.md)
 
 ### How to use skills
 - Trigger rules: If user names a skill (with `$SkillName` or plain text) or task clearly matches a skill description, use that skill in the current turn.
 - Multiple skills: Use the minimum set that covers the request and run them in a clear order.
 - Suggested sequencing:
+  - Business question / terminology clarification: `business-context-qa-sync` -> (`coding-doc` if broader doc sync needed)
   - PM-driven feature request: `pm-business-function-consistency` -> `function-update` -> (`frontend` if UI-heavy) -> `coding-doc`
   - New feature in web app: `function-update` -> (`frontend` if UI-heavy) -> `coding-doc`
   - DXF data onboarding: `dxf-geojson-ops` -> `coding-doc`

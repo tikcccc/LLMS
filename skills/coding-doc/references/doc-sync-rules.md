@@ -15,6 +15,7 @@ Use this matrix whenever a requested change modifies `web/` behavior.
 | Frontend global style/token/breakpoint rules changed | `coding-doc/frontend-consistency.md` | `coding-doc/frontend-component-patterns.md`, `coding-doc/web-architecture.md` |
 | Reusable component/page patterns changed | `coding-doc/frontend-component-patterns.md` | `coding-doc/frontend-consistency.md` |
 | PM business objective, role scenario, or feature acceptance semantics changed | `coding-doc/web-pm-business-alignment.md`, `coding-doc/web-functions.md` | `coding-doc/web-role-permission-spec.md`, `coding-doc/web-data-contract.md` |
+| Customer business background, terminology, or source-data understanding changed | `coding-doc/web-business-reference.md` | `coding-doc/web-pm-business-alignment.md`, `coding-doc/web-functions.md` |
 
 ## Required Sync Steps
 
@@ -33,3 +34,4 @@ Use this matrix whenever a requested change modifies `web/` behavior.
 - API migration status in `web-api-transition-plan.md` does not contradict current architecture.
 - Frontend style rules in `frontend-consistency.md` and `frontend-component-patterns.md` remain aligned.
 - PM business intent in `web-pm-business-alignment.md` is consistent with implemented user-facing behavior.
+- Business terms and source-data statements in `web-business-reference.md` stay aligned with latest `reference-doc/`.
