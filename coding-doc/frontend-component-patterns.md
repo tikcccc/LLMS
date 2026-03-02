@@ -1,0 +1,156 @@
+# Frontend Component Patterns
+
+最後更新：2026-03-02  
+範圍：`web/` 現有 Vue + Element Plus 專案可直接落地的元件模式
+
+## 1) 目的
+
+本文件提供「可複用、可擴充、可保持一致」的前端元件模式，避免後續每頁重新發明版型與交互。
+
+## 2) 通用規則
+
+- 優先使用現有 token 與色彩語意（參考 `frontend-consistency.md`）。
+- 版型層級：`Page -> Section/Card -> Control -> Data View`。
+- 元件應盡量「資料驅動」：
+- 透過 `props` 接收狀態
+- 透過 `emit` 回傳事件
+- 避免在共用元件內直接耦合 store
+- 所有破壞性操作都要有確認流程。
+- icon-only 按鈕必須帶 `aria-label`。
+
+## 3) Page Pattern
+
+適用頁面：Dashboard、Work Lots、Site Boundaries、Admin。
+
+標準結構：
+
+1. `page`：頁面容器，標準 padding（桌面 24px）
+2. `header`：標題 + 副標 + 主要操作區
+3. `toolbar`：搜尋/篩選/批量動作
+4. `content`：表格、卡片或圖表
+
+建議 class：
+
+- `page`
+- `header` / `header-copy`
+- `toolbar`
+- `filters`
+- `action-buttons`
+
+## 4) Card Pattern
+
+適用場景：KPI 卡、資訊卡、圖表卡。
+
+結構：
+
+- `card`
+- `card-head`（標題、右上角輔助資訊）
+- `card-body`（主內容）
+- `card-footer`（可選）
+
+樣式基線：
+
+- 背景：白色或輕微漸層
+- 邊框：`1px solid var(--border)`
+- 圓角：`12px~16px`
+- 陰影：輕量，不搶內容
+
+## 5) Table Pattern
+
+適用場景：Work Lots、Site Boundaries、Users、Admin。
+
+規範：
+
+- 固定首欄（ID）與操作欄（如需要）
+- 日期欄位統一用 `TimeText`
+- 狀態欄位統一用 `el-tag` + 語意樣式函式
+- 表格上方工具列固定包含搜尋/篩選/操作按鈕區
+- 若有批量動作，統一使用 row selection
+
+推薦封裝：
+
+- `TableToolbar`（可後續抽）
+- `StatusTag`（可後續抽，封裝 style mapping）
+
+## 6) Dialog Form Pattern
+
+適用場景：Work Lot 編輯、Site Boundary 編輯、確認對話框。
+
+結構：
+
+- `el-dialog`
+- `el-form`（`label-position="top"`）
+- footer 統一：`Cancel` + 主操作按鈕
+
+規範：
+
+- Dialog 不直接更新 store，透過 `confirm` 事件回傳
+- Form 欄位預設值由父層提供（如 `createXXXEditForm`）
+- 需要辨識唯讀欄位（如 System ID）應 disabled 顯示
+
+## 7) Side Panel Pattern（Map）
+
+適用場景：Map 左側 panel（Layers / Scope / Search）。
+
+結構：
+
+- Tab 切換區
+- 內容區（可滾動）
+- 行動端 sheet header
+- 可調整尺寸控制（桌面）
+
+規範：
+
+- 支援桌機與行動行為切換（<=900px）
+- 滾動區域與固定區域分離，避免整面板難以操作
+- 與 map overlay 的 z-index 關係需固定管理
+
+## 8) Overlay Pattern（Map 浮層）
+
+適用場景：Toolbar、Legend、Scale、Hint。
+
+規範：
+
+- 每個 overlay 要有明確定位策略（左上、右下、底部中間）
+- mobile 狀態需有替代布局（避免遮擋）
+- 不應依賴單一像素值硬寫死，需保留可調整空間
+
+## 9) Status Visualization Pattern
+
+狀態顯示來源統一：
+
+- Work Lot：`modules/map/utils/statusStyle.js`
+- Site Boundary：`modules/map/utils/siteBoundaryStatusStyle.js`
+
+規範：
+
+- 不允許在頁面內直接臨時定義新的狀態色
+- 同一狀態詞在不同元件（地圖、表格、抽屜）需一致
+
+## 10) Responsive Pattern
+
+已存在斷點：
+
+- `1120px`、`1100px`、`900px`、`768px`
+
+新元件要求：
+
+- 必須描述桌機與行動行為（至少 2 個狀態）
+- 主要操作按鈕在 mobile 不可被折疊到不可達位置
+- 表格在小螢幕至少保留關鍵欄位可讀
+
+## 11) 推薦可抽象成共用元件的清單
+
+1. `PageHeader`：統一頁面標題與副標區
+2. `TableToolbar`：統一搜尋/篩選/操作列
+3. `StatusTag`：統一狀態 tag 呈現
+4. `EntityMetaGrid`：統一抽屜基本資訊網格
+5. `EmptyStateBlock`：統一空狀態樣式
+
+## 12) PR 檢查清單（元件模式）
+
+1. 新增頁面是否沿用現有 page/header/toolbar 模式。
+2. 新增卡片/表格是否重用既有樣式語言。
+3. 狀態顯示是否調用既有 status style helper。
+4. Dialog 是否使用統一 footer 與事件回傳模式。
+5. mobile 下是否已驗證不遮擋主要操作。

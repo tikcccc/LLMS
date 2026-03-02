@@ -1,0 +1,148 @@
+{
+  "generated_at": "2026-03-02T11:35:52",
+  "root": "/home/tikhong/LLMS/coding-doc",
+  "count": 9,
+  "files": [
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/dxf-geojson-guide.md",
+      "title": "DXF to GeoJSON Guide",
+      "purpose": "本文件說明如何使用專案中的 Python 腳本，把 DXF 轉成 GeoJSON，供前端地圖（OpenLayers）直接載入。",
+      "h2": [
+        "1) 目的",
+        "2) 腳本位置",
+        "3) 環境準備",
+        "4) 通用腳本：dxf_to_geojson.py",
+        "5) Site Boundary 專用腳本：dxf_to_site_boundary_geojson.py",
+        "6) 輸出與前端接軌",
+        "7) 轉換品質建議",
+        "8) 常見問題"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/frontend-component-patterns.md",
+      "title": "Frontend Component Patterns",
+      "purpose": "本文件提供「可複用、可擴充、可保持一致」的前端元件模式，避免後續每頁重新發明版型與交互。",
+      "h2": [
+        "1) 目的",
+        "2) 通用規則",
+        "3) Page Pattern",
+        "4) Card Pattern",
+        "5) Table Pattern",
+        "6) Dialog Form Pattern",
+        "7) Side Panel Pattern（Map）",
+        "8) Overlay Pattern（Map 浮層）",
+        "9) Status Visualization Pattern",
+        "10) Responsive Pattern",
+        "11) 推薦可抽象成共用元件的清單",
+        "12) PR 檢查清單（元件模式）"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/frontend-consistency.md",
+      "title": "Frontend Consistency",
+      "purpose": "本文件定義一套可持續維護的前端一致性基線，確保後續開發具備：",
+      "h2": [
+        "1) 目標",
+        "2) Design Token（單一來源）",
+        "3) CSS 架構規範",
+        "3.1 分層",
+        "3.2 樣式責任歸屬",
+        "3.3 Element Plus 覆寫策略",
+        "4) 命名與 class 約定",
+        "5) 版面與間距標準",
+        "6) 字體與文字層級",
+        "7) 狀態色語意一致性",
+        "8) 響應式設計標準",
+        "9) 互動一致性"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-api-transition-plan.md",
+      "title": "Web API Transition Plan",
+      "purpose": "本文件用於規劃目前 local-first 前端（Pinia + localStorage + 靜態 GeoJSON）如何平滑遷移到後端 API 驅動架構。",
+      "h2": [
+        "1) 文件用途",
+        "2) 預期讀者",
+        "3) 待填充內容（後續 agent 需補）",
+        "4) 資料來源建議",
+        "5) 完成標準"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-architecture.md",
+      "title": "Web Architecture",
+      "purpose": "本文件定義目前前端網站的總體架構，包含：",
+      "h2": [
+        "1) 文件目標",
+        "2) 系統定位",
+        "3) 技術棧",
+        "4) 架構分層",
+        "5) 目錄結構（重點）",
+        "6) 路由與權限控制",
+        "7) 核心資料流",
+        "8) 樣式架構（現況）",
+        "9) 架構特性",
+        "10) 建議演進路線"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-data-contract.md",
+      "title": "Web Data Contract",
+      "purpose": "本文件用於定義前端核心資料模型與驗證規則，讓後續開發在欄位、型別、enum、匯入匯出格式上有單一標準。",
+      "h2": [
+        "1) 文件用途",
+        "2) 預期讀者",
+        "3) 待填充內容（後續 agent 需補）",
+        "4) 資料來源建議",
+        "5) 完成標準"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-functions.md",
+      "title": "Web Functions",
+      "purpose": "範圍：依 `web/` 現有程式實作整理的前端 demo 功能目錄",
+      "h2": [
+        "1) 產品功能總覽",
+        "2) 路由功能清單",
+        "`/dashboard` 分析儀表板",
+        "`/map` 地圖作業頁",
+        "`/landbank/work-lots` Work Lots 清單",
+        "`/landbank/site-boundaries` Site Boundaries 清單",
+        "`/users` 使用者頁",
+        "`/admin/work-lots`",
+        "3) 全站共用功能",
+        "4) 狀態管理與持久化",
+        "5) 資料契約與轉換功能",
+        "6) 權限矩陣（前端 demo）"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-pm-business-alignment.md",
+      "title": "Web PM Business Alignment",
+      "purpose": "本文件從產品經理（PM）角度定義業務理解與功能對齊規則，避免功能開發偏離客戶真實業務需求。",
+      "h2": [
+        "1) 文件用途",
+        "2) 口徑與資料來源",
+        "3) 客戶業務背景（摘要）",
+        "4) 業務需求到現有功能的對應",
+        "5) PM 提需求最小欄位（開發前置輸入）",
+        "6) 開發對齊流程（強制）",
+        "7) 業務一致性驗收清單",
+        "8) 文件聯動規則",
+        "9) 完成標準"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/web-role-permission-spec.md",
+      "title": "Web Role Permission Spec",
+      "purpose": "本文件用於定義前端產品的「動作級」權限規範，提供：",
+      "h2": [
+        "1) 文件用途",
+        "2) 預期讀者",
+        "3) 待填充內容（後續 agent 需補）",
+        "4) 資料來源建議",
+        "5) 完成標準"
+      ]
+    }
+  ]
+}
