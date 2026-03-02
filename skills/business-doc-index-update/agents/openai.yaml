@@ -1,0 +1,3 @@
+interface:
+  display_name: "Business Doc Index Update"
+  short_description: "Detect business doc updates and sync coding-doc"

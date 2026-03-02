@@ -1,0 +1,371 @@
+
+RE: Re:RE: Land Management Digital Platform - 2026/2/13 progress report from IsBIM & Next Meeting Proposal 
+
+From   : Humphrey Wu <Humphrey.Wu@arup.com>	
+Time  :  
+Thursday, Feb 26, 2026 6:32 PM
+Full-text Translation | 
+To      :  
+Chiu Tik Hong, Khalil <khalil.chiu@isbim.com.hk>; slestlmc3 <slestlmc3@landsd.gov.hk>; slestlmc1 <slestlmc1@landsd.gov.hk>; Go, Victor <GoWK@binnies.com>; tonylo <tonylo@skjv.com.hk>; Eric XIAO <eric@isbim.com.hk>; Ren Li Fang, Patricia <patricia.ren@isbim.com.hk>; Rex LAU <rex@isbim.com.hk>; wpsuen <wpsuen@cedd.gov.hk>
+Dear Khalil,
+
+ 
+
+Thank you for your e-mail.  For the purpose of demonstration, we would like to display the alerts on the web site.  Nevertheless, we are looking forward to receiving your updates on next Monday.
+
+ 
+
+Regards,
+
+ 
+
+Humphrey WU
+
+Senior Resident Engineer
+
+ND/2025/01 – San Tin Technopole Phase 1 Stage 1 (East) – Contract 2 – Site Formation and Engineering Infrastructure Works (C2)
+
+Mobile: 90932017
+
+ 
+
+ 
+
+ 
+
+From: Khalil Chiu <khalil.chiu@isbim.com.hk>
+Sent: Thursday, February 26, 2026 6:21 PM
+To: Humphrey Wu <Humphrey.Wu@arup.com>; slestlmc3 <slestlmc3@landsd.gov.hk>; slestlmc1 <slestlmc1@landsd.gov.hk>; Go, Victor <GoWK@binnies.com>; tonylo <tonylo@skjv.com.hk>; Eric XIAO <eric@isbim.com.hk>; Ren Li Fang, Patricia <patricia.ren@isbim.com.hk>; Rex LAU <rex@isbim.com.hk>; wpsuen <wpsuen@cedd.gov.hk>
+Subject: Re:RE: Land Management Digital Platform - 2026/2/13 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear Humphrey,
+
+Thank you for your email.
+
+Regarding the update on the Land Management Digital Platform, we will provide a progress tracking update next Monday.
+
+Most of the fields you mentioned are already implemented. Currently, the lots on the map already feature color-coded alerts and status changes to reflect different information.
+
+As for the notification method (e.g., for expiry of access dates), we can further discuss whether you would prefer to receive these via email or have them displayed directly on the website.
+
+Best regards,
+
+Khalil
+isBim
+
+ 
+
+ 
+
+------------------ Original ------------------
+
+From:  "Humphrey Wu"<Humphrey.Wu@arup.com>;
+
+Date:  Thu, Feb 26, 2026 05:33 PM
+
+To:  "Chiu Tik Hong, Khalil"<khalil.chiu@isbim.com.hk>; "slestlmc3"<slestlmc3@landsd.gov.hk>; "slestlmc1"<slestlmc1@landsd.gov.hk>; "Go, Victor"<GoWK@binnies.com>; "tonylo"<tonylo@skjv.com.hk>; "Eric XIAO"<eric@isbim.com.hk>; "Ren Li Fang, Patricia"<patricia.ren@isbim.com.hk>; "Rex LAU"<rex@isbim.com.hk>; "wpsuen"<wpsuen@cedd.gov.hk>;
+
+Subject:  RE: Land Management Digital Platform - 2026/2/13 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear Khalil,
+
+ 
+
+Further to your e-mail on 13 February 2026, please advise if there is any update on the Land Management Digital Platform.  We expect the digital platform is now ready for further information inputs such as Part of the Site, access date, alert on expiry of access dates etc. for each land lot.
+
+ 
+
+Regards,
+
+ 
+
+Humphrey WU
+
+Senior Resident Engineer
+
+ND/2025/01 – San Tin Technopole Phase 1 Stage 1 (East) – Contract 2 – Site Formation and Engineering Infrastructure Works (C2)
+
+Mobile: 90932017
+
+ 
+
+ 
+
+From: Khalil Chiu <khalil.chiu@isbim.com.hk>
+Sent: Friday, February 13, 2026 12:31 PM
+To: slestlmc3 <slestlmc3@landsd.gov.hk>; slestlmc1 <slestlmc1@landsd.gov.hk>; Go, Victor <GoWK@binnies.com>; Humphrey Wu <humphrey.wu@arup.com>; tonylo <tonylo@skjv.com.hk>; Eric XIAO <eric@isbim.com.hk>; Ren Li Fang, Patricia <patricia.ren@isbim.com.hk>; Rex LAU <rex@isbim.com.hk>; wpsuen <wpsuen@cedd.gov.hk>
+Subject: Re: Land Management Digital Platform - 2026/2/13 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear all,
+
+Latest Progress Updates:
+
+C2 Site Boundaries Completed: Data import and integration for ESS No. 10, MTR Storage Yard, and CLC are now finished.
+New Features Added:
+Enhanced Dashboard: Optimized KPI cards and chart data visualization.
+Map Drawing & Data Editing: Support for drawing Site Boundaries on the map, and the ability to edit or delete Site Boundaries and Worklot information.
+Data Integration: Added JSON Import/Export for Site Boundaries and Worklots, allowing direct map data migration via JSON files.
+Reporting: Added Export to PDF and Excel functions for generating reports from the Site Boundaries and Worklot lists.
+Next Steps: We are currently optimizing the Project Timeline and Progress Tracking functions, using the reference materials provided by Victor to refine the logic and visualization.
+Demo Link: https://llms-flame.vercel.app/
+
+Best regards,
+
+Khalil Chiu
+isBIM
+
+
+
+ 
+
+ 
+
+
+
+
+
+------------------ Original ------------------
+
+From:  "Chiu Tik Hong, Khalil"<khalil.chiu@isbim.com.hk>;
+
+Date:  Wed, Feb 11, 2026 06:56 PM
+
+To:  "slestlmc3"<slestlmc3@landsd.gov.hk>; "slestlmc1"<slestlmc1@landsd.gov.hk>; "GoWK"<GoWK@binnies.com>; "'Humphrey Wu'"<humphrey.wu@arup.com>; "tonylo"<tonylo@skjv.com.hk>; "Eric XIAO"<eric@isbim.com.hk>; "Ren Li Fang, Patricia"<patricia.ren@isbim.com.hk>; "Rex LAU"<rex@isbim.com.hk>; "wpsuen"<wpsuen@cedd.gov.hk>;
+
+Subject:  Re: Land Management Digital Platform - 2026/2/11 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear all,
+
+Latest Achievements & Demo Updates
+We have updated the with the following key features:
+
+Trial Site Setup: Successfully created separate GeoJSON layers for BU and HH (HKSTP No. 4) as a trial, based on the provided PDF documentation.
+Site-Worklot Association: Implemented logic linking Site Boundaries with Work Lots (BU/HH). Users can now view and manage all associated worklots within a specific boundary.
+Enhanced Land Attributes: The data schema has been expanded to support comprehensive information management in a table format, covering:
+Land Info: Land ID, Hectare, BU/HH/GL, Contract No., and Future Use.
+Project Timeline: Assess Date, Handover Date, Completion Date, and Float.
+Status Tracking: Real-time status updates (e.g., EGA approved, waiting for clearance).
+Reporting & Analytics: Added an export function for Bureaus/Departments to generate summary reports, including % Land Handover, % Land requiring force eviction, and Risk Analysis (identifying land with float less than X months).
+Progress Tracking: Updated site plot naming (e.g., HKSTP No. X) and integrated Handover Date logic. This includes color-coded alerts and progress bars to visualize overdue status based on operator progress.
+Current Work in Progress
+Our team is currently focusing on the data import for C2 Site Boundaries, which includes:
+
+ESS No. 10
+MTR Storage Yard
+CLC
+Best regards,
+
+Khalil Chiu
+isBIM
+
+ 
+
+ 
+
+------------------ Original ------------------
+
+From:  "Chiu Tik Hong, Khalil"<khalil.chiu@isbim.com.hk>;
+
+Date:  Tue, Feb 10, 2026 06:32 PM
+
+To:  "slestlmc3"<slestlmc3@landsd.gov.hk>; "slestlmc1"<slestlmc1@landsd.gov.hk>; "GoWK"<GoWK@binnies.com>; "'Humphrey Wu'"<humphrey.wu@arup.com>; "tonylo"<tonylo@skjv.com.hk>; "Eric XIAO"<eric@isbim.com.hk>; "Ren Li Fang, Patricia"<patricia.ren@isbim.com.hk>; "Rex LAU"<rex@isbim.com.hk>; "wpsuen"<wpsuen@cedd.gov.hk>;
+
+Subject:  Re: Land Management Digital Platform - 2026/2/010 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear all,
+
+Following today’s meeting with Victor, we are updating the demo with the following key features:
+
+Trial Site Setup: Creating separate GeoJSON layers for BU and HH (HKSTP No. 4) as a trial based on the provided PDF.
+Site-Worklot Association: Linking Site Boundaries with Work Lots (BU/HH), allowing users to view and manage all worklots within a specific boundary.
+Enhanced Land Attributes: Expanding the data schema to store and export comprehensive information in table format, including:
+Land Info: Land ID, Hectare, BU/HH/GL, Contract No., and Future Use.
+Project Timeline: Assess Date, Handover Date, Completion Date, and Float.
+Status Tracking: Current status (e.g., EGA approved, waiting for clearance).
+Reporting & Analytics: Implementing an export function for Bureaus/Departments to generate summary reports, including:
+% Land Handover and % Land requiring force eviction.
+Risk Analysis: Percentage of land with float less than X months.
+Progress Tracking: Renaming site plots (e.g., HKSTP No. X) and adding Handover Date logic with color alerts and progress bars to show overdue status based on operator progress.
+Timeline: We expect to complete these updates by this Wednesday, followed by a demo meeting with CEDD.
+
+Best regards,
+
+Khalil Chiu
+isBIM
+
+ 
+
+ 
+
+------------------ Original ------------------
+
+From:  "Chiu Tik Hong, Khalil"<khalil.chiu@isbim.com.hk>;
+
+Date:  Mon, Feb 9, 2026 06:29 PM
+
+To:  "slestlmc3"<slestlmc3@landsd.gov.hk>; "slestlmc1"<slestlmc1@landsd.gov.hk>; "GoWK"<GoWK@binnies.com>; "'Humphrey Wu'"<humphrey.wu@arup.com>; "tonylo"<tonylo@skjv.com.hk>; "Eric XIAO"<eric@isbim.com.hk>; "Ren Li Fang, Patricia"<patricia.ren@isbim.com.hk>; "Rex LAU"<rex@isbim.com.hk>; "wpsuen"<wpsuen@cedd.gov.hk>;
+
+Subject:  Re: Land Management Digital Platform - 2026/2/09 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear all,
+
+I would like to provide an update on our latest progress for the Land Management Digital Platform:
+
+Proposal & Quotation: We are currently revising the proposal and quotation to align with the latest security requirements.
+EPD HKED Platform Study: We have studied the features and operational logic of the EPD HKED platform provided by Victor for our development reference.
+Next Meeting: We are in the process of arranging the next meeting and are awaiting confirmation from the client regarding the date.
+Latest Demo Enhancements: We have also updated the Demo with new interactive tools:
+
+Scope Draw: Users can now use the brush or circle tool to select an area on the map. The sidebar will automatically list all Site Boundaries and Work Lots within the selected scope.
+List Interaction: Clicking on any item in the sidebar list will now automatically focus and highlight the corresponding plot on the map.
+(Please refer to the attached screenshots for the updated toolbar and interface.)
+
+Best regards,
+
+Khalil Chiu
+isBIM
+
+ 
+
+ 
+
+------------------ Original ------------------
+
+From:  "Chiu Tik Hong, Khalil"<khalil.chiu@isbim.com.hk>;
+
+Date:  Sat, Feb 7, 2026 00:41 AM
+
+To:  "slestlmc3"<slestlmc3@landsd.gov.hk>; "slestlmc1"<slestlmc1@landsd.gov.hk>; "GoWK"<GoWK@binnies.com>; "'Humphrey Wu'"<humphrey.wu@arup.com>; "tonylo"<tonylo@skjv.com.hk>; "Eric XIAO"<eric@isbim.com.hk>; "Ren Li Fang, Patricia"<patricia.ren@isbim.com.hk>; "Rex LAU"<rex@isbim.com.hk>; "wpsuen"<wpsuen@cedd.gov.hk>;
+
+Subject:  Re: Land Management Digital Platform - 2026/2/06 progress report from IsBIM & Next Meeting Proposal
+
+ 
+
+Dear all,
+
+I am pleased to provide the second progress update. We have now addressed the layer differentiation challenges mentioned previously.
+
+Latest Achievements
+Layer Extraction: Separated I&T Site Boundaries from drawing data into a standalone layer.
+Boundary Auto-Completion: Implemented logic to connect fragmented lines into complete polygons.
+Interactive Features: Enabled click-to-interact pop-ups for I&T plots.
+Demo Link: https://llms-flame.vercel.app/
+
+Demo Updates (with some screencaptures attached)
+We have restructured the layers :
+
+Drawing Layer: Renamed from "INT"; it displays the full DGN drawing data.
+Site Boundary Layer (New): A standalone layer specifically for I&T plots, extracted from the DGN. It can be toggled on/off and supports click-to-highlight interaction.
+Site Boundary List (New): Accessible via the sidebar, this page displays a searchable table of all boundaries with details like Source Layer, Entity type, Area, and view operation.
+Meeting Proposal
+We would like to propose a meeting on Feb 11 (Next Wednesday) to:
+
+Gather feedback on demo functions.
+Review project milestones and discuss data scope/layers.
+Please let us know if this date works for you. A detailed agenda will be shared soon.
+
+Best regards,
+
+Khalil isBIM
+
+ 
+
+ 
+
+------------------ Original ------------------
+
+From:  "Chiu Tik Hong, Khalil"<khalil.chiu@isbim.com.hk>;
+
+Date:  Thu, Feb 5, 2026 07:20 PM
+
+To:  "slestlmc3"<slestlmc3@landsd.gov.hk>; "slestlmc1"<slestlmc1@landsd.gov.hk>; "GoWK"<GoWK@binnies.com>; "'Humphrey Wu'"<humphrey.wu@arup.com>; "tonylo"<tonylo@skjv.com.hk>; "Eric XIAO"<eric@isbim.com.hk>; "Ren Li Fang, Patricia"<patricia.ren@isbim.com.hk>; "Rex LAU"<rex@isbim.com.hk>; "wpsuen"<wpsuen@cedd.gov.hk>; "wpsuen"<prepawpsuen@cedd.gov.hk>;
+
+Subject:  Re: Land Management Digital Platform - First progress report from IsBIM
+
+ 
+
+Dear all,
+
+ 
+
+Following up on our previous update regarding the Land Management Digital Platform, I would like to provide additional details regarding the current Demo environment to ensure clarity during your review.
+
+ 
+
+Demo Data Specification
+
+For the current preview version, please note that only a single test file has been imported to validate the workflow. The specific file loaded is:
+
+ 
+
+File Name: E-ND_2025_01_DRG-STP2_C2_01_1312-00.dgn
+
+Layer Assignment: This data has been placed under the INT layer group in demo.
+
+ 
+
+User Action for INT layer
+
+You can control the visibility of this specific dataset by toggling the INT layer on or off in the layer filter panel.
+
+ 
+
+We appreciate your understanding as we continue to refine the data integration logic.
+
+ 
+
+Best regards,
+
+ 
+
+Khalil
+
+isBIM
+
+ 
+
+---Original---
+
+From: "Khalil Chiu"<khalil.chiu@isbim.com.hk>
+
+Date: Thu, Feb 5, 2026 19:01 PM
+
+To: "prepawpsuen"<prepawpsuen@cedd.gov.hk>;"slestlmc3"<slestlmc3@landsd.gov.hk>;"slestlmc1"<slestlmc1@landsd.gov.hk>;"GoWK"<GoWK@binnies.com>;"humphrey.wu"<humphrey.wu@arup.com>;"tonylo"<tonylo@skjv.com.hk>;"Eric XIAO"<eric@isbim.com.hk>;"patricia.ren"<patricia.ren@isbim.com.hk>;"rex"<rex@isbim.com.hk>;
+
+Subject: Land Management Digital Platform - First progress report from IsBIM
+
+ 
+
+Dear all ,
+
+This is Khalil from isBIM.We are pleased to share the first progress report for the Land Management Digital Platform. This update outlines our recent technical milestones and the key areas we are currently addressing as we move toward the first demo.
+This is the url for demo(You can preview the current progress via the link) :
+
+https://llms-flame.vercel.app/
+
+Current Achievements
+Dashboard UI & Interaction: Core interface and interactive elements have been implemented to ensure a seamless user experience.
+DGN Overlay Display: Successfully converted DGN files into GIS format and rendered them on the map, confirming our technical feasibility for data integration.
+Current Challenges
+Layer Differentiation: Stakeholder plots and site boundaries are currently consolidated within a single DGN file. The platform is currently configured to display a single layer, which requires further refinement.
+Next Actions
+Prototype Meeting: Arrange the 1st prototype progress meeting to review current features.
+Layer Logic: Define differentiation rules to ensure logical layer displays for better daily operations.
+Best regards,
+
+Khalil
+IsBIM
+
+ ______________________________

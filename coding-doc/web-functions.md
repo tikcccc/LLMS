@@ -141,6 +141,9 @@
 - 類別/狀態 alias 正規化
 - 日期/文字/布林/數字正規化
 - 幾何與面積正規化
+- 時程欄位（現況）：
+- Work Lot：`assessDate`、`dueDate`、`completionDate`、`floatMonths`
+- Site Boundary：`assessDate`、`plannedHandoverDate`、`completionDate`
 - 自動關聯：
 - Work Lot geometry -> Site Boundary IDs（空間比對）
 - KPI 推導：
@@ -167,8 +170,22 @@
 - 無審計軌跡/操作歷史
 - 無附件/媒體流程
 - 無審批型 workflow 引擎
+- 無 `partOfSite`、`sectionOfWorks`、`accessDate` 等結構化欄位
+- 無「`access date` 到期提醒」專屬規則（目前逾期語意基於 `dueDate`/`plannedHandoverDate`）
+- 無通知渠道策略配置（web in-app / email）
 
-## 8) 建議補充的功能文件
+## 8) 近期業務需求對照（2026-03-02）
+
+依據 `reference-doc/emails/email` 與 `reference-doc/2026-3-2 Project-timeline information/*`：
+
+| 業務需求 | 現況判定 | 說明 |
+| --- | --- | --- |
+| 每地塊維護 `Part of the Site` + `access date` | 未支援 | 現有資料模型沒有對應欄位 |
+| `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
+| `section of works` 對應 `sectional completion date` | 未支援 | 無 section 結構與合約天數規則計算 |
+| 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |
+
+## 9) 建議補充的功能文件
 
 1. `web-role-permission-spec.md`  
 定義到「動作級」的角色權限矩陣與阻擋行為預期。

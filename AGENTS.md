@@ -11,12 +11,14 @@ A skill is a set of local instructions stored in a `SKILL.md` file. Use the skil
 - function-update: Implement new/changed product functions end-to-end, including code changes, doc synchronization, and validation evidence. Use when adding new features, extending behavior, or completing verification for function changes. (file: /home/tikhong/LLMS/skills/function-update/SKILL.md)
 - pm-business-function-consistency: Align new/changed feature requirements with PM business objectives and role scenarios before and after implementation, using current `web/` capability baseline. Use for business-driven requirement clarification, scope validation, and customer-need consistency checks. (file: /home/tikhong/LLMS/skills/pm-business-function-consistency/SKILL.md)
 - business-context-qa-sync: Answer business questions using `reference-doc/` source records plus current product docs, and keep `coding-doc/web-business-reference.md` updated when users provide new business descriptions. Use for business background Q&A, terminology clarification, and business-knowledge maintenance. (file: /home/tikhong/LLMS/skills/business-context-qa-sync/SKILL.md)
+- business-doc-index-update: Detect updates under `reference-doc/` and synchronize impacted business docs in `coding-doc/` plus index artifacts. Use for business-doc change detection, impacted-file routing, and consistency sync after new meeting/email/timeline sources are added. (file: /home/tikhong/LLMS/skills/business-doc-index-update/SKILL.md)
 
 ### How to use skills
 - Trigger rules: If user names a skill (with `$SkillName` or plain text) or task clearly matches a skill description, use that skill in the current turn.
 - Multiple skills: Use the minimum set that covers the request and run them in a clear order.
 - Suggested sequencing:
   - Business question / terminology clarification: `business-context-qa-sync` -> (`coding-doc` if broader doc sync needed)
+  - New/changed business reference sources: `business-doc-index-update` -> (`business-context-qa-sync` if interpretation or glossary refinement needed) -> `coding-doc`
   - PM-driven feature request: `pm-business-function-consistency` -> `function-update` -> (`frontend` if UI-heavy) -> `coding-doc`
   - New feature in web app: `function-update` -> (`frontend` if UI-heavy) -> `coding-doc`
   - DXF data onboarding: `dxf-geojson-ops` -> `coding-doc`
