@@ -5,7 +5,7 @@ Build Section GeoJSON dataset from Part-of-Sites GeoJSON files.
 Default behavior:
 - Generate SECTION-1 .. SECTION-13 (contract mapping preset)
 - Union mapped part geometries into one MultiPolygon per section
-- Drop non-polygon fragments and interior holes by default
+- Drop non-polygon fragments and keep interior holes from parts by default
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ DEFAULT_PART_ROOT = "web/public/data/geojson/part-of-sites"
 DEFAULT_OUTPUT_ROOT = "web/public/data/geojson/sections"
 DEFAULT_CRS = "EPSG:2326"
 DEFAULT_MIN_AREA = 1.0
+DEFAULT_MIN_HOLE_AREA = 0.5
 DEFAULT_SIMPLIFY_TOLERANCE = 0.05
 DEFAULT_RING_DEDUP_TOLERANCE = 0.05
 DEFAULT_RING_BACKTRACK_TOLERANCE = 0.2
@@ -182,9 +183,14 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Optional comma-separated section ids to generate (e.g. SECTION-1,SECTION-2).",
     )
     parser.add_argument(
+        "--drop-holes",
+        action="store_true",
+        help="Drop interior holes in section polygons (default: keep holes inherited from parts).",
+    )
+    parser.add_argument(
         "--keep-holes",
         action="store_true",
-        help="Keep interior holes in section polygons (default: drop holes).",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--min-area",
@@ -193,6 +199,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help=(
             "Drop polygon parts smaller than this area (square meters). "
             f"(default: {DEFAULT_MIN_AREA})"
+        ),
+    )
+    parser.add_argument(
+        "--min-hole-area",
+        type=float,
+        default=DEFAULT_MIN_HOLE_AREA,
+        help=(
+            "Drop interior holes smaller than this area (square meters). "
+            f"0 keeps all holes. (default: {DEFAULT_MIN_HOLE_AREA})"
         ),
     )
     parser.add_argument(
@@ -313,6 +328,21 @@ def _point_to_segment_distance(
     return _distance_xy(point, proj)
 
 
+def _ring_signed_area(ring_coords: Sequence[Sequence[float]]) -> float:
+    if len(ring_coords) < 4:
+        return 0.0
+    area2 = 0.0
+    for i in range(len(ring_coords) - 1):
+        x1, y1 = _xy_tuple(ring_coords[i])
+        x2, y2 = _xy_tuple(ring_coords[i + 1])
+        area2 += x1 * y2 - x2 * y1
+    return 0.5 * area2
+
+
+def _ring_area(ring_coords: Sequence[Sequence[float]]) -> float:
+    return abs(_ring_signed_area(ring_coords))
+
+
 def _clean_ring_points(
     ring_coords: Sequence[Sequence[float]],
     dedup_tolerance: float = DEFAULT_RING_DEDUP_TOLERANCE,
@@ -398,6 +428,39 @@ def _normalize_polygon_shells(polygons: Iterable[object]) -> List[object]:
             normalized.append(part)
 
     return normalized
+
+
+def _filter_small_holes(
+    polygons: Iterable[object],
+    min_hole_area: float,
+    min_area: float,
+) -> List[object]:
+    _, Polygon, _, _, _, make_valid = _require_shapely()
+    if min_hole_area <= 0:
+        return [part for part in polygons if not part.is_empty and float(part.area) > 0]
+
+    cleaned: List[object] = []
+    for polygon in polygons:
+        shell = list(getattr(polygon, "exterior").coords)
+        kept_holes: List[List[Tuple[float, float]]] = []
+        for interior in getattr(polygon, "interiors", []):
+            coords = [(_xy_tuple(coord)) for coord in interior.coords]
+            if len(coords) < 4:
+                continue
+            if _ring_area(coords) < min_hole_area:
+                continue
+            kept_holes.append(coords)
+
+        candidate = make_valid(Polygon(shell, kept_holes))
+        for part in _extract_polygon_parts(candidate):
+            area = float(part.area)
+            if area <= 0:
+                continue
+            if min_area > 0 and area < min_area:
+                continue
+            cleaned.append(part)
+
+    return cleaned
 
 
 def resolve_item_file_to_path(part_root: Path, item_file: str) -> Path:
@@ -513,6 +576,7 @@ def build_section_geometry(
     geometries: Iterable[object],
     keep_holes: bool,
     min_area: float,
+    min_hole_area: float,
     simplify_tolerance: float,
 ) -> tuple[dict, int, int, float]:
     MultiPolygon, Polygon, mapping, _, unary_union, make_valid = _require_shapely()
@@ -634,6 +698,23 @@ def build_section_geometry(
     if not multi_parts:
         raise ValueError("No polygon geometry after final dissolve.")
 
+    if keep_holes and min_hole_area > 0:
+        hole_cleaned_parts = _filter_small_holes(
+            multi_parts,
+            min_hole_area=min_hole_area,
+            min_area=min_area,
+        )
+        if not hole_cleaned_parts:
+            raise ValueError("No polygon geometry after tiny-hole cleanup.")
+        hole_cleaned_union = make_valid(unary_union(hole_cleaned_parts))
+        multi_parts = [
+            part
+            for part in _extract_polygon_parts(hole_cleaned_union)
+            if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+        ]
+        if not multi_parts:
+            raise ValueError("No polygon geometry after tiny-hole dissolve.")
+
     normalized = MultiPolygon(multi_parts)
     total_holes = sum(len(part.interiors) for part in multi_parts)
     total_area = float(normalized.area)
@@ -688,8 +769,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     output_root = Path(args.output_root).resolve()
     crs = normalize_space(args.crs) or DEFAULT_CRS
     selected_sections = parse_section_filter(args.sections)
-    keep_holes = bool(args.keep_holes)
+    keep_holes = not bool(args.drop_holes)
     min_area = max(0.0, float(args.min_area))
+    min_hole_area = max(0.0, float(args.min_hole_area))
     simplify_tolerance = max(0.0, float(args.simplify_tolerance))
     allow_empty_sections = not args.no_allow_empty_sections
     generated_at = date.today().isoformat()
@@ -750,6 +832,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     geometries=geometries,
                     keep_holes=keep_holes,
                     min_area=min_area,
+                    min_hole_area=min_hole_area,
                     simplify_tolerance=simplify_tolerance,
                 )
             except Exception as exc:

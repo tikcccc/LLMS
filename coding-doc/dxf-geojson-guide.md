@@ -166,7 +166,7 @@ python scripts/build_part_of_sites_geojson.py
 
 PART 10（10B）特例口徑（2026-03-04 更新）：
 
-- `10b(12).dxf` 不參與 `10B` 多檔合併來源（直接排除）。
+- `10b(12).dxf` 會納入 `10B` 多檔合併來源（作為一般 polygon/block 來源）。
 - `10b(12).dxf` 不作為 void-cutout 來源。
 - 10B 的 line-based void heuristic 維持啟用，仍可由其他線資料推導內部 cutout。
 
@@ -208,7 +208,8 @@ python scripts/build_sections_geojson.py
 - `--part-root`：Part of Sites 資料根目錄（預設 `web/public/data/geojson/part-of-sites`）
 - `--output-root`：Sections 輸出根目錄（預設 `web/public/data/geojson/sections`）
 - `--sections`：只生成指定 section（例如 `SECTION-1,SECTION-2`）
-- `--keep-holes`：保留 interior holes（預設關閉）
+- 預設會保留並繼承 Part of Sites 的 interior holes
+- `--drop-holes`：需要強制移除 holes 時使用
 - `--min-area`：剔除小於此面積的碎片 polygon（單位 m²）
 - `--simplify-tolerance`：外框簡化容差（單位 m，`0` 代表關閉簡化）
 - `--no-allow-empty-sections`：若 section 無可用幾何則直接報錯（預設允許空 placeholder）
