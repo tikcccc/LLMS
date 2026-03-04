@@ -142,7 +142,16 @@
                     :label="item.id"
                     class="check-item"
                   >
-                    <span class="check-label">{{ item.id }}</span>
+                    <span
+                      class="check-item-focus"
+                      @click.stop.prevent="emit('focus-part-of-site', item.id)"
+                      @keydown.enter.stop.prevent="emit('focus-part-of-site', item.id)"
+                      @keydown.space.stop.prevent="emit('focus-part-of-site', item.id)"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <span class="check-label">{{ item.id }}</span>
+                    </span>
                   </el-checkbox>
                 </el-checkbox-group>
               </div>
@@ -215,8 +224,16 @@
                     :label="item.id"
                     class="check-item"
                   >
-                    <span class="check-label">{{ item.label }}</span>
-                    <span class="check-meta">{{ item.id }}</span>
+                    <span
+                      class="check-item-focus"
+                      @click.stop.prevent="emit('focus-section', item.id)"
+                      @keydown.enter.stop.prevent="emit('focus-section', item.id)"
+                      @keydown.space.stop.prevent="emit('focus-section', item.id)"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <span class="check-label">{{ item.label }}</span>
+                    </span>
                   </el-checkbox>
                 </el-checkbox-group>
               </div>
@@ -291,8 +308,24 @@
                     :label="item.id"
                     class="check-item"
                   >
-                    <span class="check-label">{{ item.label }}</span>
-                    <span class="check-meta">{{ item.id }}</span>
+                    <span
+                      class="check-item-focus"
+                      @click.stop.prevent="emit('focus-site-boundary', item.id)"
+                      @keydown.enter.stop.prevent="emit('focus-site-boundary', item.id)"
+                      @keydown.space.stop.prevent="emit('focus-site-boundary', item.id)"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <span class="check-label">{{ item.label }}</span>
+                      <span class="check-meta-row">
+                        <span
+                          class="check-status-text"
+                          :style="siteBoundaryStatusColor(item.boundaryStatusKey, item.overdue)"
+                        >
+                          {{ compactBoundaryStatus(item.boundaryStatus || "Pending Clearance") }}
+                        </span>
+                      </span>
+                    </span>
                   </el-checkbox>
                 </el-checkbox-group>
               </div>
@@ -365,8 +398,25 @@
                     :label="item.id"
                     class="check-item"
                   >
-                    <span class="check-label">{{ item.label }}</span>
-                    <span class="check-meta">{{ item.categoryLabel }} · {{ item.id }}</span>
+                    <span
+                      class="check-item-focus"
+                      @click.stop.prevent="emit('focus-work', item.id)"
+                      @keydown.enter.stop.prevent="emit('focus-work', item.id)"
+                      @keydown.space.stop.prevent="emit('focus-work', item.id)"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <span class="check-label">{{ item.label }}</span>
+                      <span class="check-meta-row">
+                        <span class="check-meta">{{ item.categoryCode || "BU" }}</span>
+                        <span
+                          class="check-status-text"
+                          :style="workStatusColor(item.status, item.dueDate)"
+                        >
+                          {{ compactWorkStatus(item.status || "Waiting for Assessment") }}
+                        </span>
+                      </span>
+                    </span>
                   </el-checkbox>
                 </el-checkbox-group>
               </div>
@@ -779,6 +829,32 @@ const filterLayerOptions = (items = []) => {
     return candidates.some((candidate) => normalizeText(candidate).includes(keyword));
   });
 };
+
+const normalizeStatusText = (value) => String(value || "").trim().toLowerCase();
+const compactBoundaryStatus = (value) => {
+  const normalized = normalizeStatusText(value);
+  if (!normalized) return "Pending";
+  if (normalized === "pending clearance") return "Pending";
+  if (normalized === "in progress") return "In Progress";
+  if (normalized === "critical / risk" || normalized === "critical/risk") return "Risk";
+  if (normalized === "handed over") return "Handed Over";
+  return String(value || "").trim();
+};
+const compactWorkStatus = (value) => {
+  const normalized = normalizeStatusText(value);
+  if (!normalized) return "Assessment";
+  if (normalized === "waiting for assessment") return "Assessment";
+  if (normalized === "ega approved") return "EGA Approved";
+  if (normalized === "waiting for clearance") return "Clearance";
+  if (normalized === "completed") return "Completed";
+  return String(value || "").trim();
+};
+const siteBoundaryStatusColor = (statusKey, overdue = false) => ({
+  color: siteBoundaryStatusStyle(statusKey, overdue)?.color || "#475569",
+});
+const workStatusColor = (status, dueDate = "") => ({
+  color: props.workStatusStyle(status, dueDate)?.color || "#475569",
+});
 
 const partOfSitesOptions = computed(() => resolveLayerOptions("partOfSites"));
 const sectionOptions = computed(() => resolveLayerOptions("sections"));
@@ -1389,8 +1465,32 @@ onBeforeUnmount(() => {
 .check-item :deep(.el-checkbox__label) {
   display: flex;
   flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.check-item-focus {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
   gap: 1px;
   min-width: 0;
+  cursor: pointer;
+}
+
+.check-item-focus:hover .check-label {
+  color: var(--accent);
+}
+
+.check-item-focus:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.45);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .check-label {
@@ -1403,7 +1503,28 @@ onBeforeUnmount(() => {
 
 .check-meta {
   font-size: 10px;
+  font-weight: 700;
   color: #64748b;
+  line-height: 1.1;
+}
+
+.check-meta-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.check-status-text {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 118px;
 }
 
 .panel-section {

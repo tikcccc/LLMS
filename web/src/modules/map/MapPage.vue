@@ -832,13 +832,24 @@ const layerFilterOptions = computed(() => {
   partOfSitesSourceVersion.value;
   sectionSourceVersion.value;
   const workLots = [...workLotStore.workLots]
-    .map((lot) => ({
-      id: String(lot.id),
-      label: lot.operatorName || "Work Lot",
-      category: normalizeWorkLotCategory(lot.category ?? lot.type),
-      categoryLabel: workCategoryLabel(lot.category ?? lot.type),
-      status: lot.status || "",
-    }))
+    .map((lot) => {
+      const normalizedCategory = normalizeWorkLotCategory(lot.category ?? lot.type);
+      const categoryCode =
+        normalizedCategory === WORK_LOT_CATEGORY.BU
+          ? "BU"
+          : normalizedCategory === WORK_LOT_CATEGORY.HH
+            ? "HH"
+            : "GL";
+      return {
+        id: String(lot.id),
+        label: lot.operatorName || "Work Lot",
+        category: normalizedCategory,
+        categoryLabel: workCategoryLabel(normalizedCategory),
+        categoryCode,
+        status: lot.status || "",
+        dueDate: lot.dueDate || "",
+      };
+    })
     .sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { numeric: true }) ||
       a.id.localeCompare(b.id, undefined, { numeric: true })
@@ -855,6 +866,8 @@ const layerFilterOptions = computed(() => {
             id,
             label: feature.get("name") || "Site Boundary",
             boundaryStatus: feature.get("boundaryStatus") || "Pending Clearance",
+            boundaryStatusKey: feature.get("boundaryStatusKey") || "PENDING_CLEARANCE",
+            overdue: !!feature.get("overdue"),
           };
         })
         .sort((a, b) =>
