@@ -12,22 +12,25 @@
       <div class="drawer-header" v-if="selectedWorkLot">
         <div class="header-text">
           <div class="drawer-title" :title="workLotHeaderTitle">{{ workLotHeaderTitle }}</div>
-        </div>
-        <div class="header-controls">
-          <div class="header-tags">
+          <div class="header-status-row">
             <el-tag
               effect="plain"
               :style="workStatusStyle(selectedWorkLot.status, selectedWorkLot.dueDate)"
             >
               {{ selectedWorkLot.status }}
             </el-tag>
+          </div>
+        </div>
+        <div class="header-controls">
+          <div class="header-tags">
             <el-button
-              class="focus-map-btn"
+              class="focus-action-btn"
               type="primary"
-              size="default"
+              text
+              size="small"
               @click="emit('focus-map-work-lot', selectedWorkLot.id)"
             >
-              Focus on Map
+              Focus
             </el-button>
             <el-button
               v-if="canEditWork"
@@ -70,12 +73,13 @@
           <div class="header-tags">
             <el-tag effect="plain">Site Boundary</el-tag>
             <el-button
-              class="focus-map-btn"
+              class="focus-action-btn"
               type="primary"
-              size="default"
+              text
+              size="small"
               @click="emit('focus-map-site-boundary', selectedSiteBoundary.id)"
             >
-              Focus on Map
+              Focus
             </el-button>
             <el-button
               v-if="canEditSiteBoundary"
@@ -108,12 +112,13 @@
           <div class="header-tags">
             <el-tag effect="plain">Part of Site</el-tag>
             <el-button
-              class="focus-map-btn"
+              class="focus-action-btn"
               type="primary"
-              size="default"
+              text
+              size="small"
               @click="emit('focus-map-part-of-site', selectedPartOfSite.partId)"
             >
-              Focus on Map
+              Focus
             </el-button>
           </div>
           <button
@@ -136,12 +141,13 @@
           <div class="header-tags">
             <el-tag effect="plain">Section</el-tag>
             <el-button
-              class="focus-map-btn"
+              class="focus-action-btn"
               type="primary"
-              size="default"
+              text
+              size="small"
               @click="emit('focus-map-section', selectedSection.sectionId)"
             >
-              Focus on Map
+              Focus
             </el-button>
           </div>
           <button
@@ -754,8 +760,14 @@ watch(
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+.header-status-row {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
 }
 
 .header-tags :deep(.el-button) {
@@ -795,26 +807,8 @@ watch(
   font-weight: 600;
 }
 
-.focus-map-btn {
-  --el-button-bg-color: var(--accent);
-  --el-button-border-color: var(--accent);
-  --el-button-text-color: #ffffff;
-  --el-button-hover-bg-color: var(--accent-strong);
-  --el-button-hover-border-color: var(--accent-strong);
-  --el-button-hover-text-color: #ffffff;
-  --el-button-active-bg-color: var(--accent-strong);
-  --el-button-active-border-color: var(--accent-strong);
-  --el-button-active-text-color: #ffffff;
-  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.28);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  min-height: 30px;
-  padding: 0 12px;
-}
-
-.focus-map-btn:focus-visible {
-  outline: 2px solid rgba(15, 118, 110, 0.35);
-  outline-offset: 1px;
+.focus-action-btn {
+  font-weight: 600;
 }
 
 .drawer-body {

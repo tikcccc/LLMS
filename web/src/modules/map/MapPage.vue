@@ -1571,16 +1571,24 @@ const isIdSelected = (ids = [], id) => {
   return ids.some((item) => String(item || "").trim().toLowerCase() === normalized);
 };
 
+const forceApplyLayerVisibilityAndFilters = () => {
+  updateLayerVisibility(basemapLayer.value, labelLayer.value);
+  refreshLayerFilters();
+  updateHighlightVisibility();
+  refreshHighlights();
+};
+
 const resetFocusOnMapFilters = () => {
+  uiStore.setLayerVisibility("showIntLand", false);
   uiStore.setLayerVisibility("showWorkLots", false);
   uiStore.setLayerVisibility("showSiteBoundary", false);
   uiStore.setLayerVisibility("showPartOfSites", false);
   uiStore.setLayerVisibility("showSections", false);
-  uiStore.setLayerVisibility("showIntLand", false);
   uiStore.setMapFilterMode("workLot", "all");
   uiStore.setMapFilterMode("siteBoundary", "all");
   uiStore.setMapFilterMode("partOfSites", "all");
   uiStore.setMapFilterMode("section", "all");
+  forceApplyLayerVisibilityAndFilters();
 };
 
 const focusOnMapWorkLot = (id) => {
@@ -1590,7 +1598,13 @@ const focusOnMapWorkLot = (id) => {
   resetFocusOnMapFilters();
   uiStore.setLayerVisibility("showWorkLots", true);
   uiStore.setMapSelectedIds("workLot", [selectedId]);
+  forceApplyLayerVisibilityAndFilters();
   zoomToWorkLot(selectedId);
+  uiStore.setLayerVisibility("showSiteBoundary", false);
+  uiStore.setLayerVisibility("showPartOfSites", false);
+  uiStore.setLayerVisibility("showSections", false);
+  uiStore.setLayerVisibility("showIntLand", false);
+  forceApplyLayerVisibilityAndFilters();
 };
 
 const focusOnMapSiteBoundary = (id) => {
@@ -1601,7 +1615,13 @@ const focusOnMapSiteBoundary = (id) => {
   resetFocusOnMapFilters();
   uiStore.setLayerVisibility("showSiteBoundary", true);
   uiStore.setMapSelectedIds("siteBoundary", [selectedId]);
+  forceApplyLayerVisibilityAndFilters();
   zoomToSiteBoundary(selectedId);
+  uiStore.setLayerVisibility("showWorkLots", false);
+  uiStore.setLayerVisibility("showPartOfSites", false);
+  uiStore.setLayerVisibility("showSections", false);
+  uiStore.setLayerVisibility("showIntLand", false);
+  forceApplyLayerVisibilityAndFilters();
 };
 
 const focusOnMapPartOfSite = (id) => {
@@ -1613,7 +1633,13 @@ const focusOnMapPartOfSite = (id) => {
   resetFocusOnMapFilters();
   uiStore.setLayerVisibility("showPartOfSites", true);
   uiStore.setMapSelectedIds("partOfSites", [selectedId]);
+  forceApplyLayerVisibilityAndFilters();
   zoomToPartOfSite(selectedId);
+  uiStore.setLayerVisibility("showWorkLots", false);
+  uiStore.setLayerVisibility("showSiteBoundary", false);
+  uiStore.setLayerVisibility("showSections", false);
+  uiStore.setLayerVisibility("showIntLand", false);
+  forceApplyLayerVisibilityAndFilters();
 };
 
 const focusOnMapSection = (id) => {
@@ -1625,7 +1651,13 @@ const focusOnMapSection = (id) => {
   resetFocusOnMapFilters();
   uiStore.setLayerVisibility("showSections", true);
   uiStore.setMapSelectedIds("section", [selectedId]);
+  forceApplyLayerVisibilityAndFilters();
   zoomToSection(selectedId);
+  uiStore.setLayerVisibility("showWorkLots", false);
+  uiStore.setLayerVisibility("showSiteBoundary", false);
+  uiStore.setLayerVisibility("showPartOfSites", false);
+  uiStore.setLayerVisibility("showIntLand", false);
+  forceApplyLayerVisibilityAndFilters();
 };
 
 const zoomToWorkLot = (id) => {

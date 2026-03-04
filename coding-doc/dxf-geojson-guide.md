@@ -1,7 +1,7 @@
 # DXF to GeoJSON Guide
 
 最後更新：2026-03-04  
-範圍：`scripts/dxf_to_geojson.py`、`scripts/dxf_to_site_boundary_geojson.py`、`scripts/build_part_of_sites_geojson.py`
+範圍：`scripts/dxf_to_geojson.py`、`scripts/dxf_to_site_boundary_geojson.py`、`scripts/build_part_of_sites_geojson.py`、`scripts/build_sections_geojson.py`
 
 ## 1) 目的
 
@@ -12,6 +12,7 @@
 - `scripts/dxf_to_geojson.py`：通用 DXF -> GeoJSON 轉換
 - `scripts/dxf_to_site_boundary_geojson.py`：Site Boundary 專用轉換（含預設修復參數）
 - `scripts/build_part_of_sites_geojson.py`：Part of Sites 批次轉檔並重建 index
+- `scripts/build_sections_geojson.py`：由既有 Part of Sites GeoJSON 聚合 Section 並重建 index（Section PoC）
 - 依賴檔：`scripts/requirements-dxf.txt`
 
 ## 3) 環境準備
@@ -121,6 +122,7 @@ python scripts/dxf_to_site_boundary_geojson.py \
 - Site Boundary 中間檔：`web/public/geojson/site-boundary.geojson`
 - 前端實際讀取 Site Boundary：`web/public/data/site-boundaries.geojson`
 - Part of Sites 分檔資料源根目錄：`web/public/data/geojson/part-of-sites/`
+- Sections 分檔資料源根目錄：`web/public/data/geojson/sections/`
 
 注意：目前前端地圖載入 Site Boundary 的路徑是 `web/public/data/site-boundaries.geojson`。  
 若腳本輸出到 `web/public/geojson/site-boundary.geojson`，需再同步到 `web/public/data/site-boundaries.geojson` 才會在 Map 頁生效。
@@ -172,6 +174,46 @@ python scripts/build_part_of_sites_geojson.py
 若要恢復前端完整資料清單，最後需再跑一次不帶 `--groups` 的全量重建。
 
 `part-*/index.json` 需記錄每個 part 的檔案路徑、feature 數量、geometry 類型和來源 DXF，方便後續批次驗證與前端按需載入。
+
+### 6.2 Section 聚合命令（PoC：SECTION-1）
+
+用途：把既有 Part of Sites GeoJSON 聚合成 Section GeoJSON，不重跑 DXF 轉檔。  
+目前預設 PoC：
+
+- 來源：`part-1` 的 `1A~1I`
+- 輸出 section：`SECTION-1`
+- 輸出 geometry：單一 `MultiPolygon` feature（目前實測包含 3 塊 polygon）
+
+執行命令：
+
+```bash
+python scripts/build_sections_geojson.py
+```
+
+可覆蓋參數：
+
+- `--part-root`：Part of Sites 資料根目錄（預設 `web/public/data/geojson/part-of-sites`）
+- `--output-root`：Sections 輸出根目錄（預設 `web/public/data/geojson/sections`）
+- `--section-id`：section id（預設 `SECTION-1`）
+- `--section-label`：section 顯示名稱（預設 `Section 1`）
+- `--section-group`：section 分組（預設 `SECTION 1`）
+- `--parts`：逗號分隔 part id（預設 `1A,1B,1C,1D,1E,1F,1G,1H,1I`）
+- `--source-group-slug`：來源 part 群組資料夾（預設 `part-1`）
+
+輸出檔案：
+
+- `web/public/data/geojson/sections/index.json`
+- `web/public/data/geojson/sections/section-1/index.json`
+- `web/public/data/geojson/sections/section-1/SECTION-1.geojson`
+
+`SECTION-1.geojson` feature properties 會固定帶出：
+
+- `sectionId` / `sectionLotId`
+- `sectionLotLabel`
+- `sectionGroup`
+- `sectionSystemId`
+- `relatedPartIds`
+- `partCount`
 
 ## 7) 轉換品質建議
 
