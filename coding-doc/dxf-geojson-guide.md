@@ -192,8 +192,9 @@ PART 10（10B）特例口徑（2026-03-04 更新）：
 2. 每個 section 輸出單一 `MultiPolygon` feature（`SECTION-11/12` 目前為空 placeholder，feature 數為 0）。  
 3. 預設清理：
 - 移除非面（point/line）碎片
-- 移除 polygon interior holes（僅保留外圍面）
+- 保留並繼承 Part of Sites 的 interior holes
 - `--min-area` 預設 `1.0`，先後兩輪剔除小碎片（union 後與最終輸出前）
+- `--min-hole-area` 預設 `10`，剔除小於門檻的微小洞（避免地圖上呈現碎線/碎點）
 - `--simplify-tolerance` 預設 `0.05`，保拓撲簡化外框
 - 針對外框做去尖刺（A→B→A 回折）與短邊/共線點清理，避免多餘線段與點殘留
 
@@ -211,6 +212,7 @@ python scripts/build_sections_geojson.py
 - 預設會保留並繼承 Part of Sites 的 interior holes
 - `--drop-holes`：需要強制移除 holes 時使用
 - `--min-area`：剔除小於此面積的碎片 polygon（單位 m²）
+- `--min-hole-area`：剔除小於此面積的 interior hole（單位 m²，`0` 代表保留所有 hole）
 - `--simplify-tolerance`：外框簡化容差（單位 m，`0` 代表關閉簡化）
 - `--no-allow-empty-sections`：若 section 無可用幾何則直接報錯（預設允許空 placeholder）
 

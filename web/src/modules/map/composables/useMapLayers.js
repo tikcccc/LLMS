@@ -1017,8 +1017,9 @@ export const useMapLayers = ({
             dataProjection: EPSG_2326,
             featureProjection: EPSG_2326,
           });
+          const polygonFeatures = features.filter(isPolygonalFeature);
 
-          features.forEach((feature, featureIndex) => {
+          polygonFeatures.forEach((feature, featureIndex) => {
             normalizeSectionFeature(feature, {
               groupLabelHint: groupLabel,
               sectionIdHint: sectionIdFromIndex,
@@ -1026,7 +1027,7 @@ export const useMapLayers = ({
               featureIndex,
             });
           });
-          collectedFeatures.push(...features);
+          collectedFeatures.push(...polygonFeatures);
         }
       }
 
