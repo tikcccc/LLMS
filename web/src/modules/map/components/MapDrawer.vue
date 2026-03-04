@@ -449,6 +449,29 @@
             </div>
           </div>
         </el-collapse-item>
+
+        <el-collapse-item name="relatedSections" title="Related Sections">
+          <div v-if="relatedSections.length > 0" class="related-list">
+            <button
+              v-for="section in relatedSections"
+              :key="section.id"
+              class="related-item"
+              type="button"
+              @click="emit('focus-section', section.id)"
+            >
+              <div class="related-item-head">
+                <span class="related-item-title" :title="section.title || section.id">
+                  {{ section.title || section.id }}
+                </span>
+                <el-tag size="small" effect="plain">Section</el-tag>
+              </div>
+              <div class="related-item-meta">
+                {{ section.group || "—" }} · {{ section.systemId || "—" }}
+              </div>
+            </button>
+          </div>
+          <el-empty v-else :image-size="60" description="No related sections" />
+        </el-collapse-item>
       </el-collapse>
     </div>
 
@@ -541,6 +564,7 @@ const props = defineProps({
   selectedIntLand: { type: Object, default: null },
   relatedWorkLots: { type: Array, default: () => [] },
   relatedSiteBoundaries: { type: Array, default: () => [] },
+  relatedSections: { type: Array, default: () => [] },
   relatedPartOfSites: { type: Array, default: () => [] },
   workStatusStyle: { type: Function, required: true },
   workCategoryLabel: { type: Function, required: true },
@@ -562,6 +586,7 @@ const emit = defineEmits([
   "focus-work-lot",
   "focus-site-boundary",
   "focus-part-of-site",
+  "focus-section",
 ]);
 
 const isOpen = computed(
@@ -611,6 +636,7 @@ const isSectionFocusActive = computed(() =>
 const defaultActiveCollapse = () => [
   "basic",
   "relatedSites",
+  "relatedSections",
   "relatedWorkLots",
   "relatedParts",
   "description",

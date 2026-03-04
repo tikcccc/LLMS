@@ -77,6 +77,7 @@
 - Work Lot 詳情、關聯 site boundary、編輯/刪除
 - Site Boundary 詳情、進度、關聯 work lot 篩選
 - Part of Sites 詳情（`System ID`、`accessDate`、有效面積；若偵測到跨 part 重疊，會顯示 raw area 與排除重疊面積）
+- Part of Sites 抽屜提供 `Related Sections` 清單（沿用 section-part 關聯邏輯），可直接點擊定位 section
 - Section 詳情（`System ID`、`completionDate`、`related part count`）
 - 右側抽屜 header 支援 `Focus` 按鈕：可快速聚焦到目前 lot/site/part/section，並切換成僅顯示該圖徵（隱藏其他 lot/site/part/section）
 - Work Lot 抽屜狀態標籤移至 title 下方，避免與操作按鈕擠壓

@@ -59,6 +59,7 @@
       :selected-section="drawerSection"
       :related-work-lots="selectedSiteBoundaryRelatedWorkLots"
       :related-site-boundaries="selectedWorkLotRelatedSites"
+      :related-sections="selectedPartOfSiteRelatedSections"
       :related-part-of-sites="selectedSectionRelatedPartOfSites"
       :work-status-style="workStatusStyle"
       :work-category-label="workCategoryLabel"
@@ -77,6 +78,7 @@
       @focus-work-lot="zoomToWorkLot"
       @focus-site-boundary="zoomToSiteBoundary"
       @focus-part-of-site="zoomToPartOfSite"
+      @focus-section="zoomToSection"
     />
 
     <WorkLotDialog
@@ -1376,6 +1378,7 @@ const selectedPartOfSite = computed(() => {
     title: meta.label,
     accessDate: meta.accessDate,
     sectionId: meta.sectionId,
+    sectionIds: meta.sectionIds,
     area: effectiveArea,
     rawArea: storedRawArea,
     overlapArea,
@@ -1477,6 +1480,59 @@ const selectedSiteBoundaryRelatedWorkLots = computed(() => {
         a.operatorName.localeCompare(b.operatorName, undefined, { numeric: true })
       );
     });
+});
+const selectedPartOfSiteRelatedSections = computed(() => {
+  const partId = selectedPartOfSite.value?.partId;
+  if (!partId) return [];
+  sectionSourceVersion.value;
+  const explicitRelatedIds = normalizeIdCollection(selectedPartOfSite.value?.sectionIds);
+
+  const relatedById = new Map();
+  if (explicitRelatedIds.length > 0) {
+    explicitRelatedIds.forEach((sectionId) => {
+      const normalizedSectionId = String(sectionId || "").trim();
+      if (!normalizedSectionId) return;
+      const key = normalizedSectionId.toLowerCase();
+      if (relatedById.has(key)) return;
+      const feature = findSectionFeatureById(normalizedSectionId);
+      if (feature) {
+        const meta = resolveSectionMeta(feature);
+        relatedById.set(key, {
+          id: meta.sectionId,
+          title: meta.title,
+          group: meta.group,
+          systemId: meta.systemId,
+        });
+        return;
+      }
+      relatedById.set(key, {
+        id: normalizedSectionId,
+        title: normalizedSectionId,
+        group: "",
+        systemId: "",
+      });
+    });
+  } else {
+    const normalizedPartId = partId.toLowerCase();
+    sectionsSource?.getFeatures().forEach((feature, index) => {
+      const meta = resolveSectionMeta(feature, index);
+      const relatedPartIds = meta.relatedPartIds.map((value) => String(value).toLowerCase());
+      if (!relatedPartIds.includes(normalizedPartId)) return;
+      const key = String(meta.sectionId || "").toLowerCase();
+      if (!key || relatedById.has(key)) return;
+      relatedById.set(key, {
+        id: meta.sectionId,
+        title: meta.title,
+        group: meta.group,
+        systemId: meta.systemId,
+      });
+    });
+  }
+  return Array.from(relatedById.values()).sort(
+    (a, b) =>
+      a.title.localeCompare(b.title, undefined, { numeric: true }) ||
+      a.id.localeCompare(b.id, undefined, { numeric: true })
+  );
 });
 const selectedSectionRelatedPartOfSites = computed(() => {
   const sectionId = selectedSection.value?.sectionId;
