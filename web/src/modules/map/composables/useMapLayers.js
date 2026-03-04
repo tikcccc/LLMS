@@ -2,10 +2,11 @@ import GeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import {
-  intLandStyle,
-  partOfSitesStyle,
-  siteBoundaryStyle,
-  workLotStyle,
+  intLandStyle as baseIntLandStyle,
+  partOfSitesStyle as basePartOfSitesStyle,
+  sectionStyle as baseSectionStyle,
+  siteBoundaryStyle as baseSiteBoundaryStyle,
+  workLotStyle as baseWorkLotStyle,
 } from "../ol/styles";
 import { EPSG_2326 } from "../ol/projection";
 import {
@@ -19,8 +20,18 @@ import {
 } from "../../../shared/utils/siteBoundary";
 import { generateLandId } from "../../../shared/utils/id";
 import {
+  buildPartOfSitesGeojson,
+  downloadPartOfSitesGeojson,
+} from "../../../shared/utils/partOfSitesGeojson";
+import {
+  buildSectionsGeojson,
+  downloadSectionsGeojson,
+  normalizeSectionsGeojson,
+} from "../../../shared/utils/sectionsGeojson";
+import {
   INT_LAND_GEOJSON_URL,
-  PART_OF_SITES_GEOJSON_URL,
+  PART_OF_SITES_GEOJSON_INDEX_URL,
+  SECTIONS_GEOJSON_INDEX_URL,
   SITE_BOUNDARY_GEOJSON_URL,
 } from "../../../shared/config/mapApi";
 
@@ -29,6 +40,8 @@ export const useMapLayers = ({
   authStore,
   uiStore,
   siteBoundaryStore,
+  partOfSitesStore,
+  sectionsStore,
 }) => {
   const featureKey = (value) => String(value || "").trim().toLowerCase();
   const normalizeFeatureId = (value) => {
@@ -36,6 +49,84 @@ export const useMapLayers = ({
     const normalized = String(value).trim();
     return normalized.length ? normalized : null;
   };
+  const normalizePartOfSitesId = (value) => {
+    const normalized = normalizeFeatureId(value);
+    if (!normalized) return null;
+    if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
+    return normalized;
+  };
+  const normalizeSectionId = (value) => {
+    const normalized = normalizeFeatureId(value);
+    if (!normalized) return null;
+    if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
+    return normalized;
+  };
+  const normalizeIdList = (value) => {
+    const list = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [value];
+    const dedupe = new Set();
+    list.forEach((item) => {
+      if (item === null || item === undefined) return;
+      const normalized = String(item).trim();
+      if (!normalized) return;
+      dedupe.add(normalized);
+    });
+    return Array.from(dedupe);
+  };
+  const buildPartOfSitesSystemId = ({
+    groupLabel = "",
+    partId = "",
+    featureIndex = 0,
+  } = {}) => {
+    const groupToken =
+      normalizeFeatureId(groupLabel)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "PART";
+    const partToken =
+      normalizePartOfSitesId(partId)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "UNK";
+    const seq = String(Math.max(0, Number(featureIndex) || 0) + 1).padStart(3, "0");
+    return `POS-${groupToken}-${partToken}-${seq}`;
+  };
+  const buildSectionSystemId = ({
+    groupLabel = "",
+    sectionId = "",
+    featureIndex = 0,
+  } = {}) => {
+    const groupToken =
+      normalizeFeatureId(groupLabel)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "SEC";
+    const sectionToken =
+      normalizeSectionId(sectionId)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "UNK";
+    const seq = String(Math.max(0, Number(featureIndex) || 0) + 1).padStart(3, "0");
+    return `SOW-${groupToken}-${sectionToken}-${seq}`;
+  };
+  const isFeatureSelectedInFilter = (mode, selectedIds = [], id) => {
+    if (mode !== "custom") return true;
+    const normalized = normalizeFeatureId(id);
+    if (!normalized) return false;
+    const normalizedLower = normalized.toLowerCase();
+    return selectedIds.some(
+      (item) => String(item || "").trim().toLowerCase() === normalizedLower
+    );
+  };
+  const getPartOfSitesLotId = (feature, index = 0) =>
+    normalizePartOfSitesId(feature?.get("partId")) ||
+    normalizePartOfSitesId(feature?.get("part_id")) ||
+    normalizePartOfSitesId(feature?.get("partOfSitesLotId")) ||
+    normalizeFeatureId(feature?.get("refId")) ||
+    normalizeFeatureId(feature?.getId?.()) ||
+    normalizeFeatureId(feature?.get("id")) ||
+    normalizeFeatureId(feature?.get("handle")) ||
+    `part_of_site_${String(index + 1).padStart(5, "0")}`;
+  const getSectionLotId = (feature, index = 0) =>
+    normalizeSectionId(feature?.get("sectionId")) ||
+    normalizeSectionId(feature?.get("section_id")) ||
+    normalizeSectionId(feature?.get("sectionLotId")) ||
+    normalizeSectionId(feature?.get("refId")) ||
+    normalizeSectionId(feature?.getId?.()) ||
+    normalizeSectionId(feature?.get("id")) ||
+    normalizeSectionId(feature?.get("handle")) ||
+    `section_${String(index + 1).padStart(5, "0")}`;
 
   const format = new GeoJSON();
 
@@ -44,28 +135,260 @@ export const useMapLayers = ({
   const workGovernmentSource = new VectorSource();
   const intLandSource = new VectorSource();
   const partOfSitesSource = new VectorSource();
+  const sectionsSource = new VectorSource();
   const siteBoundarySource = new VectorSource();
+  const normalizePartOfSitesFeature = (
+    feature,
+    {
+      groupLabelHint = "",
+      partIdHint = "",
+      partLabelHint = "",
+      featureIndex = 0,
+    } = {}
+  ) => {
+    const lotId =
+      normalizePartOfSitesId(feature?.get("partId")) ||
+      normalizePartOfSitesId(feature?.get("part_id")) ||
+      normalizePartOfSitesId(feature?.get("partOfSitesLotId")) ||
+      normalizePartOfSitesId(partIdHint) ||
+      getPartOfSitesLotId(feature, featureIndex);
+    const groupLabel =
+      normalizeFeatureId(feature?.get("partOfSitesGroup")) ||
+      normalizeFeatureId(feature?.get("partGroup")) ||
+      normalizeFeatureId(groupLabelHint) ||
+      "Manual Draw";
+    const lotLabel =
+      normalizeFeatureId(feature?.get("partOfSitesLotLabel")) ||
+      normalizeFeatureId(feature?.get("partId")) ||
+      normalizeFeatureId(partLabelHint) ||
+      lotId;
+    const systemId =
+      normalizeFeatureId(feature?.get("partOfSitesSystemId")) ||
+      normalizeFeatureId(feature?.get("systemId")) ||
+      normalizeFeatureId(feature?.getId?.()) ||
+      buildPartOfSitesSystemId({
+        groupLabel,
+        partId: lotId,
+        featureIndex,
+      });
+
+    feature.setId(systemId);
+    feature.set("partId", lotId);
+    feature.set("partGroup", groupLabel);
+    feature.set("partOfSitesLotId", lotId);
+    feature.set("partOfSitesLotLabel", lotLabel);
+    feature.set("partOfSitesSystemId", systemId);
+    feature.set("partOfSitesGroup", groupLabel);
+    feature.unset("name", true);
+    feature.set(
+      "accessDate",
+      normalizeFeatureId(feature.get("accessDate") || feature.get("access_date")) || ""
+    );
+    feature.set("layerType", "partOfSites");
+    feature.set("refId", lotId);
+    return feature;
+  };
+  const normalizeSectionFeature = (
+    feature,
+    {
+      groupLabelHint = "",
+      sectionIdHint = "",
+      sectionLabelHint = "",
+      featureIndex = 0,
+    } = {}
+  ) => {
+    const sectionId =
+      normalizeSectionId(feature?.get("sectionId")) ||
+      normalizeSectionId(feature?.get("section_id")) ||
+      normalizeSectionId(feature?.get("sectionLotId")) ||
+      normalizeSectionId(sectionIdHint) ||
+      getSectionLotId(feature, featureIndex);
+    const groupLabel =
+      normalizeFeatureId(feature?.get("sectionGroup")) ||
+      normalizeFeatureId(feature?.get("section_group")) ||
+      normalizeFeatureId(groupLabelHint) ||
+      "Manual Draw";
+    const sectionLabel =
+      normalizeFeatureId(feature?.get("sectionLotLabel")) ||
+      normalizeFeatureId(feature?.get("sectionLabel")) ||
+      normalizeFeatureId(sectionLabelHint) ||
+      sectionId;
+    const systemId =
+      normalizeFeatureId(feature?.get("sectionSystemId")) ||
+      normalizeFeatureId(feature?.get("systemId")) ||
+      normalizeFeatureId(feature?.getId?.()) ||
+      buildSectionSystemId({
+        groupLabel,
+        sectionId,
+        featureIndex,
+      });
+
+    const explicitRelatedPartIds = normalizeIdList(
+      feature?.get("relatedPartIds") ||
+        feature?.get("relatedPartLotIds") ||
+        feature?.get("partIds")
+    );
+
+    feature.setId(systemId);
+    feature.set("sectionId", sectionId);
+    feature.set("sectionGroup", groupLabel);
+    feature.set("sectionLotId", sectionId);
+    feature.set("sectionLotLabel", sectionLabel);
+    feature.set("sectionSystemId", systemId);
+    feature.set(
+      "completionDate",
+      normalizeFeatureId(feature.get("completionDate") || feature.get("completion_date")) || ""
+    );
+    feature.set("relatedPartIds", explicitRelatedPartIds);
+    feature.set("partCount", explicitRelatedPartIds.length);
+    feature.set("layerType", "section");
+    feature.set("refId", sectionId);
+    return feature;
+  };
+
+  const applyPartOfSitesFeaturesToSource = (features = []) => {
+    partOfSitesSource.clear(true);
+    if (Array.isArray(features) && features.length > 0) {
+      partOfSitesSource.addFeatures(features);
+    }
+    refreshLayerFilters();
+  };
+  const applySectionsFeaturesToSource = (features = []) => {
+    sectionsSource.clear(true);
+    if (Array.isArray(features) && features.length > 0) {
+      sectionsSource.addFeatures(features);
+    }
+    refreshLayerFilters();
+  };
+
+  const buildPartOfSitesSnapshot = ({ source = "map-edit" } = {}) => {
+    const snapshotFeatureCollection = format.writeFeaturesObject(
+      partOfSitesSource.getFeatures(),
+      {
+        dataProjection: EPSG_2326,
+        featureProjection: EPSG_2326,
+      }
+    );
+    return buildPartOfSitesGeojson(snapshotFeatureCollection?.features || [], {
+      source,
+      savedBy: authStore?.roleName || "",
+    });
+  };
+
+  const persistPartOfSitesSnapshot = ({ source = "map-edit" } = {}) => {
+    if (!partOfSitesStore) return null;
+    const snapshot = buildPartOfSitesSnapshot({ source });
+    partOfSitesStore.saveSnapshotGeojson(snapshot);
+    return snapshot;
+  };
+
+  const exportPartOfSitesSnapshot = (filename = "part-of-sites-map.geojson") =>
+    downloadPartOfSitesGeojson(buildPartOfSitesSnapshot({ source: "map-export" }), filename);
+  const buildSectionsSnapshot = ({ source = "map-edit" } = {}) => {
+    const snapshotFeatureCollection = format.writeFeaturesObject(
+      sectionsSource.getFeatures(),
+      {
+        dataProjection: EPSG_2326,
+        featureProjection: EPSG_2326,
+      }
+    );
+    return buildSectionsGeojson(snapshotFeatureCollection?.features || [], {
+      source,
+      savedBy: authStore?.roleName || "",
+    });
+  };
+
+  const persistSectionsSnapshot = ({ source = "map-edit" } = {}) => {
+    if (!sectionsStore) return null;
+    const snapshot = buildSectionsSnapshot({ source });
+    sectionsStore.saveSnapshotGeojson(snapshot);
+    return snapshot;
+  };
+
+  const exportSectionsSnapshot = (filename = "sections-map.geojson") =>
+    downloadSectionsGeojson(buildSectionsSnapshot({ source: "map-export" }), filename);
+
+  const isWorkFeatureVisible = (feature) => {
+    if (!uiStore.showWorkLots) return false;
+    const category = normalizeWorkLotCategory(
+      feature?.get("workCategory") || feature?.get("category")
+    );
+    if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) return false;
+    if (category === WORK_LOT_CATEGORY.HH && !uiStore.showWorkLotsDomestic) return false;
+    if (category === WORK_LOT_CATEGORY.GL && !uiStore.showWorkLotsGovernment) return false;
+    const workLotId = feature?.get("refId") || feature?.getId();
+    return isFeatureSelectedInFilter(
+      uiStore.workLotFilterMode,
+      uiStore.workLotSelectedIds,
+      workLotId
+    );
+  };
+
+  const isSiteBoundaryFeatureVisible = (feature) => {
+    if (!uiStore.showSiteBoundary) return false;
+    const boundaryId = feature?.get("refId") || feature?.getId();
+    return isFeatureSelectedInFilter(
+      uiStore.siteBoundaryFilterMode,
+      uiStore.siteBoundarySelectedIds,
+      boundaryId
+    );
+  };
+
+  const isPartOfSitesFeatureVisible = (feature, index = 0) => {
+    if (!uiStore.showPartOfSites) return false;
+    const lotId = getPartOfSitesLotId(feature, index);
+    return isFeatureSelectedInFilter(
+      uiStore.partOfSitesFilterMode,
+      uiStore.partOfSitesSelectedIds,
+      lotId
+    );
+  };
+  const isSectionFeatureVisible = (feature, index = 0) => {
+    if (!uiStore.showSections) return false;
+    const sectionId = getSectionLotId(feature, index);
+    return isFeatureSelectedInFilter(
+      uiStore.sectionFilterMode,
+      uiStore.sectionSelectedIds,
+      sectionId
+    );
+  };
+
+  const workLayerStyle = (feature) =>
+    isWorkFeatureVisible(feature) ? baseWorkLotStyle(feature) : null;
+  const siteBoundaryLayerStyle = (feature) =>
+    isSiteBoundaryFeatureVisible(feature) ? baseSiteBoundaryStyle(feature) : null;
+  const partOfSitesLayerStyle = (feature) =>
+    isPartOfSitesFeatureVisible(feature) ? basePartOfSitesStyle(feature) : null;
+  const sectionsLayerStyle = (feature) =>
+    isSectionFeatureVisible(feature) ? baseSectionStyle(feature) : null;
 
   const workBusinessLayer = new VectorLayer({
     source: workBusinessSource,
-    style: workLotStyle,
+    style: workLayerStyle,
   });
   const workHouseholdLayer = new VectorLayer({
     source: workHouseholdSource,
-    style: workLotStyle,
+    style: workLayerStyle,
   });
   const workGovernmentLayer = new VectorLayer({
     source: workGovernmentSource,
-    style: workLotStyle,
+    style: workLayerStyle,
   });
-  const intLandLayer = new VectorLayer({ source: intLandSource, style: intLandStyle });
+  const intLandLayer = new VectorLayer({
+    source: intLandSource,
+    style: baseIntLandStyle,
+  });
   const partOfSitesLayer = new VectorLayer({
     source: partOfSitesSource,
-    style: partOfSitesStyle,
+    style: partOfSitesLayerStyle,
+  });
+  const sectionsLayer = new VectorLayer({
+    source: sectionsSource,
+    style: sectionsLayerStyle,
   });
   const siteBoundaryLayer = new VectorLayer({
     source: siteBoundarySource,
-    style: siteBoundaryStyle,
+    style: siteBoundaryLayerStyle,
   });
 
   workBusinessLayer.set("workCategory", WORK_LOT_CATEGORY.BU);
@@ -74,7 +397,8 @@ export const useMapLayers = ({
 
   intLandLayer.setZIndex(12);
   partOfSitesLayer.setZIndex(13);
-  siteBoundaryLayer.setZIndex(14);
+  sectionsLayer.setZIndex(14);
+  siteBoundaryLayer.setZIndex(15);
   workBusinessLayer.setZIndex(20);
   workHouseholdLayer.setZIndex(21);
   workGovernmentLayer.setZIndex(22);
@@ -95,11 +419,21 @@ export const useMapLayers = ({
     if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
     intLandLayer.setVisible(uiStore.showIntLand);
     partOfSitesLayer.setVisible(uiStore.showPartOfSites);
+    sectionsLayer.setVisible(uiStore.showSections);
     siteBoundaryLayer.setVisible(uiStore.showSiteBoundary);
     const showGroup = uiStore.showWorkLots;
     workBusinessLayer.setVisible(showGroup && uiStore.showWorkLotsBusiness);
     workHouseholdLayer.setVisible(showGroup && uiStore.showWorkLotsDomestic);
     workGovernmentLayer.setVisible(showGroup && uiStore.showWorkLotsGovernment);
+  };
+
+  const refreshLayerFilters = () => {
+    workBusinessLayer.changed();
+    workHouseholdLayer.changed();
+    workGovernmentLayer.changed();
+    siteBoundaryLayer.changed();
+    partOfSitesLayer.changed();
+    sectionsLayer.changed();
   };
 
   const createWorkFeature = (lot) => {
@@ -384,6 +718,7 @@ export const useMapLayers = ({
       siteBoundarySource.addFeatures(features);
     }
     refreshSiteBoundaryState();
+    refreshLayerFilters();
   };
 
   const refreshSiteBoundaryState = () => {
@@ -438,6 +773,7 @@ export const useMapLayers = ({
         getWorkSourceByCategory(category).addFeature(feature);
       });
     refreshSiteBoundaryState();
+    refreshLayerFilters();
   };
 
   const getWorkFeatureById = (id) => {
@@ -458,6 +794,33 @@ export const useMapLayers = ({
       siteBoundarySource.getFeatureById(normalized.toUpperCase()) ||
       siteBoundarySource.getFeatureById(normalized.toLowerCase()) ||
       null
+    );
+  };
+
+  const getPartOfSitesFeatureById = (id) => {
+    const normalizedId = normalizeFeatureId(id);
+    if (!normalizedId) return null;
+    const lookup = normalizedId.toLowerCase();
+    return (
+      partOfSitesSource
+        .getFeatures()
+        .find((feature, index) => {
+          const featureId = String(getPartOfSitesLotId(feature, index)).trim().toLowerCase();
+          return featureId === lookup;
+        }) || null
+    );
+  };
+  const getSectionFeatureById = (id) => {
+    const normalizedId = normalizeFeatureId(id);
+    if (!normalizedId) return null;
+    const lookup = normalizedId.toLowerCase();
+    return (
+      sectionsSource
+        .getFeatures()
+        .find((feature, index) => {
+          const featureId = String(getSectionLotId(feature, index)).trim().toLowerCase();
+          return featureId === lookup;
+        }) || null
     );
   };
 
@@ -497,20 +860,158 @@ export const useMapLayers = ({
   };
 
   const loadPartOfSitesGeojson = async () => {
-    try {
-      const response = await fetch(PART_OF_SITES_GEOJSON_URL, { cache: "no-cache" });
+    const fetchJsonOrThrow = async (url, label) => {
+      const response = await fetch(url, { cache: "no-cache" });
       if (!response.ok) {
-        throw new Error(`Failed to load Part of Sites GeoJSON: ${response.status}`);
+        throw new Error(`Failed to load ${label}: ${response.status}`);
       }
-      const data = await response.json();
-      const features = format.readFeatures(data, {
+      return response.json();
+    };
+
+    // Always prefer the bundled GeoJSON dataset for part-of-sites.
+    // Historical local snapshots can contain stale topology and re-introduce
+    // overlap/highlight regressions after algorithm updates.
+    if (partOfSitesStore?.hasSnapshot) {
+      partOfSitesStore.clearSnapshotGeojson();
+    }
+
+    try {
+      const rootIndex = await fetchJsonOrThrow(
+        PART_OF_SITES_GEOJSON_INDEX_URL,
+        "Part of Sites index"
+      );
+      const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
+      const collectedFeatures = [];
+
+      for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+        const groupMeta = groups[groupIndex] || {};
+        const groupLabel =
+          normalizeFeatureId(groupMeta.id) || `PART ${String(groupIndex + 1)}`;
+        const groupIndexUrl = normalizeFeatureId(groupMeta.index);
+        if (!groupIndexUrl) continue;
+
+        const groupIndexData = await fetchJsonOrThrow(
+          groupIndexUrl,
+          `Part of Sites group index (${groupLabel})`
+        );
+        const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
+
+        for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+          const item = items[itemIndex] || {};
+          const fileUrl = normalizeFeatureId(item.file);
+          if (!fileUrl) continue;
+
+          const partIdFromIndex =
+            normalizePartOfSitesId(item.id) || `PART_${String(itemIndex + 1).padStart(3, "0")}`;
+          const partLabelFromIndex =
+            normalizeFeatureId(item.label) || partIdFromIndex;
+          const fileData = await fetchJsonOrThrow(
+            fileUrl,
+            `Part of Sites GeoJSON (${partIdFromIndex})`
+          );
+          const features = format.readFeatures(fileData, {
+            dataProjection: EPSG_2326,
+            featureProjection: EPSG_2326,
+          });
+
+          features.forEach((feature, featureIndex) => {
+            normalizePartOfSitesFeature(feature, {
+              groupLabelHint: groupLabel,
+              partIdHint: partIdFromIndex,
+              partLabelHint: partLabelFromIndex,
+              featureIndex,
+            });
+          });
+          collectedFeatures.push(...features);
+        }
+      }
+
+      applyPartOfSitesFeaturesToSource(collectedFeatures);
+    } catch (error) {
+      console.warn("[map] Part of Sites layer load failed", error);
+    }
+  };
+  const loadSectionsGeojson = async () => {
+    const fetchJsonOrThrow = async (url, label) => {
+      const response = await fetch(url, { cache: "no-cache" });
+      if (!response.ok) {
+        throw new Error(`Failed to load ${label}: ${response.status}`);
+      }
+      return response.json();
+    };
+
+    const restoreFromSnapshot = () => {
+      const snapshot = normalizeSectionsGeojson(sectionsStore?.snapshotGeojson);
+      if (!snapshot) return false;
+      const features = format.readFeatures(snapshot, {
         dataProjection: EPSG_2326,
         featureProjection: EPSG_2326,
       });
-      partOfSitesSource.clear(true);
-      partOfSitesSource.addFeatures(features);
+      const normalizedFeatures = features.map((feature, index) =>
+        normalizeSectionFeature(feature, { featureIndex: index })
+      );
+      applySectionsFeaturesToSource(normalizedFeatures);
+      return true;
+    };
+
+    if (restoreFromSnapshot()) {
+      return;
+    }
+
+    try {
+      const rootIndex = await fetchJsonOrThrow(
+        SECTIONS_GEOJSON_INDEX_URL,
+        "Sections index"
+      );
+      const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
+      const collectedFeatures = [];
+
+      for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+        const groupMeta = groups[groupIndex] || {};
+        const groupLabel =
+          normalizeFeatureId(groupMeta.id) || `SECTION ${String(groupIndex + 1)}`;
+        const groupIndexUrl = normalizeFeatureId(groupMeta.index);
+        if (!groupIndexUrl) continue;
+
+        const groupIndexData = await fetchJsonOrThrow(
+          groupIndexUrl,
+          `Section group index (${groupLabel})`
+        );
+        const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
+
+        for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+          const item = items[itemIndex] || {};
+          const fileUrl = normalizeFeatureId(item.file);
+          if (!fileUrl) continue;
+
+          const sectionIdFromIndex =
+            normalizeSectionId(item.id) || `SEC_${String(itemIndex + 1).padStart(3, "0")}`;
+          const sectionLabelFromIndex =
+            normalizeFeatureId(item.label) || sectionIdFromIndex;
+          const fileData = await fetchJsonOrThrow(
+            fileUrl,
+            `Section GeoJSON (${sectionIdFromIndex})`
+          );
+          const features = format.readFeatures(fileData, {
+            dataProjection: EPSG_2326,
+            featureProjection: EPSG_2326,
+          });
+
+          features.forEach((feature, featureIndex) => {
+            normalizeSectionFeature(feature, {
+              groupLabelHint: groupLabel,
+              sectionIdHint: sectionIdFromIndex,
+              sectionLabelHint: sectionLabelFromIndex,
+              featureIndex,
+            });
+          });
+          collectedFeatures.push(...features);
+        }
+      }
+
+      applySectionsFeaturesToSource(collectedFeatures);
     } catch (error) {
-      console.warn("[map] Part of Sites layer load failed", error);
+      console.warn("[map] Sections layer load failed", error);
     }
   };
 
@@ -522,6 +1023,7 @@ export const useMapLayers = ({
     workSources,
     intLandSource,
     partOfSitesSource,
+    sectionsSource,
     siteBoundarySource,
     workBusinessLayer,
     workHouseholdLayer,
@@ -529,17 +1031,26 @@ export const useMapLayers = ({
     workLayers,
     intLandLayer,
     partOfSitesLayer,
+    sectionsLayer,
     siteBoundaryLayer,
     updateLayerOpacity,
     updateLayerVisibility,
+    refreshLayerFilters,
     createWorkFeature,
     refreshWorkSources,
     getWorkFeatureById,
     getSiteBoundaryFeatureById,
+    getPartOfSitesFeatureById,
+    getSectionFeatureById,
     refreshSiteBoundarySource,
     refreshSiteBoundaryState,
     loadIntLandGeojson,
     loadPartOfSitesGeojson,
+    loadSectionsGeojson,
     loadSiteBoundaryGeojson,
+    persistPartOfSitesSnapshot,
+    exportPartOfSitesSnapshot,
+    persistSectionsSnapshot,
+    exportSectionsSnapshot,
   };
 };

@@ -1,6 +1,6 @@
 # Frontend Consistency
 
-最後更新：2026-03-02  
+最後更新：2026-03-03  
 範圍：`web/` 前端樣式系統與實作一致性規範
 
 ## 1) 目標
@@ -51,7 +51,7 @@
 
 ## 3.2 樣式責任歸屬
 
-- App 殼層樣式歸 `App.vue`、`SideNav.vue`、`AppHeader.vue`
+- App 殼層樣式歸 `App.vue`、`AppHeader.vue`
 - 功能頁樣式歸 `modules/*`
 - 可複用元件樣式歸 `components/*`
 
@@ -141,6 +141,7 @@
 - 新增複雜元件必須定義 mobile 行為。
 - 地圖 overlay/panel 需確保觸控可操作，不遮擋關鍵控制。
 - 行動端互動目標需具足夠點擊面積。
+- Topbar 導覽在 mobile 需保留可橫向捲動，避免主要路由入口不可達。
 
 ## 9) 互動一致性
 
@@ -148,6 +149,7 @@
 - Dialog footer 操作順序一致（`Cancel` + 主操作）。
 - 地圖快捷鍵需避免衝突，並保持文件可查。
 - Empty/loading/error 狀態優先沿用 Element Plus 慣例（`el-empty`、message）。
+- 地圖 lot 級勾選屬於「地圖可見性控制」，不得直接改寫側欄清單資料集。
 
 ## 10) 可及性基線
 

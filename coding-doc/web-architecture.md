@@ -1,6 +1,6 @@
 # Web Architecture
 
-最後更新：2026-03-02  
+最後更新：2026-03-04  
 範圍：`web/` 前端 demo 應用
 
 ## 1) 文件目標
@@ -20,7 +20,7 @@
 - 執行環境：Browser only
 - 主要資料來源：
 - 靜態檔 `web/public/data/*.geojson`、`web/public/geojson/*.geojson`
-- 地圖圖層檔案：`/geojson/int-land.geojson`、`/geojson/part-of-sites.geojson`、`/data/site-boundaries.geojson`
+- 地圖圖層檔案：`/geojson/int-land.geojson`、`/data/geojson/part-of-sites/index.json`（分派至 `part-*/<part>.geojson`）、`/data/geojson/sections/index.json`（分派至 `section-*/<section>.geojson`）、`/data/site-boundaries.geojson`
 - 使用者操作後的資料透過 Pinia Persist 存在 `localStorage`
 - 權限模型：前端角色切換（Site Admin / Site Officer / Field Staff），非真實登入
 
@@ -44,9 +44,8 @@
 負責全站框架與導覽骨架。
 
 - `src/main.js`：App 啟動、Store 正規化、初始資料載入
-- `src/App.vue`：主殼層（`SideNav + AppHeader + RouterView`）
-- `src/components/SideNav.vue`：左側導覽與使用者資訊
-- `src/components/AppHeader.vue`：角色切換、重置 demo 資料
+- `src/App.vue`：主殼層（`AppHeader + RouterView`）
+- `src/components/AppHeader.vue`：Topbar 導覽、角色切換、重置 demo 資料
 
 ### 4.2 Route/Page 層
 
@@ -56,15 +55,19 @@
 - `src/modules/map/MapPage.vue`：地圖操作主工作區
 - `src/modules/landbank/LandBankWorkLotsPage.vue`：Work Lots 清單管理
 - `src/modules/landbank/LandBankSiteBoundariesPage.vue`：Site Boundaries 清單管理
+- `src/modules/landbank/LandBankPartOfSitesPage.vue`：Part of Sites 清單檢視
+- `src/modules/landbank/LandBankSectionsPage.vue`：Sections 清單檢視
 - `src/modules/users/UsersPage.vue`：使用者頁（demo 佔位）
 - `src/modules/admin/AdminWorkLots.vue`：管理頁匯出檢視
 
 ### 4.3 Domain State 層（Pinia）
 
 - `src/stores/useAuthStore.js`：角色狀態與角色名稱
-- `src/stores/useUiStore.js`：地圖工具狀態、選取狀態、圖層顯示、行動導覽
+- `src/stores/useUiStore.js`：地圖工具狀態、選取狀態、圖層顯示、lot 級白名單篩選狀態
 - `src/stores/useWorkLotStore.js`：Work Lot 集合生命週期（增刪改替換 + ID 正規化）
 - `src/stores/useSiteBoundaryStore.js`：Site Boundary 載入/合併/幾何補全/增刪改
+- `src/stores/usePartOfSitesStore.js`：Part of Sites 地圖編輯快照（FeatureCollection）持久化
+- `src/stores/useSectionsStore.js`：Sections 地圖編輯快照（FeatureCollection）持久化
 
 ### 4.4 Domain Utility 層
 
@@ -72,6 +75,8 @@
 
 - `src/shared/utils/worklot.js`：類別/狀態正規化、欄位清洗、枚舉定義
 - `src/shared/utils/siteBoundary.js`：Site Boundary 正規化、彙總與 KPI 推導
+- `src/shared/utils/partOfSitesGeojson.js`：Part of Sites FeatureCollection 建構、正規化與下載
+- `src/shared/utils/sectionsGeojson.js`：Sections FeatureCollection 建構、正規化與下載
 - `src/shared/utils/*Geojson.js`、`*Json.js`：匯入匯出格式轉換
 - `src/shared/utils/reportExport.js`：報表資料組裝與 Excel/PDF 匯出流程
 - `src/shared/utils/time.js`、`role.js`、`id.js`、`search.js`：跨模組通用工具
@@ -81,14 +86,15 @@
 `MapPage` 透過 composables 做地圖引擎拆分：
 
 - `useMapCore.js`：地圖實例、底圖/標籤圖層初始化
-- `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入（Drawing/Part of Sites/Site Boundary/Work Lot）
-- `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select）
-- `useMapHighlights.js`：選中要素高亮圖層
+- `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入（Drawing/Part of Sites/Sections/Site Boundary/Work Lot）與 lot 級白名單渲染控制
+- `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select；scope 結果涵蓋 Sections / Part of Sites / Site Boundary / Work Lot）
+- `useMapHighlights.js`：選中要素高亮圖層（Work Lot / Part of Sites / Sections / Site Boundary）
+- `modules/map/utils/partGeometryResolution.js`：Part of Sites 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）
 
 Map UI 元件分工：
 
 - 工具列：`MapToolbar.vue`
-- 側欄（圖層/搜尋/scope 結果）：`MapSidePanel.vue`
+- 側欄（lot 級圖層篩選/搜尋/scope 結果）：`MapSidePanel.vue`
 - 詳情抽屜：`MapDrawer.vue`
 - 編輯對話框：`WorkLotDialog.vue`、`SiteBoundaryDialog.vue`
 - 地圖覆蓋元件：`MapLegend.vue`、`MapScaleBar.vue`
@@ -127,6 +133,8 @@ web/src
 - `/map`
 - `/landbank/work-lots`
 - `/landbank/site-boundaries`
+- `/landbank/part-of-sites`
+- `/landbank/sections`
 - `/users`
 - `/admin/work-lots`（`meta.requiresAdmin`）
 
@@ -149,9 +157,9 @@ web/src
 1. 使用者在 `MapToolbar` 選擇工具。
 2. `useMapInteractions` 建立對應 OpenLayers interaction。
 3. Draw/Modify 產生新的 geometry。
-4. geometry 經 `worklot/siteBoundary` 工具函式正規化。
-5. 寫回 Pinia store。
-6. `MapPage` watchers 觸發圖層刷新、高亮刷新、boundary 彙總狀態刷新。
+4. geometry 依目標圖層（work/site boundary/part of sites/section）做正規化與欄位補齊。
+5. Work Lot / Site Boundary 寫回對應 Pinia store；Part of Sites / Sections 寫回 map source 並快照到 `usePartOfSitesStore` / `useSectionsStore`（localStorage）。
+6. `MapPage` watchers 觸發圖層刷新、高亮刷新、boundary 彙總狀態刷新；Part of Sites / Sections 可由工具列匯出 GeoJSON。
 
 ### 7.3 KPI/報表流程
 

@@ -1,6 +1,6 @@
 # Web Functions
 
-最後更新：2026-03-02  
+最後更新：2026-03-04  
 範圍：依 `web/` 現有程式實作整理的前端 demo 功能目錄
 
 ## 1) 產品功能總覽
@@ -9,7 +9,7 @@
 
 1. 空間作業：在地圖上進行 scope、測距、繪製、修改、刪除
 2. KPI 分析：交地進度、逼遷風險、低浮動月數、逾期趨勢
-3. 清單作業：Work Lots / Site Boundaries 的搜尋、篩選、編修
+3. 清單作業：Work Lots / Site Boundaries / Part of Sites / Sections 的搜尋、篩選、編修/檢視
 4. 資料交換：JSON 匯入匯出、Excel/PDF 報表輸出
 5. 角色模擬：前端角色切換（Admin/Officer/Field Staff）
 
@@ -38,34 +38,59 @@
 - 地圖顯示：
 - HK80 底圖 + EN 標籤
 - Drawing Layer（`int-land.geojson`）
-- Part of Sites Layer（`part-of-sites.geojson`）
+- Part of Sites Layer（`/data/geojson/part-of-sites/index.json` -> `part-*/<part>.geojson`）
+- Sections Layer（`/data/geojson/sections/index.json` -> `section-*/<section>.geojson`）
 - Site Boundary / Work Lot 向量圖層
 - 圖層開關：
 - Basemap/Labels
-- Drawing Layer
-- Part of Sites Layer
-- Site Boundary
-- Work Lots 群組 + BU/HH/GL 子分類
+- Drawing Layer（整層單一開關）
+- Part of Sites（part 級多選白名單，支援多組 PART，例如 `1/2/7/8/9/11/13/3456`）
+- Sections（section 級多選白名單）
+- Site Boundary（lot 級多選白名單）
+- Work Lots（lot 級多選白名單）
+- 跨圖層可同時勾選多個 lot，僅影響地圖可見性
 - 瀏覽工具：
 - Pan/select
 - Measure distance
 - Scope 工具：
 - 多邊形 scope
 - 圓形 scope
-- Scope 結果清單（work lots + site boundaries）
+- Scope 結果清單（sections + part of sites + work lots + site boundaries）
+- 左側常駐 Sidebar（桌機）整合 Layers / Part of Sites / Sections / Work Lots / Site Boundaries / Scope Results，右側保留較大地圖可視區
+- Sidebar 支援整體收納/展開（桌機）
+- Layers 分頁中的 `Part of Sites / Sections / Site Boundaries / Work Lots` 清單支援各自收合/展開
+- 行動端 sidebar 以底部 sheet 顯示，可展開/收合
 - 繪圖/編輯工具（角色受限）：
+- Draw target 下拉選單（Work Lot / Site Boundary / Part of Sites / Section）
 - 建立 Work Lot（多邊形/圓）
 - 建立 Site Boundary（多邊形/圓）
+- 建立 Part of Sites（多邊形/圓）
+- 建立 Section（多邊形/圓）
 - 幾何修改並儲存
 - 刪除要素（含確認）
-- 編輯目標僅 Work Lot / Site Boundary；不支援 Drawing Layer 的 CAD 實體級操作（線段、block）
+- Part of Sites 幾何變更會快照到 localStorage（`ND_LLM_V1_part_of_sites`），重新整理後可延續
+- Sections 幾何變更會快照到 localStorage（`ND_LLM_V1_sections`），重新整理後可延續
+- Draw 模式選擇 `Part of Sites` 時提供 `Export GeoJSON` 匯出目前地圖圖徵
+- Draw 模式選擇 `Section` 時提供 `Export Sections` 匯出目前地圖圖徵
+- 編輯目標支援 Work Lot / Site Boundary / Part of Sites / Section；不支援 Drawing Layer 的 CAD 實體級操作（線段、block）
 - 詳情抽屜：
 - Work Lot 詳情、關聯 site boundary、編輯/刪除
 - Site Boundary 詳情、進度、關聯 work lot 篩選
+- Part of Sites 詳情（`System ID`、`accessDate`、有效面積；若偵測到跨 part 重疊，會顯示 raw area 與排除重疊面積）
+- Section 詳情（`System ID`、`completionDate`、`related part count`）
+- 抽屜為 non-modal：開啟後仍可點擊地圖、切換其他 lot/site/part 或使用頁面其他導覽按鈕
+- Part of Sites 標題顯示對應 `Part ID`；`System ID` 以公式自動分配（不與標題重名）
+- 點選 Part of Sites 可交互高亮，並在側欄/抽屜顯示明細；高亮與面積均使用「去重疊後有效幾何」，確保不同 part 不重疊（含內含情境，例如 `10A` 會扣除內含 `10B`）
+- Part 去重疊規則：優先保留被包含 part 的範圍；其餘重疊以 `Part ID` 自然序較大者保留，確保結果穩定且可重現
+- 點選 Section 可交互高亮，並可在抽屜查看關聯 Part of Sites
+- Section 與 Part of Sites 已預留 `section (1) -> part (n)` 關聯欄位，支援由 geometry 與顯式欄位同步關聯；geometry fallback 使用「part 去重疊後有效幾何」做面積交集判斷
 - 搜尋與定位：
+- 側欄 Part of Sites 搜尋
+- 側欄 Sections 搜尋
 - 側欄 Work Lot 搜尋
 - 側欄 Site Boundary 搜尋
-- 路由 query 聚焦：`?workLotId=`、`?siteBoundaryId=`
+- 路由 query 聚焦：`?workLotId=`、`?siteBoundaryId=`、`?partOfSiteId=`、`?sectionId=`
+- 若目標 lot 因白名單被隱藏，定位時會自動加入白名單並顯示
 - 快捷鍵：
 - `V` pan、`L` measure、`D` scope、`C` circle scope
 - `P` polygon、`O` circle lot、`M` modify、`X` delete、`ESC` cancel
@@ -101,6 +126,28 @@
 - Excel
 - PDF
 
+## `/landbank/part-of-sites` Part of Sites 清單
+
+- 從 `/data/geojson/part-of-sites/index.json` + 各 group index 載入 part 清單
+- 搜尋 + group 篩選
+- 表格檢視：
+- Part ID
+- Group
+- System ID（以既有規則顯示）
+- Feature Count / Geometry Types / Source DXF / Generated At
+- 「View on Map」跳轉（`?partOfSiteId=`）
+
+## `/landbank/sections` Sections 清單
+
+- 從 `/data/geojson/sections/index.json` + 各 group index 載入 section 清單
+- 搜尋 + group 篩選
+- 表格檢視：
+- Section ID
+- Group
+- System ID（以既有規則顯示）
+- Related Parts / Feature Count / Geometry Types / Source DXF / Generated At
+- 「View on Map」跳轉（`?sectionId=`）
+
 ## `/users` 使用者頁
 
 - 靜態 demo 表格
@@ -116,7 +163,7 @@
 
 - 角色切換（`AppHeader`）
 - 重置 demo 資料（清 localStorage 後 reload）
-- 桌面/行動導覽框架（sidebar + mobile drawer）
+- Topbar 導覽框架（整站路由按鈕位於 `AppHeader`）
 - 香港時區日期時間格式化
 
 ## 4) 狀態管理與持久化
@@ -127,11 +174,13 @@
 - `ND_LLM_V1_ui`
 - `ND_LLM_V1_worklots`
 - `ND_LLM_V1_site_boundaries`
+- `ND_LLM_V1_part_of_sites`
+- `ND_LLM_V1_sections`
 
 主要責任：
 
 - `auth`：角色狀態
-- `ui`：地圖工具、選中對象、圖層顯示、導覽狀態
+- `ui`：地圖工具、選中對象、圖層顯示、lot 級白名單篩選狀態
 - `workLots`：Work Lot 正規化資料與 CRUD
 - `siteBoundaries`：Site Boundary 正規化、載入、合併、幾何補全
 
@@ -174,7 +223,7 @@
 - 無附件/媒體流程
 - 無審批型 workflow 引擎
 - 無 CAD 實體級修圖工具（刪單條線段、刪 block、逐段補線/連線）
-- 無 `partOfSite`、`sectionOfWorks`、`accessDate` 等結構化欄位
+- 尚無跨實體完整契約的 `partOfSite`/`sectionOfWorks` 時程模型（目前已支援 map feature 層級欄位與 `section -> parts` 關聯）
 - 無「`access date` 到期提醒」專屬規則（目前逾期語意基於 `dueDate`/`plannedHandoverDate`）
 - 無通知渠道策略配置（web in-app / email）
 
@@ -184,10 +233,10 @@
 
 | 業務需求 | 現況判定 | 說明 |
 | --- | --- | --- |
-| 每地塊維護 `Part of the Site` + `access date` | 未支援 | 現有資料模型沒有對應欄位 |
+| 每地塊維護 `Part of the Site` + `access date` | 部分支援 | Part of Sites layer 已有 `accessDate` 欄位與明細顯示；尚未貫通到 Work Lot 正式資料契約 |
 | `part of site` 圖面需手工修補（刪線段/block、補線） | 未支援 | 現有 map 工具只支援 Work Lot/Site Boundary 幾何編修，非 CAD 實體編修 |
 | `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
-| `section of works` 對應 `sectional completion date` | 未支援 | 無 section 結構與合約天數規則計算 |
+| `section of works` 對應 `sectional completion date` | 部分支援 | 已新增 Section layer、`completionDate` 欄位與 `section -> part` 關聯；合約 offset 規則仍待補 |
 | 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |
 
 ## 9) 建議補充的功能文件

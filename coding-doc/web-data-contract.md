@@ -1,6 +1,6 @@
 # Web Data Contract
 
-最後更新：2026-03-02  
+最後更新：2026-03-04  
 狀態：待填充（依你後續指示再補內容）
 
 ## 1) 文件用途
@@ -40,6 +40,38 @@
 
 7. 範例資料  
 提供最小可用 payload、完整 payload、錯誤 payload 三類樣例。
+
+## 3.1) 增量補充（2026-03-04）
+
+本次先補上 `Section` 與 `PartOfSite` 的最小可用契約，供 map layer 與後續 API 對齊。
+
+### Section（Map Feature Properties）
+
+| 欄位 | 型別 | 必填 | 說明 |
+| --- | --- | --- | --- |
+| `sectionId` / `sectionLotId` | string | Yes | section 業務識別碼（UI 以此做篩選與聚焦） |
+| `sectionLotLabel` | string | No | 顯示標題，缺省回退 `sectionId` |
+| `sectionGroup` | string | No | 分組（例如合約/區段分組） |
+| `sectionSystemId` | string | Yes | 系統唯一鍵（幾何修改/快照識別） |
+| `completionDate` | string(`YYYY-MM-DD`) | No | section 完工日期（可空） |
+| `relatedPartIds` | string[] | No | 關聯 part id 清單（`section(1) -> part(n)`） |
+| `partCount` | number | No | 關聯 part 計數（可由 `relatedPartIds.length` 推導） |
+
+### PartOfSite（Map Feature Properties 增量）
+
+| 欄位 | 型別 | 必填 | 說明 |
+| --- | --- | --- | --- |
+| `sectionId` | string | No | 主要關聯 section id |
+| `sectionIds` | string[] | No | 預留多關聯欄位；目前 UI 以第一個值作為主要顯示 |
+
+### 關聯同步規則（目前前端實作）
+
+1. 先使用 feature 顯式欄位（`sectionId` / `sectionIds` / `relatedPartIds`）建立關聯。  
+2. 顯式欄位不足時，先對 `part geometry` 做「跨 part 去重疊差集」得到有效幾何；差集優先權以 feature 級面積判斷（較小 polygon 保留重疊區，較大 polygon 扣除），再以 `section geometry` 與有效幾何的交集面積（`> 0`）補齊關聯。  
+3. Part UI 面積顯示採有效幾何面積；若存在重疊，需同時可回溯 raw area 與 overlap area。  
+4. 同步寫回：
+- Section：`relatedPartIds`、`partCount`
+- PartOfSite：`sectionId`、`sectionIds`
 
 ## 4) 資料來源建議
 

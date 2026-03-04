@@ -45,8 +45,8 @@ const modeTitle = computed(() => {
 
 const modeHint = computed(() => {
   switch (props.tool) {
-    case 'DRAW': return 'Draw area to list site boundaries and work lots';
-    case 'DRAW_CIRCLE': return 'Draw circular area to list site boundaries and work lots';
+    case 'DRAW': return 'Draw area to list sections, part of sites, site boundaries and work lots';
+    case 'DRAW_CIRCLE': return 'Draw circular area to list sections, part of sites, site boundaries and work lots';
     case 'POLYGON': return 'Click to draw polygon • ESC to cancel';
     case 'POLYGON_CIRCLE': return 'Click and drag to draw circle • ESC to cancel';
     case 'MODIFY': return 'Drag vertices to modify • ESC to cancel';

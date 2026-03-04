@@ -1,7 +1,7 @@
 # DXF to GeoJSON Guide
 
-最後更新：2026-03-02  
-範圍：`scripts/dxf_to_geojson.py`、`scripts/dxf_to_site_boundary_geojson.py`
+最後更新：2026-03-04  
+範圍：`scripts/dxf_to_geojson.py`、`scripts/dxf_to_site_boundary_geojson.py`、`scripts/build_part_of_sites_geojson.py`
 
 ## 1) 目的
 
@@ -11,6 +11,7 @@
 
 - `scripts/dxf_to_geojson.py`：通用 DXF -> GeoJSON 轉換
 - `scripts/dxf_to_site_boundary_geojson.py`：Site Boundary 專用轉換（含預設修復參數）
+- `scripts/build_part_of_sites_geojson.py`：Part of Sites 批次轉檔並重建 index
 - 依賴檔：`scripts/requirements-dxf.txt`
 
 ## 3) 環境準備
@@ -119,9 +120,58 @@ python scripts/dxf_to_site_boundary_geojson.py \
 - Drawing Layer：`web/public/geojson/int-land.geojson`
 - Site Boundary 中間檔：`web/public/geojson/site-boundary.geojson`
 - 前端實際讀取 Site Boundary：`web/public/data/site-boundaries.geojson`
+- Part of Sites 分檔資料源根目錄：`web/public/data/geojson/part-of-sites/`
 
 注意：目前前端地圖載入 Site Boundary 的路徑是 `web/public/data/site-boundaries.geojson`。  
 若腳本輸出到 `web/public/geojson/site-boundary.geojson`，需再同步到 `web/public/data/site-boundaries.geojson` 才會在 Map 頁生效。
+
+Part of Sites（分 part 輸出）建議結構：
+
+```text
+web/public/data/geojson/part-of-sites/
+  index.json
+  part-1/
+    index.json
+    1A.geojson
+    1B.geojson
+    ...
+    1I.geojson
+```
+
+### 6.1 Part of Sites 批次轉檔命令
+
+```bash
+python scripts/build_part_of_sites_geojson.py
+```
+
+預設會掃描 `dxf_drawings/Processed Part of sites/PART *`，輸出到 `web/public/data/geojson/part-of-sites/`，並重建：
+
+- 根索引：`web/public/data/geojson/part-of-sites/index.json`
+- 各組索引：`web/public/data/geojson/part-of-sites/part-*/index.json`
+- 各 part 檔案：`web/public/data/geojson/part-of-sites/part-*/*.geojson`
+
+常用選項：
+
+- `--groups "PART 2,PART 7"`：只重建指定 group
+- `--polygonize`：若來源是開放線段，啟用線轉面
+- `--close-tolerance/--snap-tolerance/--bridge-tolerance`：修補近端點斷裂
+- `--no-topology-clean`：關閉預設的拓撲清洗（預設會啟用）
+- `--topology-clean-grid`：拓撲清洗時的精度格網（預設 `0.001` m）
+- `--topology-clean-min-area`：拓撲清洗後剔除小於指定面積的碎片（預設 `0`）
+- `--variant-merge-align-mode`：同一 part 有多個 DXF（例如 `10C(1).dxf`、`10C(2).dxf`）時的對齊模式，預設 `insbase`
+- `--variant-merge-unit-strategy`：多 DXF 合併時的單位策略，預設 `keep-values`
+- `--variant-force-suspicious-scaling`：只在 `scale-values` 需要強制縮放時使用
+
+多檔合併規則（Part of Sites）：
+
+1. 腳本會遞迴掃描 `PART *` 內所有 `*.dxf`。
+2. 若檔名符合同一 part 變體（例如 `10C(1)`, `10C(2)`, `10C(3)`），會先用 `merge_part_of_sites_dxf.py` 合併，再輸出單一 `10C.geojson`。
+3. `part-*/index.json` 會保留 `sourceDxfs` 與 `mergedFromCount`，方便追蹤來源檔。
+
+注意：`--groups` 會重建根索引 `part-of-sites/index.json`，內容只包含本次選到的 group。  
+若要恢復前端完整資料清單，最後需再跑一次不帶 `--groups` 的全量重建。
+
+`part-*/index.json` 需記錄每個 part 的檔案路徑、feature 數量、geometry 類型和來源 DXF，方便後續批次驗證與前端按需載入。
 
 ## 7) 轉換品質建議
 

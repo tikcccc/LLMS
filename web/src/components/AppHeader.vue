@@ -1,13 +1,21 @@
 <template>
   <header class="app-header">
     <div class="brand">
-      <button class="menu-btn" type="button" aria-label="Open navigation menu" @click="uiStore.toggleMobileNav()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
-      </button>
       <div class="title">Digital Land Management Platform</div>
     </div>
+
+    <nav class="top-nav" aria-label="Primary navigation">
+      <button
+        v-for="item in topNavItems"
+        :key="item.path"
+        type="button"
+        class="top-nav-item"
+        :class="{ active: isActive(item.path) }"
+        @click="go(item.path)"
+      >
+        {{ item.label }}
+      </button>
+    </nav>
 
     <div class="actions">
       <el-button size="small" @click="resetDemoData">Reset Demo</el-button>
@@ -29,16 +37,17 @@
 
 <script setup>
 import { computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/useAuthStore";
-import { useUiStore } from "../stores/useUiStore";
 import { ROLE_OPTIONS } from "../shared/utils/role";
+import { TOP_NAV_ITEMS } from "../shared/config/navigation";
 
 const authStore = useAuthStore();
-const uiStore = useUiStore();
 const route = useRoute();
+const router = useRouter();
 const roleOptions = ROLE_OPTIONS;
+const topNavItems = TOP_NAV_ITEMS;
 
 const selectedRole = computed({
   get: () => authStore.role,
@@ -46,6 +55,10 @@ const selectedRole = computed({
 });
 
 const isActive = (path) => route.path.startsWith(path);
+const go = (path) => {
+  if (route.path === path) return;
+  router.push(path);
+};
 
 const resetDemoData = () => {
   ElMessageBox.confirm("Reset all demo data? This will clear local data and reload.", "Reset Demo", {
@@ -72,7 +85,7 @@ const resetDemoData = () => {
 <style scoped>
 .app-header {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 16px;
   align-items: center;
   padding: 16px 24px;
@@ -89,30 +102,53 @@ const resetDemoData = () => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.menu-btn {
-  display: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #ffffff;
-  color: #334155;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.menu-btn svg {
-  width: 18px;
-  height: 18px;
+  min-width: 0;
 }
 
 .brand .subtitle {
   font-size: 12px;
   color: var(--muted);
+}
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.top-nav::-webkit-scrollbar {
+  height: 6px;
+}
+
+.top-nav::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.34);
+  border-radius: 999px;
+}
+
+.top-nav-item {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #334155;
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.top-nav-item:hover {
+  border-color: rgba(15, 118, 110, 0.35);
+  color: #0f766e;
+}
+
+.top-nav-item.active {
+  border-color: rgba(15, 118, 110, 0.45);
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
 }
 
 .actions {
@@ -162,9 +198,15 @@ const resetDemoData = () => {
     grid-template-columns: 1fr;
   }
 
+  .top-nav {
+    order: 3;
+    width: 100%;
+  }
+
   .actions {
     justify-self: start;
     flex-wrap: wrap;
+    order: 2;
   }
 }
 
@@ -178,16 +220,17 @@ const resetDemoData = () => {
     font-size: 17px;
   }
 
-  .menu-btn {
-    display: inline-flex;
-  }
-
   .role-label {
     display: none;
   }
 
   .actions {
     gap: 8px;
+  }
+
+  .top-nav-item {
+    min-height: 30px;
+    padding: 0 12px;
   }
 }
 </style>

@@ -3,6 +3,7 @@
     :model-value="isOpen"
     size="420px"
     :modal="false"
+    :modal-penetrable="true"
     :show-close="false"
     :close-on-press-escape="true"
     @close="emit('close')"
@@ -70,6 +71,46 @@
             >
               Edit
             </el-button>
+          </div>
+          <button
+            type="button"
+            class="header-close-btn"
+            aria-label="Close details panel"
+            @click="emit('close')"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      </div>
+      <div class="drawer-header" v-else-if="selectedPartOfSite">
+        <div class="header-text">
+          <div class="drawer-title" :title="partOfSiteHeaderTitle">
+            {{ partOfSiteHeaderTitle }}
+          </div>
+        </div>
+        <div class="header-controls">
+          <div class="header-tags">
+            <el-tag effect="plain">Part of Site</el-tag>
+          </div>
+          <button
+            type="button"
+            class="header-close-btn"
+            aria-label="Close details panel"
+            @click="emit('close')"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      </div>
+      <div class="drawer-header" v-else-if="selectedSection">
+        <div class="header-text">
+          <div class="drawer-title" :title="sectionHeaderTitle">
+            {{ sectionHeaderTitle }}
+          </div>
+        </div>
+        <div class="header-controls">
+          <div class="header-tags">
+            <el-tag effect="plain">Section</el-tag>
           </div>
           <button
             type="button"
@@ -338,6 +379,83 @@
       </el-collapse>
     </div>
 
+    <div v-else-if="selectedPartOfSite" class="drawer-body">
+      <el-collapse v-model="activeCollapse" class="info-collapse">
+        <el-collapse-item name="basic" title="Basic Information">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">System ID</span>
+              <span class="info-value">{{ selectedPartOfSite.id }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Access Date</span>
+              <span class="info-value">
+                <TimeText :value="selectedPartOfSite.accessDate" mode="date" empty="—" />
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Area</span>
+              <span class="info-value">{{ partOfSiteAreaText }}</span>
+            </div>
+            <div v-if="partOfSiteHasAdjustedArea" class="info-item">
+              <span class="info-label">Raw Area</span>
+              <span class="info-value">{{ partOfSiteRawAreaText }}</span>
+            </div>
+            <div v-if="partOfSiteHasAdjustedArea" class="info-item info-item-wide">
+              <span class="info-label">Excluded Overlap</span>
+              <span class="info-value">{{ partOfSiteOverlapAreaText }}</span>
+            </div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
+
+    <div v-else-if="selectedSection" class="drawer-body">
+      <el-collapse v-model="activeCollapse" class="info-collapse">
+        <el-collapse-item name="basic" title="Basic Information">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">System ID</span>
+              <span class="info-value">{{ selectedSection.id }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Completion Date</span>
+              <span class="info-value">
+                <TimeText :value="selectedSection.completionDate" mode="date" empty="—" />
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Related Parts</span>
+              <span class="info-value">{{ selectedSection.partCount || 0 }}</span>
+            </div>
+          </div>
+        </el-collapse-item>
+
+        <el-collapse-item name="relatedParts" title="Related Part of Sites">
+          <div v-if="relatedPartOfSites.length > 0" class="related-list">
+            <button
+              v-for="part in relatedPartOfSites"
+              :key="part.id"
+              class="related-item"
+              type="button"
+              @click="emit('focus-part-of-site', part.id)"
+            >
+              <div class="related-item-head">
+                <span class="related-item-title" :title="part.title || part.id">
+                  {{ part.title || part.id }}
+                </span>
+                <el-tag size="small" effect="plain">Part of Site</el-tag>
+              </div>
+              <div class="related-item-meta">
+                {{ part.group || "—" }} · {{ part.systemId || "—" }}
+              </div>
+            </button>
+          </div>
+          <el-empty v-else :image-size="60" description="No related part of sites" />
+        </el-collapse-item>
+      </el-collapse>
+    </div>
+
     <div v-else-if="selectedIntLand" class="drawer-body">
       <el-collapse v-model="activeCollapse" class="info-collapse">
         <el-collapse-item name="basic" title="Basic Information">
@@ -376,9 +494,12 @@ import { siteBoundaryStatusStyle } from "../utils/siteBoundaryStatusStyle";
 const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
   selectedSiteBoundary: { type: Object, default: null },
+  selectedPartOfSite: { type: Object, default: null },
+  selectedSection: { type: Object, default: null },
   selectedIntLand: { type: Object, default: null },
   relatedWorkLots: { type: Array, default: () => [] },
   relatedSiteBoundaries: { type: Array, default: () => [] },
+  relatedPartOfSites: { type: Array, default: () => [] },
   workStatusStyle: { type: Function, required: true },
   workCategoryLabel: { type: Function, required: true },
   canEditWork: { type: Boolean, default: true },
@@ -393,10 +514,16 @@ const emit = defineEmits([
   "edit-site-boundary",
   "focus-work-lot",
   "focus-site-boundary",
+  "focus-part-of-site",
 ]);
 
 const isOpen = computed(
-  () => !!props.selectedWorkLot || !!props.selectedSiteBoundary || !!props.selectedIntLand
+  () =>
+    !!props.selectedWorkLot ||
+    !!props.selectedSiteBoundary ||
+    !!props.selectedPartOfSite ||
+    !!props.selectedSection ||
+    !!props.selectedIntLand
 );
 const workLotHeaderTitle = computed(() => {
   const name = String(props.selectedWorkLot?.operatorName || props.selectedWorkLot?.name || "").trim();
@@ -408,10 +535,21 @@ const siteBoundaryHeaderTitle = computed(() => {
   const name = String(props.selectedSiteBoundary?.name || "").trim();
   return name || "Site Boundary";
 });
+const partOfSiteHeaderTitle = computed(() => {
+  const title = String(props.selectedPartOfSite?.title || "").trim();
+  if (title) return title;
+  return "Part of Site";
+});
+const sectionHeaderTitle = computed(() => {
+  const title = String(props.selectedSection?.title || "").trim();
+  if (title) return title;
+  return "Section";
+});
 const defaultActiveCollapse = () => [
   "basic",
   "relatedSites",
   "relatedWorkLots",
+  "relatedParts",
   "description",
   "remark",
 ];
@@ -423,25 +561,37 @@ const workLotDeleteMessage = computed(() => {
   return `Delete work lot ${props.selectedWorkLot.id}?`;
 });
 
-const workLotAreaText = computed(() => {
-  const area = Number(props.selectedWorkLot?.area);
+const formatAreaText = (value) => {
+  const area = Number(value);
   if (!Number.isFinite(area) || area <= 0) return "—";
   const ha = area / 10000;
   return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
+};
+
+const workLotAreaText = computed(() => {
+  return formatAreaText(props.selectedWorkLot?.area);
 });
 
 const intLandAreaText = computed(() => {
-  const area = props.selectedIntLand?.area;
-  if (!area || Number.isNaN(area)) return "—";
-  const ha = area / 10000;
-  return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
+  return formatAreaText(props.selectedIntLand?.area);
 });
 
 const siteBoundaryAreaText = computed(() => {
-  const area = props.selectedSiteBoundary?.area;
-  if (!area || Number.isNaN(area)) return "—";
-  const ha = area / 10000;
-  return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
+  return formatAreaText(props.selectedSiteBoundary?.area);
+});
+
+const partOfSiteAreaText = computed(() => formatAreaText(props.selectedPartOfSite?.area));
+
+const partOfSiteRawAreaText = computed(() => formatAreaText(props.selectedPartOfSite?.rawArea));
+
+const partOfSiteOverlapAreaText = computed(() =>
+  formatAreaText(props.selectedPartOfSite?.overlapArea)
+);
+
+const partOfSiteHasAdjustedArea = computed(() => {
+  if (!props.selectedPartOfSite?.areaAdjusted) return false;
+  const overlapArea = Number(props.selectedPartOfSite?.overlapArea);
+  return Number.isFinite(overlapArea) && overlapArea > 0.01;
 });
 
 const siteBoundaryProgressPercent = computed(() => {

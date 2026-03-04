@@ -47,9 +47,9 @@ const hintTitle = computed(() => {
 const hintDescription = computed(() => {
   switch (props.tool) {
     case "DRAW":
-      return `Draw a range to list matching parcels • ESC to clear`;
+      return "Draw a range to list matching parcels (section/part/site/work) • ESC to clear";
     case "DRAW_CIRCLE":
-      return "Draw a circular range to list matching parcels • ESC to clear";
+      return "Draw a circular range to list matching parcels (section/part/site/work) • ESC to clear";
     case "POLYGON":
       return `Click to add points • Double-click to finish • ESC to cancel`;
     case "POLYGON_CIRCLE":

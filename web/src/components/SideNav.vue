@@ -101,6 +101,16 @@ const primaryItems = [
     path: "/landbank/site-boundaries",
     icon: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8'><path d='M4 5l6-2 6 2 4 4-4 9-6 3-6-3-2-7 2-6z'/></svg>",
   },
+  {
+    label: "Part of Sites",
+    path: "/landbank/part-of-sites",
+    icon: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8'><path d='M3 5h8v6H3z'/><path d='M13 5h8v4h-8z'/><path d='M13 11h8v8h-8z'/><path d='M3 13h8v6H3z'/></svg>",
+  },
+  {
+    label: "Sections",
+    path: "/landbank/sections",
+    icon: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8'><path d='M4 5h16v5H4z'/><path d='M4 12h16v7H4z'/><path d='M9 5v14M15 5v14'/></svg>",
+  },
 ];
 
 const settingsItems = [

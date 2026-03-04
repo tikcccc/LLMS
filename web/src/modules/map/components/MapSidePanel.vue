@@ -1,9 +1,32 @@
 <template>
   <aside
     class="left-panel"
-    :class="{ resizing: isResizing, mobile: isMobile, 'mobile-open': mobilePanelOpen }"
+    :class="{
+      resizing: isResizing,
+      mobile: isMobile,
+      'mobile-open': mobilePanelOpen,
+      'desktop-collapsed': isDesktopCollapsed,
+    }"
     :style="panelStyle"
   >
+    <button
+      v-if="!isMobile"
+      class="sidebar-collapse-btn"
+      type="button"
+      :aria-label="isDesktopCollapsed ? 'Expand map side panel' : 'Collapse map side panel'"
+      @click="toggleDesktopCollapsed"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        :class="{ collapsed: isDesktopCollapsed }"
+      >
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+    </button>
+
     <div v-if="isMobile" class="mobile-sheet-header">
       <button
         class="mobile-sheet-grip-btn"
@@ -26,9 +49,13 @@
       </button>
     </div>
 
-    <el-tabs v-show="!isMobile || mobilePanelOpen" v-model="leftTabProxy" class="panel-tabs">
+    <el-tabs
+      v-show="(isMobile && mobilePanelOpen) || (!isMobile && !isDesktopCollapsed)"
+      v-model="leftTabProxy"
+      class="panel-tabs"
+    >
       <el-tab-pane label="Layers" name="layers">
-        <div class="panel-section">
+        <div class="layer-filter-pane">
           <div class="panel-row">
             <span>Basemap</span>
             <el-switch v-model="showBasemapProxy" />
@@ -37,34 +64,319 @@
             <span>Labels (EN)</span>
             <el-switch v-model="showLabelsProxy" />
           </div>
-          <div class="panel-row">
-            <span>Drawing Layer</span>
-            <el-switch v-model="showIntLandProxy" />
+
+          <div class="layer-filter-toolbar">
+            <el-input
+              v-model="layerFilterKeyword"
+              clearable
+              placeholder="Search lot id / name"
+            />
           </div>
-          <div class="panel-row">
-            <span>Part of Sites</span>
-            <el-switch v-model="showPartOfSitesProxy" />
-          </div>
-          <div class="panel-row">
-            <span>Site Boundary</span>
-            <el-switch v-model="showSiteBoundaryProxy" />
-          </div>
-          <div class="panel-row">
-            <span>Work Lots (Group)</span>
-            <el-switch v-model="showWorkLotsProxy" />
-          </div>
-          <div class="panel-row panel-row-nested">
-            <span>Business Undertaking (BU)</span>
-            <el-switch v-model="showWorkLotsBusinessProxy" />
-          </div>
-          <div class="panel-row panel-row-nested">
-            <span>Household (HH)</span>
-            <el-switch v-model="showWorkLotsDomesticProxy" />
-          </div>
-          <div class="panel-row panel-row-nested">
-            <span>Government Land (GL)</span>
-            <el-switch v-model="showWorkLotsGovernmentProxy" />
-          </div>
+
+          <section class="layer-block">
+            <div class="layer-block-head">
+              <div class="layer-title-wrap">
+                <div class="layer-title">Drawing Layer</div>
+                <div class="layer-subtitle">Single full-layer toggle</div>
+              </div>
+              <el-switch v-model="showIntLandProxy" />
+            </div>
+          </section>
+
+          <section class="layer-block">
+            <div class="layer-block-head">
+              <div class="layer-title-wrap">
+                <div class="layer-title">Part of Sites</div>
+                <div class="layer-subtitle">
+                  {{ partOfSitesSelectedCount }}/{{ partOfSitesTotal }} selected
+                </div>
+              </div>
+              <div class="layer-actions">
+                <el-switch v-model="showPartOfSitesProxy" size="small" />
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="partOfSitesTotal === 0"
+                  @click="selectAllPartOfSites"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="partOfSitesTotal === 0"
+                  @click="clearPartOfSites"
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  class="section-toggle-btn"
+                  :aria-label="
+                    partOfSitesExpanded ? 'Collapse part of sites list' : 'Expand part of sites list'
+                  "
+                  :aria-expanded="String(partOfSitesExpanded)"
+                  @click="togglePartOfSitesExpanded"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    :class="{ expanded: partOfSitesExpanded }"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div v-if="partOfSitesExpanded">
+              <div v-if="filteredPartOfSitesOptions.length > 0" class="check-list">
+                <el-checkbox-group
+                  :model-value="partOfSitesDisplaySelectedIds"
+                  @update:model-value="onPartOfSitesSelectionChange"
+                >
+                  <el-checkbox
+                    v-for="item in filteredPartOfSitesOptions"
+                    :key="`part-${item.id}`"
+                    :label="item.id"
+                    class="check-item"
+                  >
+                    <span class="check-label">{{ item.id }}</span>
+                  </el-checkbox>
+                </el-checkbox-group>
+              </div>
+              <el-empty
+                v-else
+                :image-size="48"
+                :description="
+                  partOfSitesTotal === 0 ? 'No part of sites loaded' : 'No matching lot'
+                "
+              />
+            </div>
+          </section>
+
+          <section class="layer-block">
+            <div class="layer-block-head">
+              <div class="layer-title-wrap">
+                <div class="layer-title">Sections</div>
+                <div class="layer-subtitle">
+                  {{ sectionSelectedCount }}/{{ sectionTotal }} selected
+                </div>
+              </div>
+              <div class="layer-actions">
+                <el-switch v-model="showSectionsProxy" size="small" />
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="sectionTotal === 0"
+                  @click="selectAllSections"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="sectionTotal === 0"
+                  @click="clearSections"
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  class="section-toggle-btn"
+                  :aria-label="
+                    sectionsExpanded ? 'Collapse sections list' : 'Expand sections list'
+                  "
+                  :aria-expanded="String(sectionsExpanded)"
+                  @click="toggleSectionsExpanded"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    :class="{ expanded: sectionsExpanded }"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div v-if="sectionsExpanded">
+              <div v-if="filteredSectionOptions.length > 0" class="check-list">
+                <el-checkbox-group
+                  :model-value="sectionDisplaySelectedIds"
+                  @update:model-value="onSectionSelectionChange"
+                >
+                  <el-checkbox
+                    v-for="item in filteredSectionOptions"
+                    :key="`section-${item.id}`"
+                    :label="item.id"
+                    class="check-item"
+                  >
+                    <span class="check-label">{{ item.label }}</span>
+                    <span class="check-meta">{{ item.id }}</span>
+                  </el-checkbox>
+                </el-checkbox-group>
+              </div>
+              <el-empty
+                v-else
+                :image-size="48"
+                :description="
+                  sectionTotal === 0 ? 'No sections loaded' : 'No matching lot'
+                "
+              />
+            </div>
+          </section>
+
+          <section class="layer-block">
+            <div class="layer-block-head">
+              <div class="layer-title-wrap">
+                <div class="layer-title">Site Boundaries</div>
+                <div class="layer-subtitle">
+                  {{ siteBoundarySelectedCount }}/{{ siteBoundaryTotal }} selected
+                </div>
+              </div>
+              <div class="layer-actions">
+                <el-switch v-model="showSiteBoundaryProxy" size="small" />
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="siteBoundaryTotal === 0"
+                  @click="selectAllSiteBoundaries"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="siteBoundaryTotal === 0"
+                  @click="clearSiteBoundaries"
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  class="section-toggle-btn"
+                  :aria-label="
+                    siteBoundariesExpanded
+                      ? 'Collapse site boundaries list'
+                      : 'Expand site boundaries list'
+                  "
+                  :aria-expanded="String(siteBoundariesExpanded)"
+                  @click="toggleSiteBoundariesExpanded"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    :class="{ expanded: siteBoundariesExpanded }"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div v-if="siteBoundariesExpanded">
+              <div v-if="filteredSiteBoundaryOptions.length > 0" class="check-list">
+                <el-checkbox-group
+                  :model-value="siteBoundaryDisplaySelectedIds"
+                  @update:model-value="onSiteBoundarySelectionChange"
+                >
+                  <el-checkbox
+                    v-for="item in filteredSiteBoundaryOptions"
+                    :key="`site-${item.id}`"
+                    :label="item.id"
+                    class="check-item"
+                  >
+                    <span class="check-label">{{ item.label }}</span>
+                    <span class="check-meta">{{ item.id }}</span>
+                  </el-checkbox>
+                </el-checkbox-group>
+              </div>
+              <el-empty
+                v-else
+                :image-size="48"
+                :description="
+                  siteBoundaryTotal === 0 ? 'No site boundaries loaded' : 'No matching lot'
+                "
+              />
+            </div>
+          </section>
+
+          <section class="layer-block">
+            <div class="layer-block-head">
+              <div class="layer-title-wrap">
+                <div class="layer-title">Work Lots</div>
+                <div class="layer-subtitle">
+                  {{ workLotSelectedCount }}/{{ workLotTotal }} selected
+                </div>
+              </div>
+              <div class="layer-actions">
+                <el-switch v-model="showWorkLotsProxy" size="small" />
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="workLotTotal === 0"
+                  @click="selectAllWorkLots"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="inline-action"
+                  :disabled="workLotTotal === 0"
+                  @click="clearWorkLots"
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  class="section-toggle-btn"
+                  :aria-label="
+                    workLotsExpanded ? 'Collapse work lots list' : 'Expand work lots list'
+                  "
+                  :aria-expanded="String(workLotsExpanded)"
+                  @click="toggleWorkLotsExpanded"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    :class="{ expanded: workLotsExpanded }"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div v-if="workLotsExpanded">
+              <div v-if="filteredWorkLotOptions.length > 0" class="check-list">
+                <el-checkbox-group
+                  :model-value="workLotDisplaySelectedIds"
+                  @update:model-value="onWorkLotSelectionChange"
+                >
+                  <el-checkbox
+                    v-for="item in filteredWorkLotOptions"
+                    :key="`work-${item.id}`"
+                    :label="item.id"
+                    class="check-item"
+                  >
+                    <span class="check-label">{{ item.label }}</span>
+                    <span class="check-meta">{{ item.categoryLabel }} · {{ item.id }}</span>
+                  </el-checkbox>
+                </el-checkbox-group>
+              </div>
+              <el-empty
+                v-else
+                :image-size="48"
+                :description="workLotTotal === 0 ? 'No work lots loaded' : 'No matching lot'"
+              />
+            </div>
+          </section>
         </div>
       </el-tab-pane>
 
@@ -74,10 +386,22 @@
             <div class="scope-summary-top">
               <div class="scope-title">{{ scopeModeName }}</div>
               <el-tag size="small" effect="plain" type="info">
-                {{ scopeSiteBoundaryResults.length + scopeWorkLotResults.length }} results
+                {{
+                  scopeSectionResults.length +
+                  scopeSiteBoundaryResults.length +
+                  scopeWorkLotResults.length +
+                  scopePartOfSitesResults.length
+                }}
+                results
               </el-tag>
             </div>
             <div class="scope-metrics">
+              <span class="scope-pill">
+                {{ scopePartOfSitesResults.length }} part of sites
+              </span>
+              <span class="scope-pill">
+                {{ scopeSectionResults.length }} sections
+              </span>
               <span class="scope-pill">
                 {{ scopeSiteBoundaryResults.length }} site boundaries
               </span>
@@ -88,8 +412,61 @@
           </div>
 
           <template
-            v-if="scopeSiteBoundaryResults.length > 0 || scopeWorkLotResults.length > 0"
+            v-if="
+              scopeSiteBoundaryResults.length > 0 ||
+              scopeWorkLotResults.length > 0 ||
+              scopePartOfSitesResults.length > 0 ||
+              scopeSectionResults.length > 0
+            "
           >
+            <section v-if="scopeSectionResults.length > 0" class="scope-block">
+              <div class="list-subtitle">
+                Sections
+                <span class="subtitle-count">{{ scopeSectionResults.length }}</span>
+              </div>
+              <div class="scope-list">
+                <button
+                  v-for="section in scopeSectionResults"
+                  :key="`scope-section-${section.id}`"
+                  class="list-item"
+                  type="button"
+                  @click="emit('focus-section', section.id)"
+                >
+                  <div class="list-title-row">
+                    <span class="list-title">{{ section.title }}</span>
+                    <el-tag size="small" effect="plain">Section</el-tag>
+                  </div>
+                  <div class="list-meta subtle">
+                    {{ section.group || "—" }} · {{ section.systemId || "—" }}
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            <section v-if="scopePartOfSitesResults.length > 0" class="scope-block">
+              <div class="list-subtitle">
+                Part of Sites
+                <span class="subtitle-count">{{ scopePartOfSitesResults.length }}</span>
+              </div>
+              <div class="scope-list">
+                <button
+                  v-for="part in scopePartOfSitesResults"
+                  :key="`scope-part-${part.id}`"
+                  class="list-item"
+                  type="button"
+                  @click="emit('focus-part-of-site', part.id)"
+                >
+                  <div class="list-title-row">
+                    <span class="list-title">{{ part.title }}</span>
+                    <el-tag size="small" effect="plain">Part of Site</el-tag>
+                  </div>
+                  <div class="list-meta subtle">
+                    {{ part.group || "—" }} · {{ part.systemId || "—" }}
+                  </div>
+                </button>
+              </div>
+            </section>
+
             <section v-if="scopeSiteBoundaryResults.length > 0" class="scope-block">
               <div class="list-subtitle">
                 Site Boundaries
@@ -144,6 +521,62 @@
             class="scope-empty"
             description="Use Scope/Circle tool to draw a range"
           />
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="Part of Sites" name="partofsites">
+        <div class="panel-section">
+          <el-input
+            v-model="partOfSitesSearchProxy"
+            placeholder="Search part of sites"
+            clearable
+          />
+        </div>
+        <div class="list-scroll">
+          <button
+            v-for="part in partOfSitesResults"
+            :key="`part-tab-${part.id}`"
+            class="list-item"
+            type="button"
+            @click="emit('focus-part-of-site', part.id)"
+          >
+            <div class="list-title-row">
+              <span class="list-title">{{ part.title }}</span>
+              <el-tag size="small" effect="plain">Part of Site</el-tag>
+            </div>
+            <div class="list-meta subtle">
+              {{ part.group || "—" }} · {{ part.systemId || "—" }}
+            </div>
+          </button>
+          <el-empty v-if="partOfSitesResults.length === 0" description="No part of sites" />
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="Sections" name="sections">
+        <div class="panel-section">
+          <el-input
+            v-model="sectionSearchProxy"
+            placeholder="Search sections"
+            clearable
+          />
+        </div>
+        <div class="list-scroll">
+          <button
+            v-for="section in sectionResults"
+            :key="`section-tab-${section.id}`"
+            class="list-item"
+            type="button"
+            @click="emit('focus-section', section.id)"
+          >
+            <div class="list-title-row">
+              <span class="list-title">{{ section.title }}</span>
+              <el-tag size="small" effect="plain">Section</el-tag>
+            </div>
+            <div class="list-meta subtle">
+              {{ section.group || "—" }} · {{ section.systemId || "—" }}
+            </div>
+          </button>
+          <el-empty v-if="sectionResults.length === 0" description="No sections" />
         </div>
       </el-tab-pane>
 
@@ -217,15 +650,16 @@
         </div>
       </el-tab-pane>
     </el-tabs>
+
     <button
-      v-if="!isMobile"
-      class="resize-corner"
+      v-if="!isMobile && !isDesktopCollapsed"
+      class="resize-handle"
       type="button"
-      aria-label="Resize side panel"
+      aria-label="Resize side panel width"
       @pointerdown="startResize"
       @dblclick="resetPanelSize"
     >
-      <span class="resize-corner-icon"></span>
+      <span class="resize-handle-icon"></span>
     </button>
   </aside>
 </template>
@@ -238,17 +672,16 @@ const props = defineProps({
   leftTab: { type: String, required: true },
   workSearchQuery: { type: String, required: true },
   siteBoundarySearchQuery: { type: String, required: true },
-  showBasemap: { type: Boolean, required: true },
-  showLabels: { type: Boolean, required: true },
-  showIntLand: { type: Boolean, required: true },
-  showPartOfSites: { type: Boolean, required: true },
-  showSiteBoundary: { type: Boolean, required: true },
-  showWorkLots: { type: Boolean, required: true },
-  showWorkLotsBusiness: { type: Boolean, required: true },
-  showWorkLotsDomestic: { type: Boolean, required: true },
-  showWorkLotsGovernment: { type: Boolean, required: true },
+  partOfSitesSearchQuery: { type: String, required: true },
+  sectionSearchQuery: { type: String, required: true },
+  layerFilterState: { type: Object, required: true },
+  layerFilterOptions: { type: Object, required: true },
+  partOfSitesResults: { type: Array, required: true },
+  sectionResults: { type: Array, required: true },
   workLotResults: { type: Array, required: true },
   siteBoundaryResults: { type: Array, required: true },
+  scopePartOfSitesResults: { type: Array, required: true },
+  scopeSectionResults: { type: Array, required: true },
   scopeWorkLotResults: { type: Array, required: true },
   scopeSiteBoundaryResults: { type: Array, required: true },
   hasScopeQuery: { type: Boolean, default: false },
@@ -260,17 +693,13 @@ const emit = defineEmits([
   "update:leftTab",
   "update:workSearchQuery",
   "update:siteBoundarySearchQuery",
-  "update:showBasemap",
-  "update:showLabels",
-  "update:showIntLand",
-  "update:showPartOfSites",
-  "update:showSiteBoundary",
-  "update:showWorkLots",
-  "update:showWorkLotsBusiness",
-  "update:showWorkLotsDomestic",
-  "update:showWorkLotsGovernment",
+  "update:partOfSitesSearchQuery",
+  "update:sectionSearchQuery",
+  "update:layerFilterState",
   "focus-work",
   "focus-site-boundary",
+  "focus-part-of-site",
+  "focus-section",
 ]);
 
 const leftTabProxy = computed({
@@ -285,65 +714,210 @@ const siteBoundarySearchProxy = computed({
   get: () => props.siteBoundarySearchQuery,
   set: (value) => emit("update:siteBoundarySearchQuery", value),
 });
-const showBasemapProxy = computed({
-  get: () => props.showBasemap,
-  set: (value) => emit("update:showBasemap", value),
+const partOfSitesSearchProxy = computed({
+  get: () => props.partOfSitesSearchQuery,
+  set: (value) => emit("update:partOfSitesSearchQuery", value),
 });
-const showLabelsProxy = computed({
-  get: () => props.showLabels,
-  set: (value) => emit("update:showLabels", value),
+const sectionSearchProxy = computed({
+  get: () => props.sectionSearchQuery,
+  set: (value) => emit("update:sectionSearchQuery", value),
 });
-const showIntLandProxy = computed({
-  get: () => props.showIntLand,
-  set: (value) => emit("update:showIntLand", value),
-});
-const showPartOfSitesProxy = computed({
-  get: () => props.showPartOfSites,
-  set: (value) => emit("update:showPartOfSites", value),
-});
-const showSiteBoundaryProxy = computed({
-  get: () => props.showSiteBoundary,
-  set: (value) => emit("update:showSiteBoundary", value),
-});
-const showWorkLotsProxy = computed({
-  get: () => props.showWorkLots,
-  set: (value) => {
-    emit("update:showWorkLots", value);
-    emit("update:showWorkLotsBusiness", value);
-    emit("update:showWorkLotsDomestic", value);
-    emit("update:showWorkLotsGovernment", value);
-  },
-});
-const showWorkLotsBusinessProxy = computed({
-  get: () => props.showWorkLotsBusiness,
-  set: (value) => {
-    emit("update:showWorkLotsBusiness", value);
-    emit(
-      "update:showWorkLots",
-      value || props.showWorkLotsDomestic || props.showWorkLotsGovernment
-    );
-  },
-});
-const showWorkLotsDomesticProxy = computed({
-  get: () => props.showWorkLotsDomestic,
-  set: (value) => {
-    emit("update:showWorkLotsDomestic", value);
-    emit(
-      "update:showWorkLots",
-      value || props.showWorkLotsBusiness || props.showWorkLotsGovernment
-    );
-  },
-});
-const showWorkLotsGovernmentProxy = computed({
-  get: () => props.showWorkLotsGovernment,
-  set: (value) => {
-    emit("update:showWorkLotsGovernment", value);
-    emit(
-      "update:showWorkLots",
-      value || props.showWorkLotsBusiness || props.showWorkLotsDomestic
-    );
-  },
-});
+
+const normalizeIdList = (value) => {
+  if (!Array.isArray(value)) return [];
+  const dedupe = new Set();
+  value.forEach((item) => {
+    const normalized = String(item || "").trim();
+    if (!normalized) return;
+    dedupe.add(normalized);
+  });
+  return Array.from(dedupe);
+};
+
+const patchLayerFilterState = (patch) => {
+  emit("update:layerFilterState", {
+    ...(props.layerFilterState || {}),
+    ...patch,
+  });
+};
+
+const createBooleanFilterProxy = (key, fallback = false) =>
+  computed({
+    get: () => {
+      const value = props.layerFilterState?.[key];
+      return typeof value === "boolean" ? value : fallback;
+    },
+    set: (value) => patchLayerFilterState({ [key]: !!value }),
+  });
+
+const showBasemapProxy = createBooleanFilterProxy("showBasemap", true);
+const showLabelsProxy = createBooleanFilterProxy("showLabels", true);
+const showIntLandProxy = createBooleanFilterProxy("showIntLand", false);
+const showPartOfSitesProxy = createBooleanFilterProxy("showPartOfSites", false);
+const showSectionsProxy = createBooleanFilterProxy("showSections", false);
+const showSiteBoundaryProxy = createBooleanFilterProxy("showSiteBoundary", true);
+const showWorkLotsProxy = createBooleanFilterProxy("showWorkLots", true);
+
+const getFilterMode = (modeKey) =>
+  props.layerFilterState?.[modeKey] === "custom" ? "custom" : "all";
+
+const getSelectedIds = (idsKey) => normalizeIdList(props.layerFilterState?.[idsKey]);
+
+const layerFilterKeyword = ref("");
+
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const resolveLayerOptions = (key) =>
+  Array.isArray(props.layerFilterOptions?.[key]) ? props.layerFilterOptions[key] : [];
+
+const filterLayerOptions = (items = []) => {
+  const keyword = normalizeText(layerFilterKeyword.value);
+  if (!keyword) return items;
+  return items.filter((item) => {
+    const candidates = [item.id, item.label, item.layer, item.handle, item.categoryLabel];
+    return candidates.some((candidate) => normalizeText(candidate).includes(keyword));
+  });
+};
+
+const partOfSitesOptions = computed(() => resolveLayerOptions("partOfSites"));
+const sectionOptions = computed(() => resolveLayerOptions("sections"));
+const siteBoundaryOptions = computed(() => resolveLayerOptions("siteBoundaries"));
+const workLotOptions = computed(() => resolveLayerOptions("workLots"));
+
+const filteredPartOfSitesOptions = computed(() => filterLayerOptions(partOfSitesOptions.value));
+const filteredSectionOptions = computed(() => filterLayerOptions(sectionOptions.value));
+const filteredSiteBoundaryOptions = computed(() => filterLayerOptions(siteBoundaryOptions.value));
+const filteredWorkLotOptions = computed(() => filterLayerOptions(workLotOptions.value));
+
+const partOfSitesAllIds = computed(() => partOfSitesOptions.value.map((item) => item.id));
+const sectionAllIds = computed(() => sectionOptions.value.map((item) => item.id));
+const siteBoundaryAllIds = computed(() => siteBoundaryOptions.value.map((item) => item.id));
+const workLotAllIds = computed(() => workLotOptions.value.map((item) => item.id));
+
+const resolveDisplaySelectedIds = (modeKey, idsKey, allIds) =>
+  getFilterMode(modeKey) === "all" ? [...allIds] : getSelectedIds(idsKey);
+
+const resolveSelectedCount = (modeKey, idsKey, allIds) => {
+  if (getFilterMode(modeKey) === "all") return allIds.length;
+  const selected = getSelectedIds(idsKey).map((id) => id.toLowerCase());
+  return allIds.filter((id) => selected.includes(String(id || "").toLowerCase())).length;
+};
+
+const partOfSitesDisplaySelectedIds = computed(() =>
+  resolveDisplaySelectedIds("partOfSitesFilterMode", "partOfSitesSelectedIds", partOfSitesAllIds.value)
+);
+const sectionDisplaySelectedIds = computed(() =>
+  resolveDisplaySelectedIds("sectionFilterMode", "sectionSelectedIds", sectionAllIds.value)
+);
+const siteBoundaryDisplaySelectedIds = computed(() =>
+  resolveDisplaySelectedIds(
+    "siteBoundaryFilterMode",
+    "siteBoundarySelectedIds",
+    siteBoundaryAllIds.value
+  )
+);
+const workLotDisplaySelectedIds = computed(() =>
+  resolveDisplaySelectedIds("workLotFilterMode", "workLotSelectedIds", workLotAllIds.value)
+);
+
+const partOfSitesSelectedCount = computed(() =>
+  resolveSelectedCount(
+    "partOfSitesFilterMode",
+    "partOfSitesSelectedIds",
+    partOfSitesAllIds.value
+  )
+);
+const sectionSelectedCount = computed(() =>
+  resolveSelectedCount(
+    "sectionFilterMode",
+    "sectionSelectedIds",
+    sectionAllIds.value
+  )
+);
+const siteBoundarySelectedCount = computed(() =>
+  resolveSelectedCount(
+    "siteBoundaryFilterMode",
+    "siteBoundarySelectedIds",
+    siteBoundaryAllIds.value
+  )
+);
+const workLotSelectedCount = computed(() =>
+  resolveSelectedCount("workLotFilterMode", "workLotSelectedIds", workLotAllIds.value)
+);
+
+const partOfSitesTotal = computed(() => partOfSitesAllIds.value.length);
+const sectionTotal = computed(() => sectionAllIds.value.length);
+const siteBoundaryTotal = computed(() => siteBoundaryAllIds.value.length);
+const workLotTotal = computed(() => workLotAllIds.value.length);
+
+const setGroupSelectionAll = (modeKey, idsKey) => {
+  patchLayerFilterState({
+    [modeKey]: "all",
+    [idsKey]: [],
+  });
+};
+
+const setGroupSelectionNone = (modeKey, idsKey) => {
+  patchLayerFilterState({
+    [modeKey]: "custom",
+    [idsKey]: [],
+  });
+};
+
+const updateGroupSelection = (modeKey, idsKey, values, allIds) => {
+  const selected = normalizeIdList(values);
+  const all = normalizeIdList(allIds);
+  if (all.length > 0 && selected.length === all.length) {
+    setGroupSelectionAll(modeKey, idsKey);
+    return;
+  }
+  patchLayerFilterState({
+    [modeKey]: "custom",
+    [idsKey]: selected,
+  });
+};
+
+const selectAllPartOfSites = () =>
+  setGroupSelectionAll("partOfSitesFilterMode", "partOfSitesSelectedIds");
+const clearPartOfSites = () =>
+  setGroupSelectionNone("partOfSitesFilterMode", "partOfSitesSelectedIds");
+const onPartOfSitesSelectionChange = (value) =>
+  updateGroupSelection(
+    "partOfSitesFilterMode",
+    "partOfSitesSelectedIds",
+    value,
+    partOfSitesAllIds.value
+  );
+const selectAllSections = () =>
+  setGroupSelectionAll("sectionFilterMode", "sectionSelectedIds");
+const clearSections = () =>
+  setGroupSelectionNone("sectionFilterMode", "sectionSelectedIds");
+const onSectionSelectionChange = (value) =>
+  updateGroupSelection(
+    "sectionFilterMode",
+    "sectionSelectedIds",
+    value,
+    sectionAllIds.value
+  );
+
+const selectAllSiteBoundaries = () =>
+  setGroupSelectionAll("siteBoundaryFilterMode", "siteBoundarySelectedIds");
+const clearSiteBoundaries = () =>
+  setGroupSelectionNone("siteBoundaryFilterMode", "siteBoundarySelectedIds");
+const onSiteBoundarySelectionChange = (value) =>
+  updateGroupSelection(
+    "siteBoundaryFilterMode",
+    "siteBoundarySelectedIds",
+    value,
+    siteBoundaryAllIds.value
+  );
+
+const selectAllWorkLots = () =>
+  setGroupSelectionAll("workLotFilterMode", "workLotSelectedIds");
+const clearWorkLots = () =>
+  setGroupSelectionNone("workLotFilterMode", "workLotSelectedIds");
+const onWorkLotSelectionChange = (value) =>
+  updateGroupSelection("workLotFilterMode", "workLotSelectedIds", value, workLotAllIds.value);
 
 const siteBoundaryWorkLotCountText = (boundary) => {
   const count = Number(boundary?.workLotCount);
@@ -354,10 +928,18 @@ const siteBoundaryWorkLotCountText = (boundary) => {
 const MOBILE_BREAKPOINT = 900;
 const mobilePanelOpen = ref(true);
 const isMobile = ref(false);
+const isDesktopCollapsed = ref(false);
+
+const partOfSitesExpanded = ref(true);
+const sectionsExpanded = ref(true);
+const siteBoundariesExpanded = ref(true);
+const workLotsExpanded = ref(true);
 
 const TAB_TITLES = {
   layers: "Layers",
   scope: "Scope Results",
+  partofsites: "Part of Sites",
+  sections: "Sections",
   worklots: "Work Lots",
   siteboundaries: "Site Boundaries",
 };
@@ -365,15 +947,12 @@ const TAB_TITLES = {
 const mobilePanelTitle = computed(() => TAB_TITLES[leftTabProxy.value] || "Panel");
 
 const PANEL_WIDTH_STORAGE_KEY = "ND_LLM_V1_map_side_panel_width";
-const PANEL_HEIGHT_STORAGE_KEY = "ND_LLM_V1_map_side_panel_height";
+const PANEL_COLLAPSE_STORAGE_KEY = "ND_LLM_V1_map_side_panel_collapsed";
 
 const PANEL_MIN_WIDTH = 280;
-const PANEL_DEFAULT_WIDTH = 320;
+const PANEL_DEFAULT_WIDTH = 360;
 const PANEL_MAX_WIDTH = 560;
-
-const PANEL_MIN_HEIGHT = 380;
-const PANEL_DEFAULT_HEIGHT = 520;
-const PANEL_MAX_HEIGHT = 860;
+const PANEL_COLLAPSED_WIDTH = 52;
 
 const readStoredSize = (key, fallback) => {
   if (typeof window === "undefined") return fallback;
@@ -381,6 +960,14 @@ const readStoredSize = (key, fallback) => {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return parsed;
+};
+
+const readStoredBoolean = (key, fallback = false) => {
+  if (typeof window === "undefined") return fallback;
+  const raw = window.localStorage.getItem(key);
+  if (raw === "1") return true;
+  if (raw === "0") return false;
+  return fallback;
 };
 
 const clampPanelWidth = (width) => {
@@ -393,45 +980,36 @@ const clampPanelWidth = (width) => {
   return Math.min(Math.max(width, PANEL_MIN_WIDTH), hardMax);
 };
 
-const clampPanelHeight = (height) => {
-  if (!Number.isFinite(height)) return PANEL_DEFAULT_HEIGHT;
-  if (typeof window === "undefined") {
-    return Math.min(Math.max(height, PANEL_MIN_HEIGHT), PANEL_MAX_HEIGHT);
-  }
-  const viewportMax = Math.max(PANEL_MIN_HEIGHT, window.innerHeight - 96);
-  const hardMax = Math.min(PANEL_MAX_HEIGHT, viewportMax);
-  return Math.min(Math.max(height, PANEL_MIN_HEIGHT), hardMax);
-};
-
 const panelWidth = ref(
   clampPanelWidth(readStoredSize(PANEL_WIDTH_STORAGE_KEY, PANEL_DEFAULT_WIDTH))
 );
-const panelHeight = ref(
-  clampPanelHeight(readStoredSize(PANEL_HEIGHT_STORAGE_KEY, PANEL_DEFAULT_HEIGHT))
-);
 const isResizing = ref(false);
 const panelStyle = computed(() => ({
-  "--panel-width": `${panelWidth.value}px`,
-  "--panel-height": `${panelHeight.value}px`,
+  "--panel-width": `${
+    !isMobile.value && isDesktopCollapsed.value ? PANEL_COLLAPSED_WIDTH : panelWidth.value
+  }px`,
 }));
 
 let dragStartX = 0;
-let dragStartY = 0;
 let dragStartWidth = panelWidth.value;
-let dragStartHeight = panelHeight.value;
 
 const persistPanelSize = () => {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(panelWidth.value));
-  window.localStorage.setItem(PANEL_HEIGHT_STORAGE_KEY, String(panelHeight.value));
+};
+
+const persistPanelCollapsed = () => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    PANEL_COLLAPSE_STORAGE_KEY,
+    isDesktopCollapsed.value ? "1" : "0"
+  );
 };
 
 const handleResizeMove = (event) => {
   if (!isResizing.value) return;
   const deltaX = event.clientX - dragStartX;
-  const deltaY = event.clientY - dragStartY;
   panelWidth.value = clampPanelWidth(dragStartWidth + deltaX);
-  panelHeight.value = clampPanelHeight(dragStartHeight + deltaY);
 };
 
 const stopResize = () => {
@@ -445,13 +1023,12 @@ const stopResize = () => {
 
 const startResize = (event) => {
   if (typeof window === "undefined" || window.innerWidth <= MOBILE_BREAKPOINT) return;
+  if (isDesktopCollapsed.value) return;
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
   isResizing.value = true;
   dragStartX = event.clientX;
-  dragStartY = event.clientY;
   dragStartWidth = panelWidth.value;
-  dragStartHeight = panelHeight.value;
   window.addEventListener("pointermove", handleResizeMove);
   window.addEventListener("pointerup", stopResize);
   window.addEventListener("pointercancel", stopResize);
@@ -459,7 +1036,6 @@ const startResize = (event) => {
 
 const resetPanelSize = () => {
   panelWidth.value = clampPanelWidth(PANEL_DEFAULT_WIDTH);
-  panelHeight.value = clampPanelHeight(PANEL_DEFAULT_HEIGHT);
   persistPanelSize();
 };
 
@@ -480,6 +1056,28 @@ const toggleMobilePanel = () => {
   mobilePanelOpen.value = !mobilePanelOpen.value;
 };
 
+const toggleDesktopCollapsed = () => {
+  if (isMobile.value) return;
+  isDesktopCollapsed.value = !isDesktopCollapsed.value;
+  stopResize();
+  persistPanelCollapsed();
+};
+
+const togglePartOfSitesExpanded = () => {
+  partOfSitesExpanded.value = !partOfSitesExpanded.value;
+};
+const toggleSectionsExpanded = () => {
+  sectionsExpanded.value = !sectionsExpanded.value;
+};
+
+const toggleSiteBoundariesExpanded = () => {
+  siteBoundariesExpanded.value = !siteBoundariesExpanded.value;
+};
+
+const toggleWorkLotsExpanded = () => {
+  workLotsExpanded.value = !workLotsExpanded.value;
+};
+
 const closeMobilePanel = () => {
   if (!isMobile.value) return;
   mobilePanelOpen.value = false;
@@ -491,7 +1089,6 @@ const handleMobileMediaChange = (event) => {
 
 const handleWindowResize = () => {
   panelWidth.value = clampPanelWidth(panelWidth.value);
-  panelHeight.value = clampPanelHeight(panelHeight.value);
   persistPanelSize();
 };
 
@@ -515,6 +1112,7 @@ watch(
 
 onMounted(() => {
   if (typeof window === "undefined") return;
+  isDesktopCollapsed.value = readStoredBoolean(PANEL_COLLAPSE_STORAGE_KEY, false);
   mobileQueryList = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
   applyMobileMode(mobileQueryList.matches);
   if (typeof mobileQueryList.addEventListener === "function") {
@@ -541,62 +1139,94 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .left-panel {
-  position: absolute;
-  top: 78px;
-  left: 24px;
-  width: var(--panel-width, 320px);
-  height: var(--panel-height, 520px);
+  position: relative;
+  z-index: 72;
+  width: var(--panel-width, 360px);
+  height: 100%;
   min-width: 280px;
-  max-width: min(560px, calc(100% - 48px));
-  max-height: calc(100% - 96px);
+  max-width: min(560px, 48vw);
   background: var(--panel);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
+  border-right: 1px solid var(--border);
+  box-shadow: 6px 0 16px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.left-panel.desktop-collapsed {
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
 }
 
 .mobile-sheet-header {
   display: none;
 }
 
-.resize-corner {
+.sidebar-collapse-btn {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 16px;
-  height: 16px;
+  top: 10px;
+  right: 18px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.46);
+  background: #ffffff;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.sidebar-collapse-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.18s ease;
+}
+
+.sidebar-collapse-btn svg.collapsed {
+  transform: rotate(180deg);
+}
+
+.left-panel.desktop-collapsed .sidebar-collapse-btn {
+  right: 14px;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
   border: 0;
   padding: 0;
   background: transparent;
-  cursor: nwse-resize;
+  cursor: ew-resize;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   touch-action: none;
-  z-index: 2;
+  z-index: 3;
 }
 
-.resize-corner-icon {
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid rgba(148, 163, 184, 0.86);
-  border-bottom: 2px solid rgba(148, 163, 184, 0.86);
-  border-bottom-right-radius: 2px;
+.resize-handle-icon {
+  width: 3px;
+  height: 56px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.72);
 }
 
 .left-panel.resizing,
 .left-panel.resizing * {
-  cursor: nwse-resize !important;
+  cursor: ew-resize !important;
   user-select: none;
 }
 
-.resize-corner:hover .resize-corner-icon,
-.resize-corner:focus-visible .resize-corner-icon {
-  background: rgba(59, 130, 246, 0.86);
-  border-right-color: rgba(59, 130, 246, 0.92);
-  border-bottom-color: rgba(59, 130, 246, 0.92);
+.resize-handle:hover .resize-handle-icon,
+.resize-handle:focus-visible .resize-handle-icon {
+  background: rgba(59, 130, 246, 0.92);
 }
 
 .panel-tabs {
@@ -608,7 +1238,7 @@ onBeforeUnmount(() => {
 
 .panel-tabs :deep(.el-tabs__header) {
   margin: 0;
-  padding: 8px 12px 0 12px;
+  padding: 8px 44px 0 12px;
 }
 
 .panel-tabs :deep(.el-tabs__content) {
@@ -625,11 +1255,13 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-.panel-section {
+.layer-filter-pane {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .panel-row {
@@ -639,9 +1271,137 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
-.panel-row-nested {
-  padding-left: 16px;
+.layer-filter-toolbar {
+  margin-top: 2px;
+}
+
+.layer-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.layer-block-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.layer-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.layer-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.layer-subtitle {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.layer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.inline-action {
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  min-height: 24px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inline-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.section-toggle-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.48);
+  background: #ffffff;
   color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.section-toggle-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.18s ease;
+}
+
+.section-toggle-btn svg.expanded {
+  transform: rotate(180deg);
+}
+
+.check-list {
+  max-height: 168px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  padding-top: 8px;
+}
+
+.check-list :deep(.el-checkbox-group) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.check-item {
+  margin-right: 0;
+  width: 100%;
+}
+
+.check-item :deep(.el-checkbox__label) {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.check-label {
+  font-size: 12px;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.check-meta {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .list-scroll {
@@ -777,6 +1537,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .left-panel {
+    position: absolute;
     top: auto;
     left: 10px;
     right: 10px;
@@ -786,9 +1547,18 @@ onBeforeUnmount(() => {
     max-height: calc(100% - 88px);
     min-width: 0;
     max-width: none;
+    border-right: 0;
+    border: 1px solid var(--border);
     border-radius: 14px;
+    box-shadow: var(--shadow);
     transition: transform 0.22s ease, box-shadow 0.22s ease;
     z-index: 95;
+  }
+
+  .left-panel.desktop-collapsed {
+    width: auto;
+    min-width: 0;
+    max-width: none;
   }
 
   .left-panel.mobile:not(.mobile-open) {
@@ -864,7 +1634,11 @@ onBeforeUnmount(() => {
     padding: 8px 10px 12px 10px;
   }
 
-  .resize-corner {
+  .resize-handle {
+    display: none;
+  }
+
+  .sidebar-collapse-btn {
     display: none;
   }
 }

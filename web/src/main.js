@@ -9,6 +9,8 @@ import router from "./router";
 import { useWorkLotStore } from "./stores/useWorkLotStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useSiteBoundaryStore } from "./stores/useSiteBoundaryStore";
+import { usePartOfSitesStore } from "./stores/usePartOfSitesStore";
+import { useSectionsStore } from "./stores/useSectionsStore";
 import { parseWorkLotGeojson } from "./shared/utils/worklotGeojson";
 
 const LEGACY_MOCK_DATA_KEYS = ["ND_LLM_V1_worklots", "ND_LLM_V1_tasks"];
@@ -43,10 +45,14 @@ const mountApp = async () => {
   const workLotStore = useWorkLotStore(pinia);
   const uiStore = useUiStore(pinia);
   const siteBoundaryStore = useSiteBoundaryStore(pinia);
+  const partOfSitesStore = usePartOfSitesStore(pinia);
+  const sectionsStore = useSectionsStore(pinia);
 
   workLotStore.normalizeLegacyWorkLots();
   uiStore.normalizeLegacyState();
   siteBoundaryStore.normalizeLegacySiteBoundaries();
+  partOfSitesStore.normalizeLegacyPartOfSites();
+  sectionsStore.normalizeLegacySections();
 
   const workLotJson = await fetchJsonOptional(AUTO_LOAD_WORKLOTS_URL);
 

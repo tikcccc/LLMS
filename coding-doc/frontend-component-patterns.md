@@ -1,6 +1,6 @@
 # Frontend Component Patterns
 
-最後更新：2026-03-02  
+最後更新：2026-03-04  
 範圍：`web/` 現有 Vue + Element Plus 專案可直接落地的元件模式
 
 ## 1) 目的
@@ -101,9 +101,19 @@
 
 規範：
 
+- 桌機（>900px）採「左側常駐 sidebar + 右側 map stage」版型，避免 panel 疊在地圖上。
 - 支援桌機與行動行為切換（<=900px）
+- 行動端改為底部 sheet overlay，需保留地圖主要操作可達性。
+- 桌機側欄需提供整體收納/展開按鈕，縮起後仍可快速展開。
 - 滾動區域與固定區域分離，避免整面板難以操作
-- 與 map overlay 的 z-index 關係需固定管理
+- 桌機允許寬度調整（resize handle），高度跟隨地圖工作區
+- 與 map overlay 的 z-index 關係需固定管理（mobile sheet > 地圖內容）
+- Layers 分頁採資料驅動：`layerFilterState` + `layerFilterOptions`
+- 大量 lot 清單區塊需支援區段收合/展開，降低側欄資訊壓力。
+- `Work Lot`、`Site Boundary` 採 lot 級 checkbox 白名單，`Part of Sites` 採 part 級 checkbox 白名單，`Sections` 採 section 級 checkbox 白名單
+- `Drawing Layer` 保持整層單一開關，不展開 lot 級項目
+- lot 勾選只影響地圖顯示，不影響側欄清單與 scope 結果資料集
+- Scope Results 建議維持「Section -> Part of Sites -> Site Boundary -> Work Lot」的呈現順序，方便先看 section 範圍再下鑽
 
 ## 8) Overlay Pattern（Map 浮層）
 

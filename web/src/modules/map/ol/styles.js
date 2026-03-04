@@ -40,7 +40,6 @@ export function intLandStyle() {
 const partOfSitesStroke = new Stroke({
   color: "rgba(180, 83, 9, 0.9)",
   width: 2.4,
-  lineDash: [10, 4],
 });
 const partOfSitesFill = new Fill({ color: "rgba(245, 158, 11, 0.14)" });
 const partOfSitesBaseStyle = new Style({
@@ -50,6 +49,48 @@ const partOfSitesBaseStyle = new Style({
 
 export function partOfSitesStyle() {
   return partOfSitesBaseStyle;
+}
+
+const partOfSitesHighlightStroke = new Stroke({
+  color: "rgba(225, 29, 72, 1)",
+  width: 4.8,
+});
+const partOfSitesHighlightFill = new Fill({ color: "rgba(244, 63, 94, 0.28)" });
+const partOfSitesHighlightStyle = new Style({
+  stroke: partOfSitesHighlightStroke,
+  fill: partOfSitesHighlightFill,
+});
+
+export function highlightPartOfSitesStyle() {
+  return partOfSitesHighlightStyle;
+}
+
+const sectionStroke = new Stroke({
+  color: "rgba(30, 64, 175, 0.92)",
+  width: 2.5,
+});
+const sectionFill = new Fill({ color: "rgba(59, 130, 246, 0.12)" });
+const sectionBaseStyle = new Style({
+  stroke: sectionStroke,
+  fill: sectionFill,
+});
+
+export function sectionStyle() {
+  return sectionBaseStyle;
+}
+
+const sectionHighlightStroke = new Stroke({
+  color: "rgba(30, 64, 175, 1)",
+  width: 4.2,
+});
+const sectionHighlightFill = new Fill({ color: "rgba(59, 130, 246, 0.2)" });
+const sectionHighlightStyle = new Style({
+  stroke: sectionHighlightStroke,
+  fill: sectionHighlightFill,
+});
+
+export function highlightSectionStyle() {
+  return sectionHighlightStyle;
 }
 
 const siteBoundaryPalette = {

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-02T16:11:48",
+  "generated_at": "2026-03-04T12:45:02",
   "root": "/home/tikhong/LLMS/coding-doc",
   "count": 10,
   "files": [
@@ -110,6 +110,7 @@
         "1) 文件用途",
         "2) 預期讀者",
         "3) 待填充內容（後續 agent 需補）",
+        "3.1) 增量補充（2026-03-04）",
         "4) 資料來源建議",
         "5) 完成標準"
       ]
@@ -125,12 +126,12 @@
         "`/map` 地圖作業頁",
         "`/landbank/work-lots` Work Lots 清單",
         "`/landbank/site-boundaries` Site Boundaries 清單",
+        "`/landbank/part-of-sites` Part of Sites 清單",
+        "`/landbank/sections` Sections 清單",
         "`/users` 使用者頁",
         "`/admin/work-lots`",
         "3) 全站共用功能",
-        "4) 狀態管理與持久化",
-        "5) 資料契約與轉換功能",
-        "6) 權限矩陣（前端 demo）"
+        "4) 狀態管理與持久化"
       ]
     },
     {

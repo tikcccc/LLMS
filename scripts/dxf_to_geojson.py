@@ -85,6 +85,40 @@ def _flatten_entity(entity, distance: float):
     # Returns (points, closed) or None
     dxftype = entity.dxftype()
 
+    def _elevation_value(raw):
+        if raw is None:
+            return 0.0
+        if isinstance(raw, (int, float)):
+            return float(raw)
+        if hasattr(raw, "z"):
+            return float(raw.z)
+        if isinstance(raw, (tuple, list)) and len(raw) >= 3:
+            return float(raw[2])
+        return 0.0
+
+    def _to_wcs_xy(points, extrusion=(0.0, 0.0, 1.0), elevation=0.0):
+        if not points:
+            return points
+        if extrusion is None:
+            return points
+        try:
+            ex, ey, ez = float(extrusion[0]), float(extrusion[1]), float(extrusion[2])
+        except Exception:
+            return points
+        if abs(ex - 0.0) < 1e-12 and abs(ey - 0.0) < 1e-12 and abs(ez - 1.0) < 1e-12:
+            return points
+        try:
+            from ezdxf.math import OCS  # type: ignore
+        except Exception:
+            return points
+        ocs = OCS((ex, ey, ez))
+        z = float(elevation)
+        converted = []
+        for x, y in points:
+            p = ocs.to_wcs((x, y, z))
+            converted.append((p.x, p.y))
+        return converted
+
     if dxftype == "LWPOLYLINE":
         try:
             pts_bulge = list(entity.get_points("xyb"))
@@ -96,14 +130,52 @@ def _flatten_entity(entity, distance: float):
             if flattened:
                 return flattened
         pts = [(x, y) for x, y, _ in pts_bulge] if pts_bulge else []
+        pts = _to_wcs_xy(
+            pts,
+            extrusion=getattr(entity.dxf, "extrusion", (0.0, 0.0, 1.0)),
+            elevation=_elevation_value(getattr(entity.dxf, "elevation", 0.0)),
+        )
         return pts, bool(getattr(entity, "closed", False))
 
     if dxftype == "POLYLINE":
+        vertices_raw = getattr(entity, "vertices", None)
         try:
-            pts = [(v.dxf.location.x, v.dxf.location.y) for v in entity.vertices()]
+            if callable(vertices_raw):
+                vertices = list(vertices_raw())
+            elif vertices_raw is None:
+                vertices = []
+            else:
+                vertices = list(vertices_raw)
         except Exception:
-            pts = []
-        return pts, bool(getattr(entity, "is_closed", False))
+            vertices = []
+
+        pts = []
+        for vertex in vertices:
+            location = getattr(getattr(vertex, "dxf", None), "location", None)
+            if location is None:
+                continue
+            try:
+                pts.append((float(location.x), float(location.y)))
+            except Exception:
+                try:
+                    pts.append((float(location[0]), float(location[1])))
+                except Exception:
+                    continue
+
+        closed_attr = getattr(entity, "is_closed", False)
+        if callable(closed_attr):
+            try:
+                closed = bool(closed_attr())
+            except Exception:
+                closed = False
+        else:
+            closed = bool(closed_attr)
+        pts = _to_wcs_xy(
+            pts,
+            extrusion=getattr(entity.dxf, "extrusion", (0.0, 0.0, 1.0)),
+            elevation=0.0,
+        )
+        return pts, closed
 
     if dxftype == "LINE":
         try:

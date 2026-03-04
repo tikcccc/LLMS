@@ -5,6 +5,8 @@ import AdminWorkLots from "../modules/admin/AdminWorkLots.vue";
 import DashboardPage from "../modules/dashboard/DashboardPage.vue";
 import LandBankWorkLotsPage from "../modules/landbank/LandBankWorkLotsPage.vue";
 import LandBankSiteBoundariesPage from "../modules/landbank/LandBankSiteBoundariesPage.vue";
+import LandBankPartOfSitesPage from "../modules/landbank/LandBankPartOfSitesPage.vue";
+import LandBankSectionsPage from "../modules/landbank/LandBankSectionsPage.vue";
 import UsersPage from "../modules/users/UsersPage.vue";
 
 const routes = [
@@ -14,6 +16,8 @@ const routes = [
   { path: "/landbank", redirect: "/landbank/work-lots" },
   { path: "/landbank/work-lots", component: LandBankWorkLotsPage },
   { path: "/landbank/site-boundaries", component: LandBankSiteBoundariesPage },
+  { path: "/landbank/part-of-sites", component: LandBankPartOfSitesPage },
+  { path: "/landbank/sections", component: LandBankSectionsPage },
   { path: "/users", component: UsersPage },
   {
     path: "/admin/work-lots",

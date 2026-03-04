@@ -95,25 +95,22 @@
       </template>
 
       <template v-else>
-        <div class="layer-segment" role="tablist" aria-label="Edit layer">
-          <button
-            type="button"
-            class="layer-btn"
-            :class="{ active: activeLayerType === 'work' }"
+        <div class="layer-select-wrap">
+          <span class="layer-select-label">Draw Target</span>
+          <el-select
+            v-model="activeLayerTypeProxy"
+            size="small"
+            class="layer-select"
             :disabled="!canEditLayer"
-            @click="emit('set-active-layer', 'work')"
+            aria-label="Select draw target"
           >
-            Work Lot
-          </button>
-          <button
-            type="button"
-            class="layer-btn"
-            :class="{ active: activeLayerType === 'siteBoundary' }"
-            :disabled="!canEditLayer"
-            @click="emit('set-active-layer', 'siteBoundary')"
-          >
-            Site Boundary
-          </button>
+            <el-option
+              v-for="item in layerTypeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </div>
 
         <el-tooltip content="Create Polygon (P)" placement="bottom" :show-after="450">
@@ -190,6 +187,38 @@
           Save
         </el-button>
       </el-tooltip>
+
+      <el-tooltip
+        v-if="showPartOfSitesExport"
+        content="Export current Part of Sites GeoJSON"
+        placement="bottom"
+        :show-after="450"
+      >
+        <el-button
+          size="small"
+          class="tool-btn"
+          :disabled="!canExportPartOfSites"
+          @click="emit('export-part-of-sites')"
+        >
+          Export GeoJSON
+        </el-button>
+      </el-tooltip>
+
+      <el-tooltip
+        v-if="showSectionsExport"
+        content="Export current Sections GeoJSON"
+        placement="bottom"
+        :show-after="450"
+      >
+        <el-button
+          size="small"
+          class="tool-btn"
+          :disabled="!canExportSections"
+          @click="emit('export-sections')"
+        >
+          Export Sections
+        </el-button>
+      </el-tooltip>
     </div>
   </div>
 </template>
@@ -204,6 +233,8 @@ const props = defineProps({
   hasDraft: { type: Boolean, required: true },
   hasScopeQuery: { type: Boolean, default: false },
   canSaveModify: { type: Boolean, default: false },
+  canExportPartOfSites: { type: Boolean, default: false },
+  canExportSections: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -211,6 +242,8 @@ const emit = defineEmits([
   "set-active-layer",
   "cancel-tool",
   "save-modify",
+  "export-part-of-sites",
+  "export-sections",
 ]);
 
 const MOBILE_BREAKPOINT = 768;
@@ -223,11 +256,24 @@ const modeOptions = [
   { label: "Scope", value: "scope" },
   { label: "Draw", value: "edit" },
 ];
+const layerTypeOptions = [
+  { label: "Work Lot", value: "work" },
+  { label: "Site Boundary", value: "siteBoundary" },
+  { label: "Part of Sites", value: "partOfSites" },
+  { label: "Section", value: "section" },
+];
 
 const activeMode = computed(() => {
   if (props.tool === "PAN" || props.tool === "MEASURE") return "browse";
   if (props.tool === "DRAW" || props.tool === "DRAW_CIRCLE") return "scope";
   return "edit";
+});
+const activeLayerTypeProxy = computed({
+  get: () =>
+    layerTypeOptions.some((item) => item.value === props.activeLayerType)
+      ? props.activeLayerType
+      : "work",
+  set: (value) => emit("set-active-layer", value),
 });
 
 const canClearScope = computed(() => props.hasDraft || props.hasScopeQuery);
@@ -245,6 +291,12 @@ const showCancelControl = computed(() => {
   if (activeMode.value === "scope") return false;
   return showCancel.value;
 });
+const showPartOfSitesExport = computed(
+  () => activeMode.value === "edit" && activeLayerTypeProxy.value === "partOfSites"
+);
+const showSectionsExport = computed(
+  () => activeMode.value === "edit" && activeLayerTypeProxy.value === "section"
+);
 
 const showToolRow = computed(() => !isMobile.value || mobileToolsExpanded.value);
 
@@ -410,44 +462,25 @@ onBeforeUnmount(() => {
   padding-bottom: 0;
 }
 
-.layer-segment {
+.layer-select-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px;
+  gap: 6px;
+  padding: 3px 6px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.92);
-  flex: 0 0 auto;
 }
 
-.layer-btn {
-  border: 0;
-  min-height: 30px;
-  min-width: 90px;
-  padding: 0 10px;
-  border-radius: 7px;
-  background: transparent;
+.layer-select-label {
   color: #475569;
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+  letter-spacing: 0.01em;
 }
 
-.layer-btn:hover {
-  background: rgba(148, 163, 184, 0.14);
-}
-
-.layer-btn.active {
-  color: #0f766e;
-  background: rgba(15, 118, 110, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.26);
-}
-
-.layer-btn:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
+.layer-select {
+  width: 160px;
 }
 
 .tool-btn {
@@ -500,13 +533,14 @@ onBeforeUnmount(() => {
     row-gap: 6px;
   }
 
-  .layer-segment {
+  .layer-select-wrap {
     width: 100%;
+    justify-content: space-between;
   }
 
-  .layer-btn {
-    min-width: 0;
-    flex: 1 1 0;
+  .layer-select {
+    width: 100%;
+    max-width: 220px;
   }
 
   .tool-btn {

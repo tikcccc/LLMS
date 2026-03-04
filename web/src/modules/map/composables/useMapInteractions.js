@@ -101,6 +101,10 @@ export const useMapInteractions = ({
   getWorkFeatureById,
   getSiteBoundaryFeatureById,
   siteBoundarySource,
+  partOfSitesLayer,
+  partOfSitesSource,
+  sectionsLayer,
+  sectionsSource,
   siteBoundaryLayer,
   refreshHighlights,
   setHighlightFeature,
@@ -114,6 +118,9 @@ export const useMapInteractions = ({
   hasDraft,
   onScopeQueryResult,
   onSiteBoundaryDrawStart,
+  onPartOfSitesSourceChange,
+  onSectionsSourceChange,
+  resolvePartOfSitesIdAtCoordinate = null,
 }) => {
   let drawInteraction = null;
   let modifyInteraction = null;
@@ -156,6 +163,195 @@ export const useMapInteractions = ({
     tool === "DELETE";
   const defaultScopeTool = () => "DRAW_CIRCLE";
   const defaultEditTool = () => "POLYGON";
+  const normalizeValue = (value) => String(value || "").trim();
+  const normalizePartId = (value) => {
+    const normalized = normalizeValue(value);
+    if (!normalized) return "";
+    if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
+    return normalized;
+  };
+  const normalizeSectionId = (value) => {
+    const normalized = normalizeValue(value);
+    if (!normalized) return "";
+    if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
+    return normalized;
+  };
+  const getPartOfSitesIdFromFeature = (feature) =>
+    normalizePartId(feature?.get("partOfSitesLotId")) ||
+    normalizePartId(feature?.get("partId")) ||
+    normalizePartId(feature?.get("part_id")) ||
+    normalizePartId(feature?.get("refId")) ||
+    normalizePartId(feature?.getId?.()) ||
+    "";
+  const getPartOfSitesFeatureBySystemId = (systemId) => {
+    const normalized = normalizeValue(systemId).toLowerCase();
+    if (!normalized || !partOfSitesSource) return null;
+    return (
+      partOfSitesSource
+        .getFeatures()
+        .find(
+          (feature) =>
+            normalizeValue(feature.getId?.()).toLowerCase() === normalized
+        ) || null
+    );
+  };
+  const getSectionIdFromFeature = (feature) =>
+    normalizeSectionId(feature?.get("sectionLotId")) ||
+    normalizeSectionId(feature?.get("sectionId")) ||
+    normalizeSectionId(feature?.get("section_id")) ||
+    normalizeSectionId(feature?.get("refId")) ||
+    normalizeSectionId(feature?.getId?.()) ||
+    "";
+  const getSectionFeatureBySystemId = (systemId) => {
+    const normalized = normalizeValue(systemId).toLowerCase();
+    if (!normalized || !sectionsSource) return null;
+    return (
+      sectionsSource
+        .getFeatures()
+        .find(
+          (feature) =>
+            normalizeValue(feature.getId?.()).toLowerCase() === normalized
+        ) || null
+    );
+  };
+  const buildManualPartOfSitesId = () => {
+    const usedIds = new Set(
+      (partOfSitesSource?.getFeatures() || [])
+        .map((feature) => getPartOfSitesIdFromFeature(feature).toLowerCase())
+        .filter(Boolean)
+    );
+    let sequence = 1;
+    let candidate = "";
+    do {
+      candidate = `DRAW-${String(sequence).padStart(3, "0")}`;
+      sequence += 1;
+    } while (usedIds.has(candidate.toLowerCase()));
+    return candidate;
+  };
+  const buildManualPartOfSitesSystemId = (partId) => {
+    const token =
+      normalizePartId(partId).replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "UNK";
+    const usedSystemIds = new Set(
+      (partOfSitesSource?.getFeatures() || [])
+        .map((feature) =>
+          normalizeValue(feature.get("partOfSitesSystemId") || feature.getId()).toUpperCase()
+        )
+        .filter(Boolean)
+    );
+    let sequence = 1;
+    let candidate = "";
+    do {
+      candidate = `POS-MANUAL-${token}-${String(sequence).padStart(3, "0")}`;
+      sequence += 1;
+    } while (usedSystemIds.has(candidate));
+    return candidate;
+  };
+  const buildManualSectionId = () => {
+    const usedIds = new Set(
+      (sectionsSource?.getFeatures() || [])
+        .map((feature) => getSectionIdFromFeature(feature).toLowerCase())
+        .filter(Boolean)
+    );
+    let sequence = 1;
+    let candidate = "";
+    do {
+      candidate = `SEC-${String(sequence).padStart(3, "0")}`;
+      sequence += 1;
+    } while (usedIds.has(candidate.toLowerCase()));
+    return candidate;
+  };
+  const buildManualSectionSystemId = (sectionId) => {
+    const token =
+      normalizeSectionId(sectionId).replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "UNK";
+    const usedSystemIds = new Set(
+      (sectionsSource?.getFeatures() || [])
+        .map((feature) =>
+          normalizeValue(feature.get("sectionSystemId") || feature.getId()).toUpperCase()
+        )
+        .filter(Boolean)
+    );
+    let sequence = 1;
+    let candidate = "";
+    do {
+      candidate = `SOW-MANUAL-${token}-${String(sequence).padStart(3, "0")}`;
+      sequence += 1;
+    } while (usedSystemIds.has(candidate));
+    return candidate;
+  };
+  const ensurePartOfSitesFeatureMeta = (feature) => {
+    if (!feature) return null;
+    const partId = getPartOfSitesIdFromFeature(feature) || buildManualPartOfSitesId();
+    const systemId =
+      normalizeValue(feature.get("partOfSitesSystemId")) ||
+      buildManualPartOfSitesSystemId(partId);
+    feature.setId(systemId);
+    feature.set("partId", partId);
+    feature.set("partGroup", normalizeValue(feature.get("partGroup")) || "Manual Draw");
+    feature.set("partOfSitesLotId", partId);
+    feature.set(
+      "partOfSitesLotLabel",
+      normalizeValue(feature.get("partOfSitesLotLabel")) || partId
+    );
+    feature.set("partOfSitesSystemId", systemId);
+    feature.set(
+      "partOfSitesGroup",
+      normalizeValue(feature.get("partOfSitesGroup")) ||
+        normalizeValue(feature.get("partGroup")) ||
+        "Manual Draw"
+    );
+    feature.set(
+      "accessDate",
+      normalizeValue(feature.get("accessDate") || feature.get("access_date"))
+    );
+    feature.set("layerType", "partOfSites");
+    feature.set("refId", partId);
+    return { partId, systemId };
+  };
+  const ensureSectionFeatureMeta = (feature) => {
+    if (!feature) return null;
+    const sectionId = getSectionIdFromFeature(feature) || buildManualSectionId();
+    const systemId =
+      normalizeValue(feature.get("sectionSystemId")) ||
+      buildManualSectionSystemId(sectionId);
+    feature.setId(systemId);
+    feature.set("sectionId", sectionId);
+    feature.set("sectionLotId", sectionId);
+    feature.set(
+      "sectionLotLabel",
+      normalizeValue(feature.get("sectionLotLabel") || feature.get("sectionLabel")) || sectionId
+    );
+    feature.set(
+      "sectionGroup",
+      normalizeValue(feature.get("sectionGroup") || feature.get("section_group")) || "Manual Draw"
+    );
+    feature.set("sectionSystemId", systemId);
+    feature.set(
+      "completionDate",
+      normalizeValue(feature.get("completionDate") || feature.get("completion_date"))
+    );
+    const relatedPartIdsRaw =
+      feature.get("relatedPartIds") || feature.get("relatedPartLotIds") || feature.get("partIds");
+    const relatedPartIds = Array.isArray(relatedPartIdsRaw)
+      ? Array.from(
+          new Set(
+            relatedPartIdsRaw
+              .map((item) => normalizePartId(item))
+              .filter(Boolean)
+          )
+        )
+      : [];
+    feature.set("relatedPartIds", relatedPartIds);
+    feature.set("partCount", relatedPartIds.length);
+    feature.set("layerType", "section");
+    feature.set("refId", sectionId);
+    return { sectionId, systemId };
+  };
+  const notifyPartOfSitesSourceChange = () => {
+    onPartOfSitesSourceChange?.();
+  };
+  const notifySectionsSourceChange = () => {
+    onSectionsSourceChange?.();
+  };
 
   const ensureScopeLayer = () => {
     if (!mapRef.value || scopeLayerAdded) return;
@@ -191,7 +387,12 @@ export const useMapInteractions = ({
 
   const clearScopeQuery = () => {
     scopeQuerySource.clear(true);
-    onScopeQueryResult?.({ workLotIds: [], siteBoundaryIds: [] });
+    onScopeQueryResult?.({
+      workLotIds: [],
+      siteBoundaryIds: [],
+      partOfSitesIds: [],
+      sectionIds: [],
+    });
   };
 
   const clearMeasure = () => {
@@ -212,7 +413,10 @@ export const useMapInteractions = ({
   const restoreModifyBackup = () => {
     if (!modifyBackup.size) return;
     const findFeatureById = (id) =>
-      getWorkFeatureById?.(id) || getSiteBoundaryFeatureById?.(id);
+      getWorkFeatureById?.(id) ||
+      getSiteBoundaryFeatureById?.(id) ||
+      getSectionFeatureBySystemId(id) ||
+      getPartOfSitesFeatureBySystemId(id);
     modifyBackup.forEach((geometry, id) => {
       const feature = findFeatureById(id);
       if (feature) {
@@ -303,6 +507,12 @@ export const useMapInteractions = ({
       if (activeLayerType.value === "siteBoundary" && !uiStore.showSiteBoundary) {
         uiStore.setLayerVisibility("showSiteBoundary", true);
       }
+      if (activeLayerType.value === "partOfSites" && !uiStore.showPartOfSites) {
+        uiStore.setLayerVisibility("showPartOfSites", true);
+      }
+      if (activeLayerType.value === "section" && !uiStore.showSections) {
+        uiStore.setLayerVisibility("showSections", true);
+      }
       uiStore.clearSelection();
       clearHighlightOverride();
     }
@@ -350,9 +560,38 @@ export const useMapInteractions = ({
       }
     });
 
+    const partOfSitesIds = [];
+    partOfSitesSource?.getFeatures().forEach((feature) => {
+      if (!featureIntersectsScope(feature, scopeGeometry)) return;
+      const id =
+        feature.get("partOfSitesLotId") ||
+        feature.get("partId") ||
+        feature.get("part_id") ||
+        feature.get("refId") ||
+        feature.getId();
+      if (id !== null && id !== undefined) {
+        partOfSitesIds.push(String(id));
+      }
+    });
+    const sectionIds = [];
+    sectionsSource?.getFeatures().forEach((feature) => {
+      if (!featureIntersectsScope(feature, scopeGeometry)) return;
+      const id =
+        feature.get("sectionLotId") ||
+        feature.get("sectionId") ||
+        feature.get("section_id") ||
+        feature.get("refId") ||
+        feature.getId();
+      if (id !== null && id !== undefined) {
+        sectionIds.push(String(id));
+      }
+    });
+
     return {
       workLotIds: Array.from(new Set(workLotIds)),
       siteBoundaryIds: Array.from(new Set(siteBoundaryIds)),
+      partOfSitesIds: Array.from(new Set(partOfSitesIds)),
+      sectionIds: Array.from(new Set(sectionIds)),
     };
   };
 
@@ -363,7 +602,12 @@ export const useMapInteractions = ({
 
     const geometry = event.feature?.getGeometry();
     if (!geometry) {
-      onScopeQueryResult?.({ workLotIds: [], siteBoundaryIds: [] });
+      onScopeQueryResult?.({
+        workLotIds: [],
+        siteBoundaryIds: [],
+        partOfSitesIds: [],
+        sectionIds: [],
+      });
       return;
     }
 
@@ -373,6 +617,34 @@ export const useMapInteractions = ({
   const handlePolygonDrawEnd = (event) => {
     draftFeature = event.feature;
     hasDraft.value = true;
+    if (activeLayerType.value === "partOfSites") {
+      const meta = ensurePartOfSitesFeatureMeta(event.feature);
+      if (uiStore.partOfSitesFilterMode === "custom" && meta?.partId) {
+        uiStore.ensureMapSelectedId("partOfSites", meta.partId);
+      }
+      pendingGeometry.value = null;
+      draftFeature = null;
+      draftSource = null;
+      hasDraft.value = false;
+      uiStore.selectPartOfSite(meta?.partId || null);
+      clearHighlightOverride();
+      notifyPartOfSitesSourceChange();
+      return;
+    }
+    if (activeLayerType.value === "section") {
+      const meta = ensureSectionFeatureMeta(event.feature);
+      if (uiStore.sectionFilterMode === "custom" && meta?.sectionId) {
+        uiStore.ensureMapSelectedId("section", meta.sectionId);
+      }
+      pendingGeometry.value = null;
+      draftFeature = null;
+      draftSource = null;
+      hasDraft.value = false;
+      uiStore.selectSection(meta?.sectionId || null);
+      clearHighlightOverride();
+      notifySectionsSourceChange();
+      return;
+    }
     const geometry = format.writeGeometryObject(event.feature.getGeometry(), {
       dataProjection: EPSG_2326,
       featureProjection: EPSG_2326,
@@ -411,6 +683,15 @@ export const useMapInteractions = ({
       uiStore.selectWorkLot(refId);
     } else if (layerType === "siteBoundary") {
       uiStore.selectSiteBoundary(refId);
+    } else if (layerType === "partOfSites") {
+      const clickedCoordinate = event.mapBrowserEvent?.coordinate;
+      const resolvedPartId =
+        typeof resolvePartOfSitesIdAtCoordinate === "function"
+          ? normalizePartId(resolvePartOfSitesIdAtCoordinate(clickedCoordinate))
+          : "";
+      uiStore.selectPartOfSite(resolvedPartId || getPartOfSitesIdFromFeature(selected) || refId);
+    } else if (layerType === "section") {
+      uiStore.selectSection(refId);
     } else {
       return;
     }
@@ -424,11 +705,32 @@ export const useMapInteractions = ({
     const layerType = selected.get("layerType") || activeLayerType.value;
     if (!layerType) return;
     setHighlightFeature(layerType, selected);
-    const label = layerType === "siteBoundary" ? "site boundary" : "work lot";
-    ElMessageBox.confirm(`Delete ${label} ${id}?`, "Confirm", { type: "warning" })
+    const partId = getPartOfSitesIdFromFeature(selected);
+    const sectionId = getSectionIdFromFeature(selected);
+    const displayId =
+      layerType === "partOfSites"
+        ? partId || id
+        : layerType === "section"
+          ? sectionId || id
+          : id;
+    const label =
+      layerType === "siteBoundary"
+        ? "site boundary"
+        : layerType === "partOfSites"
+          ? "part of site"
+          : layerType === "section"
+            ? "section"
+          : "work lot";
+    ElMessageBox.confirm(`Delete ${label} ${displayId}?`, "Confirm", { type: "warning" })
       .then(() => {
         if (layerType === "siteBoundary") {
           siteBoundaryStore.removeSiteBoundary(id);
+        } else if (layerType === "partOfSites") {
+          partOfSitesSource?.removeFeature(selected);
+          notifyPartOfSitesSourceChange();
+        } else if (layerType === "section") {
+          sectionsSource?.removeFeature(selected);
+          notifySectionsSourceChange();
         } else {
           workLotStore.removeWorkLot(id);
         }
@@ -457,17 +759,31 @@ export const useMapInteractions = ({
     }
 
     const layerType = selected.get("layerType");
-    if (layerType !== "work" && layerType !== "siteBoundary") {
+    if (
+      layerType !== "work" &&
+      layerType !== "siteBoundary" &&
+      layerType !== "partOfSites" &&
+      layerType !== "section"
+    ) {
       return;
     }
 
     selectedModifyFeature = selected;
-    const refId = selected.get("refId") || selected.getId();
+    const refId =
+      layerType === "partOfSites"
+        ? getPartOfSitesIdFromFeature(selected) || selected.get("refId") || selected.getId()
+        : layerType === "section"
+          ? getSectionIdFromFeature(selected) || selected.get("refId") || selected.getId()
+        : selected.get("refId") || selected.getId();
     modifySelectedId.value = refId;
     if (layerType === "work") {
       uiStore.selectWorkLot(refId);
-    } else {
+    } else if (layerType === "siteBoundary") {
       uiStore.selectSiteBoundary(refId);
+    } else if (layerType === "section") {
+      uiStore.selectSection(refId);
+    } else {
+      uiStore.selectPartOfSite(refId);
     }
     setHighlightFeature(layerType, selected);
   };
@@ -485,7 +801,11 @@ export const useMapInteractions = ({
             const feature =
               layerType === "siteBoundary"
                 ? getSiteBoundaryFeatureById?.(id)
-                : getWorkFeatureById?.(id);
+                : layerType === "partOfSites"
+                  ? getPartOfSitesFeatureBySystemId?.(id)
+                  : layerType === "section"
+                    ? getSectionFeatureBySystemId?.(id)
+                  : getWorkFeatureById?.(id);
             if (!feature) return;
             const featureGeometry = feature.getGeometry();
             if (!featureGeometry) return;
@@ -504,6 +824,14 @@ export const useMapInteractions = ({
               });
               return;
             }
+            if (layerType === "partOfSites") {
+              feature.setGeometry(featureGeometry);
+              return;
+            }
+            if (layerType === "section") {
+              feature.setGeometry(featureGeometry);
+              return;
+            }
             const relatedSiteBoundaryIds = findSiteBoundaryIdsForGeometry(
               featureGeometry,
               siteBoundarySource
@@ -515,6 +843,12 @@ export const useMapInteractions = ({
               updatedBy: authStore.roleName,
             });
           });
+        }
+        if (layerType === "partOfSites") {
+          notifyPartOfSitesSourceChange();
+        }
+        if (layerType === "section") {
+          notifySectionsSourceChange();
         }
         clearModifyState();
         uiStore.clearSelection();
@@ -564,6 +898,8 @@ export const useMapInteractions = ({
     if (uiStore.tool === "PAN") {
       const selectableLayers = [...(workLayers || [])].filter(Boolean);
       if (siteBoundaryLayer) selectableLayers.unshift(siteBoundaryLayer);
+      if (sectionsLayer) selectableLayers.unshift(sectionsLayer);
+      if (partOfSitesLayer) selectableLayers.unshift(partOfSitesLayer);
       selectInteraction.value = new Select({ layers: selectableLayers, style: null });
       selectInteraction.value.set("managed", true);
       selectInteraction.value.on("select", handleSelect);
@@ -624,11 +960,21 @@ export const useMapInteractions = ({
     }
 
     const targetSource =
-      layerType === "siteBoundary" ? siteBoundarySource : workSources?.[0];
+      layerType === "siteBoundary"
+        ? siteBoundarySource
+        : layerType === "section"
+          ? sectionsSource
+        : layerType === "partOfSites"
+          ? partOfSitesSource
+          : workSources?.[0];
     const targetLayers =
       layerType === "siteBoundary"
         ? [siteBoundaryLayer].filter(Boolean)
-        : [...(workLayers || [])].filter(Boolean);
+        : layerType === "section"
+          ? [sectionsLayer].filter(Boolean)
+        : layerType === "partOfSites"
+          ? [partOfSitesLayer].filter(Boolean)
+          : [...(workLayers || [])].filter(Boolean);
     if (!targetSource || targetLayers.length === 0) return;
 
     if (uiStore.tool === "MODIFY") {
