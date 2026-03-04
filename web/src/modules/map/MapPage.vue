@@ -201,6 +201,7 @@ import {
 } from "../../shared/utils/sectionEdit";
 import { useMapCore } from "./composables/useMapCore";
 import { useMapCoordinateSelection } from "./composables/useMapCoordinateSelection";
+import { useMapContractPackageHelpers } from "./composables/useMapContractPackageHelpers";
 import { useMapDialogActions } from "./composables/useMapDialogActions";
 import { useMapDialogForms } from "./composables/useMapDialogForms";
 import { useMapEditLayerType } from "./composables/useMapEditLayerType";
@@ -214,6 +215,7 @@ import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
 import { useMapLayerFilterPanelState } from "./composables/useMapLayerFilterPanelState";
 import { useMapPageLifecycle } from "./composables/useMapPageLifecycle";
+import { useMapPagePanelState } from "./composables/useMapPagePanelState";
 import { useMapPageUiActions } from "./composables/useMapPageUiActions";
 import { useMapPageWatchers } from "./composables/useMapPageWatchers";
 import { useMapSectionPartRelations } from "./composables/useMapSectionPartRelations";
@@ -373,14 +375,16 @@ const {
   createSectionEditForm,
 });
 
-const leftTab = ref("layers");
-const workSearchQuery = ref("");
-const siteBoundarySearchQuery = ref("");
-const partOfSitesSearchQuery = ref("");
-const sectionSearchQuery = ref("");
-const siteBoundarySourceVersion = ref(0);
-const partOfSitesSourceVersion = ref(0);
-const sectionSourceVersion = ref(0);
+const {
+  leftTab,
+  workSearchQuery,
+  siteBoundarySearchQuery,
+  partOfSitesSearchQuery,
+  sectionSearchQuery,
+  siteBoundarySourceVersion,
+  partOfSitesSourceVersion,
+  sectionSourceVersion,
+} = useMapPagePanelState();
 
 const {
   scopeWorkLotIds,
@@ -395,32 +399,16 @@ const {
   leftTab,
 });
 
-const normalizeContractPackageValue = (value) => normalizeContractPackage(value);
-const resolveContractPackageValue = (values = []) =>
-  resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
-const toContractPackageVisibilityKey = (group, contractPackage) => {
-  const normalized = normalizeContractPackageValue(contractPackage);
-  if (group === "workLot") {
-    return normalized === CONTRACT_PACKAGE.C1 ? "showWorkLotsC1" : "showWorkLotsC2";
-  }
-  if (group === "siteBoundary") {
-    return normalized === CONTRACT_PACKAGE.C1
-      ? "showSiteBoundaryC1"
-      : "showSiteBoundaryC2";
-  }
-  if (group === "partOfSites") {
-    return normalized === CONTRACT_PACKAGE.C1
-      ? "showPartOfSitesC1"
-      : "showPartOfSitesC2";
-  }
-  return normalized === CONTRACT_PACKAGE.C1 ? "showSectionsC1" : "showSectionsC2";
-};
-const ensureContractPackageVisible = (group, contractPackage) => {
-  const key = toContractPackageVisibilityKey(group, contractPackage);
-  if (key && !uiStore[key]) {
-    uiStore.setLayerVisibility(key, true);
-  }
-};
+const {
+  normalizeContractPackageValue,
+  resolveContractPackageValue,
+  ensureContractPackageVisible,
+} = useMapContractPackageHelpers({
+  uiStore,
+  contractPackage: CONTRACT_PACKAGE,
+  normalizeContractPackage,
+  resolveContractPackage,
+});
 const resolvePartOfSiteMeta = createPartOfSiteMetaResolver({
   resolveContractPackageValue,
 });

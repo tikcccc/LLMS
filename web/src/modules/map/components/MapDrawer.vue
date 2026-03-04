@@ -9,197 +9,37 @@
     @close="emit('close')"
   >
     <template #header>
-      <div class="drawer-header" v-if="selectedWorkLot">
-        <div class="header-text">
-          <div class="drawer-title" :title="workLotHeaderTitle">{{ workLotHeaderTitle }}</div>
-          <div class="header-status-row">
-            <el-tag
-              effect="plain"
-              :style="workStatusStyle(selectedWorkLot.status, selectedWorkLot.dueDate)"
-            >
-              {{ selectedWorkLot.status }}
-            </el-tag>
-          </div>
-        </div>
-        <div class="header-controls">
-          <div class="header-tags">
-            <el-button
-              class="focus-action-btn"
-              :class="{ active: isWorkLotFocusActive }"
-              type="primary"
-              text
-              size="small"
-              @click="emit('focus-map-work-lot', selectedWorkLot.id)"
-            >
-              {{ isWorkLotFocusActive ? "Cancel Focus" : "Focus" }}
-            </el-button>
-            <el-button
-              v-if="canEditWork"
-              class="edit-icon-btn"
-              type="primary"
-              text
-              size="small"
-              @click="emit('edit-work-lot')"
-            >
-              Edit
-            </el-button>
-            <el-button
-              v-if="canDeleteWork"
-              class="delete-icon-btn"
-              type="danger"
-              text
-              size="small"
-              @click="requestDeleteWorkLot"
-            >
-              Delete
-            </el-button>
-          </div>
-          <button
-            type="button"
-            class="header-close-btn"
-            aria-label="Close details panel"
-            @click="emit('close')"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
-      <div class="drawer-header" v-else-if="selectedSiteBoundary">
-        <div class="header-text">
-          <div class="drawer-title" :title="siteBoundaryHeaderTitle">
-            {{ siteBoundaryHeaderTitle }}
-          </div>
-        </div>
-        <div class="header-controls">
-          <div class="header-tags">
-            <el-tag effect="plain">Site Boundary</el-tag>
-            <el-button
-              class="focus-action-btn"
-              :class="{ active: isSiteBoundaryFocusActive }"
-              type="primary"
-              text
-              size="small"
-              @click="emit('focus-map-site-boundary', selectedSiteBoundary.id)"
-            >
-              {{ isSiteBoundaryFocusActive ? "Cancel Focus" : "Focus" }}
-            </el-button>
-            <el-button
-              v-if="canEditSiteBoundary"
-              class="edit-icon-btn"
-              type="primary"
-              text
-              size="small"
-              @click="emit('edit-site-boundary')"
-            >
-              Edit
-            </el-button>
-          </div>
-          <button
-            type="button"
-            class="header-close-btn"
-            aria-label="Close details panel"
-            @click="emit('close')"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
-      <div class="drawer-header" v-else-if="selectedPartOfSite">
-        <div class="header-text">
-          <div class="drawer-title" :title="partOfSiteHeaderTitle">
-            {{ partOfSiteHeaderTitle }}
-          </div>
-        </div>
-        <div class="header-controls">
-          <div class="header-tags">
-            <el-tag effect="plain">Part of Site</el-tag>
-            <el-button
-              class="focus-action-btn"
-              :class="{ active: isPartOfSiteFocusActive }"
-              type="primary"
-              text
-              size="small"
-              @click="emit('focus-map-part-of-site', selectedPartOfSite.partId)"
-            >
-              {{ isPartOfSiteFocusActive ? "Cancel Focus" : "Focus" }}
-            </el-button>
-            <el-button
-              v-if="canEditPartOfSite"
-              class="edit-icon-btn"
-              type="primary"
-              text
-              size="small"
-              @click="emit('edit-part-of-site')"
-            >
-              Edit
-            </el-button>
-          </div>
-          <button
-            type="button"
-            class="header-close-btn"
-            aria-label="Close details panel"
-            @click="emit('close')"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
-      <div class="drawer-header" v-else-if="selectedSection">
-        <div class="header-text">
-          <div class="drawer-title" :title="sectionHeaderTitle">
-            {{ sectionHeaderTitle }}
-          </div>
-        </div>
-        <div class="header-controls">
-          <div class="header-tags">
-            <el-tag effect="plain">Section</el-tag>
-            <el-button
-              class="focus-action-btn"
-              :class="{ active: isSectionFocusActive }"
-              type="primary"
-              text
-              size="small"
-              @click="emit('focus-map-section', selectedSection.sectionId)"
-            >
-              {{ isSectionFocusActive ? "Cancel Focus" : "Focus" }}
-            </el-button>
-            <el-button
-              v-if="canEditSection"
-              class="edit-icon-btn"
-              type="primary"
-              text
-              size="small"
-              @click="emit('edit-section')"
-            >
-              Edit
-            </el-button>
-          </div>
-          <button
-            type="button"
-            class="header-close-btn"
-            aria-label="Close details panel"
-            @click="emit('close')"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
-      <div class="drawer-header" v-else-if="selectedIntLand">
-        <div class="header-text">
-          <div class="drawer-title">Drawing Layer</div>
-          <div class="drawer-subtitle">{{ selectedIntLand.id }}</div>
-        </div>
-        <div class="header-controls">
-          <button
-            type="button"
-            class="header-close-btn"
-            aria-label="Close details panel"
-            @click="emit('close')"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
+      <MapDrawerHeader
+        :selected-work-lot="selectedWorkLot"
+        :selected-site-boundary="selectedSiteBoundary"
+        :selected-part-of-site="selectedPartOfSite"
+        :selected-section="selectedSection"
+        :selected-int-land="selectedIntLand"
+        :work-lot-header-title="workLotHeaderTitle"
+        :site-boundary-header-title="siteBoundaryHeaderTitle"
+        :part-of-site-header-title="partOfSiteHeaderTitle"
+        :section-header-title="sectionHeaderTitle"
+        :work-status-style="workStatusStyle"
+        :is-work-lot-focus-active="isWorkLotFocusActive"
+        :is-site-boundary-focus-active="isSiteBoundaryFocusActive"
+        :is-part-of-site-focus-active="isPartOfSiteFocusActive"
+        :is-section-focus-active="isSectionFocusActive"
+        :can-edit-work="canEditWork"
+        :can-edit-site-boundary="canEditSiteBoundary"
+        :can-edit-part-of-site="canEditPartOfSite"
+        :can-edit-section="canEditSection"
+        :can-delete-work="canDeleteWork"
+        @close="emit('close')"
+        @focus-map-work-lot="emit('focus-map-work-lot', $event)"
+        @focus-map-site-boundary="emit('focus-map-site-boundary', $event)"
+        @focus-map-part-of-site="emit('focus-map-part-of-site', $event)"
+        @focus-map-section="emit('focus-map-section', $event)"
+        @edit-work-lot="emit('edit-work-lot')"
+        @edit-site-boundary="emit('edit-site-boundary')"
+        @edit-part-of-site="emit('edit-part-of-site')"
+        @edit-section="emit('edit-section')"
+        @request-delete-work-lot="requestDeleteWorkLot"
+      />
     </template>
 
     <div v-if="selectedWorkLot" class="drawer-body">
@@ -581,12 +421,12 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
 import TimeText from "../../../components/TimeText.vue";
 import ConfirmDialog from "../../../components/ConfirmDialog.vue";
 import SiteBoundaryProgress from "../../../components/SiteBoundaryProgress.vue";
-import { todayHongKong } from "../../../shared/utils/time";
 import { siteBoundaryStatusStyle } from "../utils/siteBoundaryStatusStyle";
+import { useMapDrawerState } from "./composables/useMapDrawerState";
+import MapDrawerHeader from "./MapDrawerHeader.vue";
 
 const props = defineProps({
   selectedWorkLot: { type: Object, default: null },
@@ -624,195 +464,40 @@ const emit = defineEmits([
   "focus-part-of-site",
   "focus-section",
 ]);
-
-const isOpen = computed(
-  () =>
-    !!props.selectedWorkLot ||
-    !!props.selectedSiteBoundary ||
-    !!props.selectedPartOfSite ||
-    !!props.selectedSection ||
-    !!props.selectedIntLand
-);
-const workLotHeaderTitle = computed(() => {
-  const name = String(props.selectedWorkLot?.operatorName || props.selectedWorkLot?.name || "").trim();
-  if (name) return name;
-  const id = String(props.selectedWorkLot?.id || "").trim();
-  return id || "Work Lot";
-});
-const siteBoundaryHeaderTitle = computed(() => {
-  const name = String(props.selectedSiteBoundary?.name || "").trim();
-  return name || "Site Boundary";
-});
-const partOfSiteHeaderTitle = computed(() => {
-  const title = String(props.selectedPartOfSite?.title || "").trim();
-  if (title) return title;
-  return "Part of Site";
-});
-const sectionHeaderTitle = computed(() => {
-  const title = String(props.selectedSection?.title || "").trim();
-  if (title) return title;
-  return "Section";
-});
-const normalizeFocusToken = (value) => String(value || "").trim().toLowerCase();
-const isFocusMatch = (group, id) => {
-  const currentGroup = String(props.focusMapState?.group || "").trim();
-  if (currentGroup !== group) return false;
-  return normalizeFocusToken(props.focusMapState?.id) === normalizeFocusToken(id);
-};
-const isWorkLotFocusActive = computed(() => isFocusMatch("workLot", props.selectedWorkLot?.id));
-const isSiteBoundaryFocusActive = computed(() =>
-  isFocusMatch("siteBoundary", props.selectedSiteBoundary?.id)
-);
-const isPartOfSiteFocusActive = computed(() =>
-  isFocusMatch("partOfSites", props.selectedPartOfSite?.partId)
-);
-const isSectionFocusActive = computed(() =>
-  isFocusMatch("section", props.selectedSection?.sectionId)
-);
-const defaultActiveCollapse = () => [
-  "basic",
-  "relatedSites",
-  "relatedSections",
-  "relatedWorkLots",
-  "relatedParts",
-  "description",
-  "remark",
-];
-const activeCollapse = ref(defaultActiveCollapse());
-const showDeleteWorkLotConfirm = ref(false);
-
-const workLotDeleteMessage = computed(() => {
-  if (!props.selectedWorkLot) return "";
-  return `Delete work lot ${props.selectedWorkLot.id}?`;
-});
-
-const formatAreaText = (value) => {
-  const area = Number(value);
-  if (!Number.isFinite(area) || area <= 0) return "—";
-  const ha = area / 10000;
-  return `${area.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${ha.toFixed(2)} ha)`;
-};
-
-const workLotAreaText = computed(() => {
-  return formatAreaText(props.selectedWorkLot?.area);
-});
-
-const intLandAreaText = computed(() => {
-  return formatAreaText(props.selectedIntLand?.area);
-});
-
-const siteBoundaryAreaText = computed(() => {
-  return formatAreaText(props.selectedSiteBoundary?.area);
-});
-
-const partOfSiteAreaText = computed(() => formatAreaText(props.selectedPartOfSite?.area));
-
-const partOfSiteRawAreaText = computed(() => formatAreaText(props.selectedPartOfSite?.rawArea));
-
-const partOfSiteOverlapAreaText = computed(() =>
-  formatAreaText(props.selectedPartOfSite?.overlapArea)
-);
-
-const partOfSiteHasAdjustedArea = computed(() => {
-  if (!props.selectedPartOfSite?.areaAdjusted) return false;
-  const overlapArea = Number(props.selectedPartOfSite?.overlapArea);
-  return Number.isFinite(overlapArea) && overlapArea > 0.01;
-});
-
-const sectionAreaText = computed(() => formatAreaText(props.selectedSection?.area));
-
-const sectionRawAreaText = computed(() => formatAreaText(props.selectedSection?.rawArea));
-
-const sectionOverlapAreaText = computed(() =>
-  formatAreaText(props.selectedSection?.overlapArea)
-);
-
-const sectionHasAdjustedArea = computed(() => {
-  if (!props.selectedSection?.areaAdjusted) return false;
-  const overlapArea = Number(props.selectedSection?.overlapArea);
-  return Number.isFinite(overlapArea) && overlapArea > 0.01;
-});
-
-const siteBoundaryProgressPercent = computed(() => {
-  const value = Number(props.selectedSiteBoundary?.handoverProgress);
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(100, Math.round(value)));
-});
-
-const RELATED_WORKLOT_DUE_OPTIONS = [
-  { label: "All Due Dates", value: "ALL" },
-  { label: "Overdue", value: "OVERDUE" },
-  { label: "No Due Date", value: "NO_DUE_DATE" },
-];
-
-const relatedWorkLotsKeyword = ref("");
-const relatedWorkLotsStatusFilter = ref("ALL");
-const relatedWorkLotsDueFilter = ref("ALL");
-
-const relatedWorkLotStatusOptions = computed(() => {
-  const statuses = Array.from(
-    new Set(props.relatedWorkLots.map((lot) => String(lot.status || "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
-  return [{ label: "All Statuses", value: "ALL" }].concat(
-    statuses.map((status) => ({ label: status, value: status }))
-  );
-});
-
-const isYyyyMmDd = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
-
-const filteredRelatedWorkLots = computed(() => {
-  const keyword = relatedWorkLotsKeyword.value.trim().toLowerCase();
-  const today = todayHongKong();
-  return props.relatedWorkLots.filter((lot) => {
-    if (
-      relatedWorkLotsStatusFilter.value !== "ALL" &&
-      String(lot.status || "") !== relatedWorkLotsStatusFilter.value
-    ) {
-      return false;
-    }
-
-    const dueDate = String(lot.dueDate || "").trim();
-    if (relatedWorkLotsDueFilter.value === "OVERDUE") {
-      if (!isYyyyMmDd(dueDate) || dueDate >= today) return false;
-    }
-    if (relatedWorkLotsDueFilter.value === "NO_DUE_DATE" && !!dueDate) {
-      return false;
-    }
-
-    if (!keyword) return true;
-    return [lot.id, lot.operatorName, lot.status, lot.dueDate]
-      .map((value) => String(value || "").toLowerCase())
-      .some((value) => value.includes(keyword));
-  });
-});
-
-const resetRelatedWorkLotFilters = () => {
-  relatedWorkLotsKeyword.value = "";
-  relatedWorkLotsStatusFilter.value = "ALL";
-  relatedWorkLotsDueFilter.value = "ALL";
-};
-
-const requestDeleteWorkLot = () => {
-  showDeleteWorkLotConfirm.value = true;
-};
-
-const handleConfirmDeleteWorkLot = () => {
-  emit("delete-work-lot");
-};
-
-watch(isOpen, (value) => {
-  if (value) {
-    activeCollapse.value = defaultActiveCollapse();
-    resetRelatedWorkLotFilters();
-  }
-});
-
-watch(
-  () => props.selectedSiteBoundary?.id,
-  () => {
-    resetRelatedWorkLotFilters();
-  }
-);
+const {
+  isOpen,
+  workLotHeaderTitle,
+  siteBoundaryHeaderTitle,
+  partOfSiteHeaderTitle,
+  sectionHeaderTitle,
+  isWorkLotFocusActive,
+  isSiteBoundaryFocusActive,
+  isPartOfSiteFocusActive,
+  isSectionFocusActive,
+  activeCollapse,
+  showDeleteWorkLotConfirm,
+  workLotDeleteMessage,
+  workLotAreaText,
+  intLandAreaText,
+  siteBoundaryAreaText,
+  partOfSiteAreaText,
+  partOfSiteRawAreaText,
+  partOfSiteOverlapAreaText,
+  partOfSiteHasAdjustedArea,
+  sectionAreaText,
+  sectionRawAreaText,
+  sectionOverlapAreaText,
+  sectionHasAdjustedArea,
+  siteBoundaryProgressPercent,
+  RELATED_WORKLOT_DUE_OPTIONS,
+  relatedWorkLotsKeyword,
+  relatedWorkLotsStatusFilter,
+  relatedWorkLotsDueFilter,
+  relatedWorkLotStatusOptions,
+  filteredRelatedWorkLots,
+  requestDeleteWorkLot,
+  handleConfirmDeleteWorkLot,
+} = useMapDrawerState({ props, emit });
 </script>
 
 <style scoped src="./MapDrawer.css"></style>
