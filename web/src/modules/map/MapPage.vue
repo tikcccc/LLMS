@@ -197,8 +197,6 @@ import { useMapContractPackageHelpers } from "./composables/useMapContractPackag
 import { useMapDialogForms } from "./composables/useMapDialogForms";
 import { useMapEditLayerType } from "./composables/useMapEditLayerType";
 import { useMapAreaOverrides } from "./composables/useMapAreaOverrides";
-import { useMapFocusTargetActions } from "./composables/useMapFocusTargetActions";
-import { useMapFocusState } from "./composables/useMapFocusState";
 import { useMapKeyboardShortcuts } from "./composables/useMapKeyboardShortcuts";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
@@ -206,10 +204,10 @@ import { useMapLayerFilterPanelState } from "./composables/useMapLayerFilterPane
 import { useMapPageLifecycle } from "./composables/useMapPageLifecycle";
 import { useMapPagePanelState } from "./composables/useMapPagePanelState";
 import { useMapPageDialogActionsSetup } from "./composables/useMapPageDialogActionsSetup";
+import { useMapPageFocusSetup } from "./composables/useMapPageFocusSetup";
 import { useMapPageSpatialSetup } from "./composables/useMapPageSpatialSetup";
 import { useMapPageUiActions } from "./composables/useMapPageUiActions";
 import { useMapPageWatchers } from "./composables/useMapPageWatchers";
-import { useMapZoomRouteActions } from "./composables/useMapZoomRouteActions";
 import { useMapScopeResults } from "./composables/useMapScopeResults";
 import { useMapScopeState } from "./composables/useMapScopeState";
 import { useMapSelectionDetails } from "./composables/useMapSelectionDetails";
@@ -373,6 +371,16 @@ const {
   partOfSitesSourceVersion,
   sectionSourceVersion,
 } = useMapPagePanelState();
+const sourceVersions = {
+  siteBoundarySourceVersion,
+  partOfSitesSourceVersion,
+  sectionSourceVersion,
+};
+const mapSources = {
+  siteBoundarySource,
+  partOfSitesSource,
+  sectionsSource,
+};
 
 const {
   scopeWorkLotIds,
@@ -451,6 +459,15 @@ const { getPartAreaOverride, getSectionAreaOverride } = useMapAreaOverrides({
   normalizeContractPackageValue,
   toContractPhaseScopedId,
 });
+const featureLookup = {
+  findSiteBoundaryFeatureById,
+  findPartOfSitesFeatureById,
+  findSectionFeatureById,
+};
+const metaResolvers = {
+  resolvePartOfSiteMeta,
+  resolveSectionMeta,
+};
 
 const {
   layerFilterState,
@@ -463,12 +480,8 @@ const {
 } = useMapLayerFilterPanelState({
   uiStore,
   workLotStore,
-  siteBoundarySource,
-  partOfSitesSource,
-  sectionsSource,
-  siteBoundarySourceVersion,
-  partOfSitesSourceVersion,
-  sectionSourceVersion,
+  ...mapSources,
+  ...sourceVersions,
   workSearchQuery,
   siteBoundarySearchQuery,
   partOfSitesSearchQuery,
@@ -495,10 +508,8 @@ const {
   handleExportPartOfSites,
   handleExportSections,
 } = useMapSourceDataActions({
-  partOfSitesSourceVersion,
-  sectionSourceVersion,
-  partOfSitesSource,
-  sectionsSource,
+  ...sourceVersions,
+  ...mapSources,
   persistPartOfSitesSnapshot,
   persistSectionsSnapshot,
   syncSectionPartRelations,
@@ -565,14 +576,9 @@ const {
   scopePartOfSitesIds,
   scopeSectionIds,
   workLotStore,
-  siteBoundarySourceVersion,
-  partOfSitesSourceVersion,
-  sectionSourceVersion,
-  findSiteBoundaryFeatureById,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  resolvePartOfSiteMeta,
-  resolveSectionMeta,
+  ...sourceVersions,
+  ...featureLookup,
+  ...metaResolvers,
 });
 
 const {
@@ -587,14 +593,9 @@ const {
   uiStore,
   workLotStore,
   selectedWorkLot,
-  siteBoundarySourceVersion,
-  partOfSitesSourceVersion,
-  sectionSourceVersion,
-  findSiteBoundaryFeatureById,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  resolvePartOfSiteMeta,
-  resolveSectionMeta,
+  ...sourceVersions,
+  ...featureLookup,
+  ...metaResolvers,
   getPartGeometryStatById,
   getSectionGeometryStatById,
   getPartAreaOverride,
@@ -603,8 +604,7 @@ const {
   normalizeIdCollection,
   resolveRelatedSiteBoundaryIdsByGeometryObject,
   withRelatedIdFallback,
-  partOfSitesSource,
-  sectionsSource,
+  ...mapSources,
   defaultWorkLotStatus: WORK_LOT_STATUS.WAITING_ASSESSMENT,
 });
 
@@ -729,73 +729,36 @@ const {
   zoomToSiteBoundary,
   zoomToPartOfSite,
   zoomToSection,
-} = useMapZoomRouteActions({
+  activeMapFocus,
+  focusMapTarget,
+  clearActiveMapFocus,
+  handleSidePanelClose,
+  isActiveFocusStateValid,
+  isFocusStateLocked,
+  focusOnMapWorkLot,
+  focusOnMapSiteBoundary,
+  focusOnMapPartOfSite,
+  focusOnMapSection,
+} = useMapPageFocusSetup({
   mapRef,
   route,
   uiStore,
   workLotStore,
-  siteBoundarySource,
-  partOfSitesSource,
-  sectionsSource,
+  mapSources,
   getWorkFeatureById,
   createWorkFeature,
-  findSiteBoundaryFeatureById,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  resolvePartOfSiteMeta,
-  resolveSectionMeta,
+  featureLookup,
+  metaResolvers,
   getPartGeometryStatById,
   ensureContractPackageVisible,
   resolveContractPackageValue,
   normalizeWorkLotCategory,
   workLotCategory: WORK_LOT_CATEGORY,
   refreshHighlights,
-});
-
-const {
-  activeMapFocus,
-  focusMapTarget,
-  clearActiveMapFocus,
-  handleSidePanelClose,
-  toggleFocusOnMapTarget,
-  isActiveFocusStateValid,
-  isFocusStateLocked,
-} = useMapFocusState({
-  uiStore,
-  workLotStore,
   contractPackage: CONTRACT_PACKAGE,
-  workLotCategory: WORK_LOT_CATEGORY,
-  resolveContractPackageValue,
-  normalizeWorkLotCategory,
-  findSiteBoundaryFeatureById,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  resolvePartOfSiteMeta,
-  resolveSectionMeta,
   normalizeLayerSelectedIdList,
   applyLayerFilterStateToUiStore,
   refreshLayerPresentation: forceApplyLayerVisibilityAndFilters,
-  focusTargetActions: {
-    workLot: zoomToWorkLot,
-    siteBoundary: zoomToSiteBoundary,
-    partOfSites: zoomToPartOfSite,
-    section: zoomToSection,
-  },
-});
-
-const {
-  focusOnMapWorkLot,
-  focusOnMapSiteBoundary,
-  focusOnMapPartOfSite,
-  focusOnMapSection,
-} = useMapFocusTargetActions({
-  workLotStore,
-  findSiteBoundaryFeatureById,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  resolvePartOfSiteMeta,
-  resolveSectionMeta,
-  toggleFocusOnMapTarget,
 });
 
 const { handleKeydown } = useMapKeyboardShortcuts({
@@ -835,20 +798,14 @@ const { clearAllHighlights: clearAllHighlightsFromWatchers } = useMapPageWatcher
   rebuildInteractions,
   onRoleChange,
   clearHighlightOverride,
-  findSiteBoundaryFeatureById,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  siteBoundarySource,
-  partOfSitesSource,
-  sectionsSource,
+  ...featureLookup,
+  ...mapSources,
   workHighlightSource,
   partOfSitesHighlightSource,
   sectionHighlightSource,
   siteBoundaryHighlightSource,
   selectInteraction,
-  siteBoundarySourceVersion,
-  partOfSitesSourceVersion,
-  sectionSourceVersion,
+  ...sourceVersions,
   applyFocusFromRoute,
 });
 clearAllHighlights = clearAllHighlightsFromWatchers;
