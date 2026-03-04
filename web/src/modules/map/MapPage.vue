@@ -204,6 +204,7 @@ import { useMapCoordinateSelection } from "./composables/useMapCoordinateSelecti
 import { useMapDialogActions } from "./composables/useMapDialogActions";
 import { useMapDialogForms } from "./composables/useMapDialogForms";
 import { useMapEditLayerType } from "./composables/useMapEditLayerType";
+import { useMapAreaOverrides } from "./composables/useMapAreaOverrides";
 import { useMapFeatureRelations } from "./composables/useMapFeatureRelations";
 import { useMapFocusTargetActions } from "./composables/useMapFocusTargetActions";
 import { useMapFocusState } from "./composables/useMapFocusState";
@@ -213,6 +214,7 @@ import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
 import { useMapLayerFilterPanelState } from "./composables/useMapLayerFilterPanelState";
 import { useMapPageLifecycle } from "./composables/useMapPageLifecycle";
+import { useMapPageUiActions } from "./composables/useMapPageUiActions";
 import { useMapPageWatchers } from "./composables/useMapPageWatchers";
 import { useMapSectionPartRelations } from "./composables/useMapSectionPartRelations";
 import { useMapZoomRouteActions } from "./composables/useMapZoomRouteActions";
@@ -489,30 +491,15 @@ const {
   resolveSectionHighlightGeometry,
 });
 
-const getPartAreaOverride = (partId, contractPackage = "") => {
-  const normalizedPartId = normalizePartValue(partId);
-  if (!normalizedPartId || !partOfSitesStore) return null;
-  const normalizedPackage = normalizeContractPackageValue(contractPackage);
-  const override =
-    typeof partOfSitesStore.attributeByPartId === "function"
-      ? partOfSitesStore.attributeByPartId(normalizedPartId, normalizedPackage)
-      : partOfSitesStore.attributeOverrides?.[
-            toContractPhaseScopedId(normalizedPackage, normalizedPartId).toLowerCase()
-          ] || partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
-  return normalizePositiveNumber(override?.area);
-};
-const getSectionAreaOverride = (sectionId, contractPackage = "") => {
-  const normalizedSectionId = normalizeSectionValue(sectionId);
-  if (!normalizedSectionId || !sectionsStore) return null;
-  const normalizedPackage = normalizeContractPackageValue(contractPackage);
-  const override =
-    typeof sectionsStore.attributeBySectionId === "function"
-      ? sectionsStore.attributeBySectionId(normalizedSectionId, normalizedPackage)
-      : sectionsStore.attributeOverrides?.[
-            toContractPhaseScopedId(normalizedPackage, normalizedSectionId).toLowerCase()
-          ] || sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
-  return normalizePositiveNumber(override?.area);
-};
+const { getPartAreaOverride, getSectionAreaOverride } = useMapAreaOverrides({
+  partOfSitesStore,
+  sectionsStore,
+  normalizePartValue,
+  normalizeSectionValue,
+  normalizePositiveNumber,
+  normalizeContractPackageValue,
+  toContractPhaseScopedId,
+});
 
 const {
   layerFilterState,
@@ -749,21 +736,27 @@ const {
   notify: ElMessage,
 });
 
-const handleDrawerClose = () => {
-  uiStore.clearSelection();
-  clearHighlightOverride();
-  clearAllHighlights();
-  if (selectInteraction.value?.getFeatures) {
-    selectInteraction.value.getFeatures().clear();
-  }
-};
-
-const forceApplyLayerVisibilityAndFilters = () => {
-  updateLayerVisibility(basemapLayer.value, labelLayer.value);
-  refreshLayerFilters();
-  updateHighlightVisibility();
-  refreshHighlights();
-};
+let clearAllHighlights = () => {};
+const {
+  handleDrawerClose,
+  forceApplyLayerVisibilityAndFilters,
+  onRoleChange,
+} = useMapPageUiActions({
+  uiStore,
+  clearHighlightOverride,
+  clearAllHighlights: () => clearAllHighlights(),
+  selectInteraction,
+  updateLayerVisibility,
+  basemapLayer,
+  labelLayer,
+  refreshLayerFilters,
+  updateHighlightVisibility,
+  refreshHighlights,
+  canEditLayer,
+  setTool,
+  updateLayerOpacity,
+  rebuildInteractions,
+});
 
 const {
   hasFocusQueryInRoute,
@@ -842,17 +835,6 @@ const {
   toggleFocusOnMapTarget,
 });
 
-const onRoleChange = () => {
-  if (
-    !canEditLayer.value &&
-    ["POLYGON", "POLYGON_CIRCLE", "MODIFY", "DELETE"].includes(uiStore.tool)
-  ) {
-    setTool("PAN");
-  }
-  updateLayerOpacity();
-  rebuildInteractions();
-};
-
 const { handleKeydown } = useMapKeyboardShortcuts({
   uiStore,
   canEditLayer,
@@ -860,7 +842,7 @@ const { handleKeydown } = useMapKeyboardShortcuts({
   cancelTool,
 });
 
-const { clearAllHighlights } = useMapPageWatchers({
+const { clearAllHighlights: clearAllHighlightsFromWatchers } = useMapPageWatchers({
   workLotStore,
   siteBoundaryStore,
   uiStore,
@@ -906,6 +888,7 @@ const { clearAllHighlights } = useMapPageWatchers({
   sectionSourceVersion,
   applyFocusFromRoute,
 });
+clearAllHighlights = clearAllHighlightsFromWatchers;
 
 useMapPageLifecycle({
   uiStore,
