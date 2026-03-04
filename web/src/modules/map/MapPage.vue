@@ -71,6 +71,7 @@
       @focus-work-lot="zoomToWorkLot"
       @focus-site-boundary="zoomToSiteBoundary"
       @focus-part-of-site="zoomToPartOfSite"
+      @focus-section="zoomToSection"
     />
 
     <WorkLotDialog
@@ -1272,6 +1273,7 @@ const selectedPartOfSite = computed(() => {
       : Math.max(0, storedRawArea - effectiveArea);
 
   return {
+    partId: meta.partId,
     id: meta.systemId,
     title: meta.label,
     accessDate: meta.accessDate,

@@ -22,6 +22,14 @@
               {{ selectedWorkLot.status }}
             </el-tag>
             <el-button
+              class="focus-map-btn"
+              type="primary"
+              size="small"
+              @click="emit('focus-work-lot', selectedWorkLot.id)"
+            >
+              Focus on Map
+            </el-button>
+            <el-button
               v-if="canEditWork"
               class="edit-icon-btn"
               type="primary"
@@ -62,6 +70,14 @@
           <div class="header-tags">
             <el-tag effect="plain">Site Boundary</el-tag>
             <el-button
+              class="focus-map-btn"
+              type="primary"
+              size="small"
+              @click="emit('focus-site-boundary', selectedSiteBoundary.id)"
+            >
+              Focus on Map
+            </el-button>
+            <el-button
               v-if="canEditSiteBoundary"
               class="edit-icon-btn"
               type="primary"
@@ -91,6 +107,14 @@
         <div class="header-controls">
           <div class="header-tags">
             <el-tag effect="plain">Part of Site</el-tag>
+            <el-button
+              class="focus-map-btn"
+              type="primary"
+              size="small"
+              @click="emit('focus-part-of-site', selectedPartOfSite.partId)"
+            >
+              Focus on Map
+            </el-button>
           </div>
           <button
             type="button"
@@ -111,6 +135,14 @@
         <div class="header-controls">
           <div class="header-tags">
             <el-tag effect="plain">Section</el-tag>
+            <el-button
+              class="focus-map-btn"
+              type="primary"
+              size="small"
+              @click="emit('focus-section', selectedSection.sectionId)"
+            >
+              Focus on Map
+            </el-button>
           </div>
           <button
             type="button"
@@ -515,6 +547,7 @@ const emit = defineEmits([
   "focus-work-lot",
   "focus-site-boundary",
   "focus-part-of-site",
+  "focus-section",
 ]);
 
 const isOpen = computed(
@@ -718,7 +751,8 @@ watch(
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .header-tags :deep(.el-button) {
@@ -756,6 +790,20 @@ watch(
 
 .edit-icon-btn {
   font-weight: 600;
+}
+
+.focus-map-btn {
+  --el-button-bg-color: var(--accent);
+  --el-button-border-color: var(--accent);
+  --el-button-text-color: #ffffff;
+  --el-button-hover-bg-color: var(--accent-strong);
+  --el-button-hover-border-color: var(--accent-strong);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-active-bg-color: var(--accent-strong);
+  --el-button-active-border-color: var(--accent-strong);
+  --el-button-active-text-color: #ffffff;
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.22);
+  font-weight: 700;
 }
 
 .drawer-body {

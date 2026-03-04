@@ -78,6 +78,7 @@
 - Site Boundary 詳情、進度、關聯 work lot 篩選
 - Part of Sites 詳情（`System ID`、`accessDate`、有效面積；若偵測到跨 part 重疊，會顯示 raw area 與排除重疊面積）
 - Section 詳情（`System ID`、`completionDate`、`related part count`）
+- 右側抽屜 header 支援醒目 `Focus on Map` 按鈕：可快速聚焦到目前 lot/site/part/section（不改變圖層白名單篩選）
 - 抽屜為 non-modal：開啟後仍可點擊地圖、切換其他 lot/site/part 或使用頁面其他導覽按鈕
 - Part of Sites 標題顯示對應 `Part ID`；`System ID` 以公式自動分配（不與標題重名）
 - 點選 Part of Sites 可交互高亮，並在側欄/抽屜顯示明細；高亮與面積均使用「去重疊後有效幾何」，確保不同 part 不重疊（含內含情境，例如 `10A` 會扣除內含 `10B`）
