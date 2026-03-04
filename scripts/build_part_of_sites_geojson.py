@@ -37,6 +37,7 @@ PART10_DUPLICATE_OVERLAP_THRESHOLD = 0.95
 PART10_LINE_CLOSE_TOLERANCE = 3.0
 PART10_MIN_AREA = 1.0
 PART10_10B_VOID_DXF_FILENAMES = {"10b(12).dxf"}
+PART10_10B_LINE_VOID_MIN_AREA = 1000.0
 DEFAULT_TOPOLOGY_CLEAN_GRID = 0.001
 DEFAULT_TOPOLOGY_CLEAN_MIN_AREA = 0.0
 
@@ -726,6 +727,112 @@ def apply_part10_10b_void_cutout(
     )
 
 
+def apply_part10_10b_line_void_cutout(
+    group_label: str,
+    group_output_dir: Path,
+) -> Optional[str]:
+    if group_label != "PART 10":
+        return None
+
+    part_10b_geojson = group_output_dir / "10B.geojson"
+    if not part_10b_geojson.exists():
+        return None
+
+    from shapely.geometry import mapping, shape
+    from shapely.ops import polygonize, unary_union
+    from shapely.validation import make_valid
+
+    payload = json.loads(part_10b_geojson.read_text(encoding="utf-8"))
+    features = payload.get("features")
+    if not isinstance(features, list):
+        return None
+
+    line_geoms: list[object] = []
+    polygon_geoms: list[object] = []
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+        geometry = feature.get("geometry")
+        if not isinstance(geometry, dict):
+            continue
+        geom_type = geometry.get("type")
+        geom = make_valid(shape(geometry))
+        if geom.is_empty:
+            continue
+        if geom_type in ("LineString", "MultiLineString"):
+            if geom.geom_type == "LineString":
+                line_geoms.append(geom)
+            elif geom.geom_type == "MultiLineString":
+                line_geoms.extend([sub for sub in geom.geoms if not sub.is_empty])
+        elif geom_type in ("Polygon", "MultiPolygon"):
+            parts = [part for part in _extract_polygon_parts(geom) if part.area > 0]
+            polygon_geoms.extend(parts)
+
+    if not line_geoms or not polygon_geoms:
+        return None
+
+    polygon_union = make_valid(unary_union(polygon_geoms))
+    if polygon_union.is_empty:
+        return None
+
+    candidate_voids: list[object] = []
+    for face in polygonize(line_geoms):
+        if face.is_empty or face.area < PART10_10B_LINE_VOID_MIN_AREA:
+            continue
+        inside_ratio = face.intersection(polygon_union).area / float(face.area)
+        if inside_ratio < 0.98:
+            continue
+        candidate_voids.append(face)
+
+    if not candidate_voids:
+        return None
+
+    void_union = make_valid(unary_union(candidate_voids))
+    if void_union.is_empty:
+        return None
+
+    new_features: list[dict] = []
+    touched_features = 0
+    removed_area_total = 0.0
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+        geometry = feature.get("geometry")
+        if not isinstance(geometry, dict) or geometry.get("type") not in ("Polygon", "MultiPolygon"):
+            new_features.append(feature)
+            continue
+
+        original_geom = make_valid(shape(geometry))
+        original_parts = [part for part in _extract_polygon_parts(original_geom) if part.area > 0]
+        if not original_parts:
+            continue
+        original = original_parts[0] if len(original_parts) == 1 else unary_union(original_parts)
+
+        clipped = make_valid(original.difference(void_union))
+        clipped_parts = [part for part in _extract_polygon_parts(clipped) if part.area > 0]
+        removed_area = float(original.area)
+        if clipped_parts:
+            clipped_geom = clipped_parts[0] if len(clipped_parts) == 1 else unary_union(clipped_parts)
+            removed_area -= float(clipped_geom.area)
+            feature_copy = dict(feature)
+            feature_copy["geometry"] = mapping(clipped_geom)
+            new_features.append(feature_copy)
+
+        if removed_area > 1e-6:
+            touched_features += 1
+            removed_area_total += removed_area
+
+    if touched_features == 0:
+        return None
+
+    payload["features"] = new_features
+    part_10b_geojson.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return (
+        f"[PART 10] 10B line-void-cutout faces={len(candidate_voids)} "
+        f"touched={touched_features} removed-area={removed_area_total:.3f}"
+    )
+
+
 def _clean_polygonal_geometry(geometry: dict, precision_grid: float) -> Optional[object]:
     from shapely import set_precision
     from shapely.geometry import shape
@@ -1040,6 +1147,20 @@ def convert_group(
     )
     if void_cutout_message:
         print(void_cutout_message)
+        for item in items:
+            if item.get("id") != "10B":
+                continue
+            part_geojson = group_output_dir / "10B.geojson"
+            feature_count, geometry_types = summarize_geojson(part_geojson)
+            item["featureCount"] = feature_count
+            item["geometryTypes"] = geometry_types
+
+    line_void_cutout_message = apply_part10_10b_line_void_cutout(
+        group_label=group_label,
+        group_output_dir=group_output_dir,
+    )
+    if line_void_cutout_message:
+        print(line_void_cutout_message)
         for item in items:
             if item.get("id") != "10B":
                 continue

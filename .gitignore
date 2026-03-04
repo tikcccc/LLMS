@@ -1,2 +1,7 @@
 *.dxf
 reference-doc/
+dxf_drawings/
+node_modules/
+dist/
+.venvs/
+.venv-pyogrio/
