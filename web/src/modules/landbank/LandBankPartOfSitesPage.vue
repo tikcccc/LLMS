@@ -27,7 +27,7 @@
           </el-select>
         </div>
         <div class="action-buttons">
-          <el-button size="small" :loading="loading" @click="loadPartOfSites">
+          <el-button size="small" :loading="loading" @click="reloadPartOfSites">
             Reload
           </el-button>
         </div>
@@ -87,7 +87,16 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import TimeText from "../../components/TimeText.vue";
 import { fuzzyMatchAny } from "../../shared/utils/search";
-import { PART_OF_SITES_GEOJSON_INDEX_URL } from "../../shared/config/mapApi";
+import {
+  PART_OF_SITES_CACHE_TTL_MS,
+  PART_OF_SITES_GEOJSON_INDEX_URL,
+  PART_OF_SITES_INDEX_CONCURRENCY,
+  STATIC_JSON_FETCH_CACHE_MODE,
+} from "../../shared/config/mapApi";
+import {
+  fetchJsonWithCache,
+  mapWithConcurrency,
+} from "../../shared/utils/asyncDataLoader";
 
 const router = useRouter();
 
@@ -120,57 +129,73 @@ const geometryTypeText = (types) => {
   return normalized.length > 0 ? normalized.join(", ") : "—";
 };
 
-const fetchJsonOrThrow = async (url, label) => {
-  const response = await fetch(url, { cache: "no-cache" });
-  if (!response.ok) {
-    throw new Error(`${label} load failed (HTTP ${response.status})`);
+const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
+  try {
+    return await fetchJsonWithCache(url, {
+      ttlMs: PART_OF_SITES_CACHE_TTL_MS,
+      forceRefresh,
+      requestCache: STATIC_JSON_FETCH_CACHE_MODE,
+    });
+  } catch (error) {
+    const status = Number(error?.status);
+    if (Number.isFinite(status)) {
+      throw new Error(`${label} load failed (HTTP ${status})`);
+    }
+    throw new Error(`${label} load failed (${error?.message || "unknown error"})`);
   }
-  return response.json();
 };
 
-const loadPartOfSites = async () => {
+const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
   loading.value = true;
   loadError.value = "";
   try {
     const rootIndex = await fetchJsonOrThrow(
       PART_OF_SITES_GEOJSON_INDEX_URL,
-      "Part of Sites index"
+      "Part of Sites index",
+      { forceRefresh }
     );
     const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
     const rootGeneratedAt = String(rootIndex?.generatedAt || "").trim();
-    const collected = [];
+    const groupedRows = await mapWithConcurrency(
+      groups,
+      async (groupMeta, groupIndex) => {
+        const normalizedGroupMeta = groupMeta || {};
+        const groupLabel =
+          String(normalizedGroupMeta.id || "").trim() || `PART ${groupIndex + 1}`;
+        const groupIndexUrl = String(normalizedGroupMeta.index || "").trim();
+        if (!groupIndexUrl) return [];
 
-    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
-      const groupMeta = groups[groupIndex] || {};
-      const groupLabel = String(groupMeta.id || "").trim() || `PART ${groupIndex + 1}`;
-      const groupIndexUrl = String(groupMeta.index || "").trim();
-      if (!groupIndexUrl) continue;
+        const groupIndexData = await fetchJsonOrThrow(
+          groupIndexUrl,
+          `Part of Sites group index (${groupLabel})`,
+          { forceRefresh }
+        );
+        const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
+        const generatedAt = String(groupIndexData?.generatedAt || rootGeneratedAt).trim();
 
-      const groupIndexData = await fetchJsonOrThrow(
-        groupIndexUrl,
-        `Part of Sites group index (${groupLabel})`
-      );
-      const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
-      const generatedAt = String(groupIndexData?.generatedAt || rootGeneratedAt).trim();
-
-      items.forEach((item) => {
-        const partId = String(item?.id || "").trim();
-        if (!partId) return;
-        const featureCount = Number(item?.featureCount);
-        const geometryTypes = Array.isArray(item?.geometryTypes) ? item.geometryTypes : [];
-        collected.push({
-          key: `${groupLabel}:${partId}`,
-          partId,
-          groupLabel,
-          systemId: buildPartOfSitesSystemId(groupLabel, partId),
-          featureCount:
-            Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
-          geometryTypes,
-          sourceDxf: String(item?.sourceDxf || "").trim(),
-          generatedAt,
+        return items.flatMap((item) => {
+          const partId = String(item?.id || "").trim();
+          if (!partId) return [];
+          const featureCount = Number(item?.featureCount);
+          const geometryTypes = Array.isArray(item?.geometryTypes) ? item.geometryTypes : [];
+          return [
+            {
+              key: `${groupLabel}:${partId}`,
+              partId,
+              groupLabel,
+              systemId: buildPartOfSitesSystemId(groupLabel, partId),
+              featureCount:
+                Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
+              geometryTypes,
+              sourceDxf: String(item?.sourceDxf || "").trim(),
+              generatedAt,
+            },
+          ];
         });
-      });
-    }
+      },
+      { concurrency: PART_OF_SITES_INDEX_CONCURRENCY }
+    );
+    const collected = groupedRows.flat();
 
     rows.value = collected.sort(
       (left, right) =>
@@ -184,6 +209,8 @@ const loadPartOfSites = async () => {
     loading.value = false;
   }
 };
+
+const reloadPartOfSites = () => loadPartOfSites({ forceRefresh: true });
 
 const groupOptions = computed(() => {
   const options = Array.from(new Set(rows.value.map((row) => row.groupLabel))).sort(

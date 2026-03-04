@@ -11,3 +11,8 @@ export const INT_LAND_GEOJSON_URL = "/geojson/int-land.geojson";
 export const PART_OF_SITES_GEOJSON_INDEX_URL = "/data/geojson/part-of-sites/index.json";
 export const SECTIONS_GEOJSON_INDEX_URL = "/data/geojson/sections/index.json";
 export const SITE_BOUNDARY_GEOJSON_URL = "/data/site-boundaries.geojson";
+
+export const STATIC_JSON_FETCH_CACHE_MODE = "default";
+export const PART_OF_SITES_CACHE_TTL_MS = 5 * 60 * 1000;
+export const PART_OF_SITES_INDEX_CONCURRENCY = 4;
+export const PART_OF_SITES_FILE_CONCURRENCY = 8;

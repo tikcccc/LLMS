@@ -30,10 +30,18 @@ import {
 } from "../../../shared/utils/sectionsGeojson";
 import {
   INT_LAND_GEOJSON_URL,
+  PART_OF_SITES_CACHE_TTL_MS,
+  PART_OF_SITES_FILE_CONCURRENCY,
+  PART_OF_SITES_INDEX_CONCURRENCY,
   PART_OF_SITES_GEOJSON_INDEX_URL,
   SECTIONS_GEOJSON_INDEX_URL,
   SITE_BOUNDARY_GEOJSON_URL,
+  STATIC_JSON_FETCH_CACHE_MODE,
 } from "../../../shared/config/mapApi";
+import {
+  fetchJsonWithCache,
+  mapWithConcurrency,
+} from "../../../shared/utils/asyncDataLoader";
 
 export const useMapLayers = ({
   workLotStore,
@@ -860,12 +868,18 @@ export const useMapLayers = ({
   };
 
   const loadPartOfSitesGeojson = async () => {
-    const fetchJsonOrThrow = async (url, label) => {
-      const response = await fetch(url, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load ${label}: ${response.status}`);
+    const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
+      try {
+        return await fetchJsonWithCache(url, {
+          ttlMs: PART_OF_SITES_CACHE_TTL_MS,
+          forceRefresh,
+          requestCache: STATIC_JSON_FETCH_CACHE_MODE,
+        });
+      } catch (error) {
+        const status = Number(error?.status);
+        const detail = Number.isFinite(status) ? status : error?.message || "unknown";
+        throw new Error(`Failed to load ${label}: ${detail}`);
       }
-      return response.json();
     };
 
     // Always prefer the bundled GeoJSON dataset for part-of-sites.
@@ -881,30 +895,44 @@ export const useMapLayers = ({
         "Part of Sites index"
       );
       const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
-      const collectedFeatures = [];
+      const groupRecords = await mapWithConcurrency(
+        groups,
+        async (groupMeta, groupIndex) => {
+          const normalizedGroupMeta = groupMeta || {};
+          const groupLabel =
+            normalizeFeatureId(normalizedGroupMeta.id) ||
+            `PART ${String(groupIndex + 1)}`;
+          const groupIndexUrl = normalizeFeatureId(normalizedGroupMeta.index);
+          if (!groupIndexUrl) return [];
+          const groupIndexData = await fetchJsonOrThrow(
+            groupIndexUrl,
+            `Part of Sites group index (${groupLabel})`
+          );
+          const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
+          return items.map((item, itemIndex) => ({
+            item: item || {},
+            itemIndex,
+            groupLabel,
+          }));
+        },
+        { concurrency: PART_OF_SITES_INDEX_CONCURRENCY }
+      );
 
-      for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
-        const groupMeta = groups[groupIndex] || {};
-        const groupLabel =
-          normalizeFeatureId(groupMeta.id) || `PART ${String(groupIndex + 1)}`;
-        const groupIndexUrl = normalizeFeatureId(groupMeta.index);
-        if (!groupIndexUrl) continue;
+      const fileTasks = groupRecords.flat().filter((record) => {
+        const fileUrl = normalizeFeatureId(record?.item?.file);
+        return Boolean(fileUrl);
+      });
 
-        const groupIndexData = await fetchJsonOrThrow(
-          groupIndexUrl,
-          `Part of Sites group index (${groupLabel})`
-        );
-        const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
-
-        for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
-          const item = items[itemIndex] || {};
+      const featureGroups = await mapWithConcurrency(
+        fileTasks,
+        async (record) => {
+          const item = record.item || {};
           const fileUrl = normalizeFeatureId(item.file);
-          if (!fileUrl) continue;
-
+          if (!fileUrl) return [];
           const partIdFromIndex =
-            normalizePartOfSitesId(item.id) || `PART_${String(itemIndex + 1).padStart(3, "0")}`;
-          const partLabelFromIndex =
-            normalizeFeatureId(item.label) || partIdFromIndex;
+            normalizePartOfSitesId(item.id) ||
+            `PART_${String(record.itemIndex + 1).padStart(3, "0")}`;
+          const partLabelFromIndex = normalizeFeatureId(item.label) || partIdFromIndex;
           const fileData = await fetchJsonOrThrow(
             fileUrl,
             `Part of Sites GeoJSON (${partIdFromIndex})`
@@ -913,18 +941,19 @@ export const useMapLayers = ({
             dataProjection: EPSG_2326,
             featureProjection: EPSG_2326,
           });
-
           features.forEach((feature, featureIndex) => {
             normalizePartOfSitesFeature(feature, {
-              groupLabelHint: groupLabel,
+              groupLabelHint: record.groupLabel,
               partIdHint: partIdFromIndex,
               partLabelHint: partLabelFromIndex,
               featureIndex,
             });
           });
-          collectedFeatures.push(...features);
-        }
-      }
+          return features;
+        },
+        { concurrency: PART_OF_SITES_FILE_CONCURRENCY }
+      );
+      const collectedFeatures = featureGroups.flat();
 
       applyPartOfSitesFeaturesToSource(collectedFeatures);
     } catch (error) {

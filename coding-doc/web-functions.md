@@ -80,6 +80,7 @@
 - Section 詳情（`System ID`、`completionDate`、`related part count`）
 - 右側抽屜 header 支援 `Focus` 按鈕：可快速聚焦到目前 lot/site/part/section，並切換成僅顯示該圖徵（隱藏其他 lot/site/part/section）
 - Work Lot 抽屜狀態標籤移至 title 下方，避免與操作按鈕擠壓
+- `Focus` 為可切換狀態：啟用後按鈕高亮並可改為 `Cancel Focus`；若使用者改動側欄圖層/篩選導致非 focus 顯示，會自動退出 focus 狀態（不提示）
 - 抽屜為 non-modal：開啟後仍可點擊地圖、切換其他 lot/site/part 或使用頁面其他導覽按鈕
 - Part of Sites 標題顯示對應 `Part ID`；`System ID` 以公式自動分配（不與標題重名）
 - 點選 Part of Sites 可交互高亮，並在側欄/抽屜顯示明細；高亮與面積均使用「去重疊後有效幾何」，確保不同 part 不重疊（含內含情境，例如 `10A` 會扣除內含 `10B`）

@@ -25,12 +25,13 @@
           <div class="header-tags">
             <el-button
               class="focus-action-btn"
+              :class="{ active: isWorkLotFocusActive }"
               type="primary"
               text
               size="small"
               @click="emit('focus-map-work-lot', selectedWorkLot.id)"
             >
-              Focus
+              {{ isWorkLotFocusActive ? "Cancel Focus" : "Focus" }}
             </el-button>
             <el-button
               v-if="canEditWork"
@@ -74,12 +75,13 @@
             <el-tag effect="plain">Site Boundary</el-tag>
             <el-button
               class="focus-action-btn"
+              :class="{ active: isSiteBoundaryFocusActive }"
               type="primary"
               text
               size="small"
               @click="emit('focus-map-site-boundary', selectedSiteBoundary.id)"
             >
-              Focus
+              {{ isSiteBoundaryFocusActive ? "Cancel Focus" : "Focus" }}
             </el-button>
             <el-button
               v-if="canEditSiteBoundary"
@@ -113,12 +115,13 @@
             <el-tag effect="plain">Part of Site</el-tag>
             <el-button
               class="focus-action-btn"
+              :class="{ active: isPartOfSiteFocusActive }"
               type="primary"
               text
               size="small"
               @click="emit('focus-map-part-of-site', selectedPartOfSite.partId)"
             >
-              Focus
+              {{ isPartOfSiteFocusActive ? "Cancel Focus" : "Focus" }}
             </el-button>
           </div>
           <button
@@ -142,12 +145,13 @@
             <el-tag effect="plain">Section</el-tag>
             <el-button
               class="focus-action-btn"
+              :class="{ active: isSectionFocusActive }"
               type="primary"
               text
               size="small"
               @click="emit('focus-map-section', selectedSection.sectionId)"
             >
-              Focus
+              {{ isSectionFocusActive ? "Cancel Focus" : "Focus" }}
             </el-button>
           </div>
           <button
@@ -540,6 +544,7 @@ const props = defineProps({
   relatedPartOfSites: { type: Array, default: () => [] },
   workStatusStyle: { type: Function, required: true },
   workCategoryLabel: { type: Function, required: true },
+  focusMapState: { type: Object, default: null },
   canEditWork: { type: Boolean, default: true },
   canEditSiteBoundary: { type: Boolean, default: true },
   canDeleteWork: { type: Boolean, default: true },
@@ -587,6 +592,22 @@ const sectionHeaderTitle = computed(() => {
   if (title) return title;
   return "Section";
 });
+const normalizeFocusToken = (value) => String(value || "").trim().toLowerCase();
+const isFocusMatch = (group, id) => {
+  const currentGroup = String(props.focusMapState?.group || "").trim();
+  if (currentGroup !== group) return false;
+  return normalizeFocusToken(props.focusMapState?.id) === normalizeFocusToken(id);
+};
+const isWorkLotFocusActive = computed(() => isFocusMatch("workLot", props.selectedWorkLot?.id));
+const isSiteBoundaryFocusActive = computed(() =>
+  isFocusMatch("siteBoundary", props.selectedSiteBoundary?.id)
+);
+const isPartOfSiteFocusActive = computed(() =>
+  isFocusMatch("partOfSites", props.selectedPartOfSite?.partId)
+);
+const isSectionFocusActive = computed(() =>
+  isFocusMatch("section", props.selectedSection?.sectionId)
+);
 const defaultActiveCollapse = () => [
   "basic",
   "relatedSites",
@@ -809,6 +830,11 @@ watch(
 
 .focus-action-btn {
   font-weight: 600;
+}
+
+.focus-action-btn.active {
+  background: rgba(15, 118, 110, 0.14);
+  border-radius: 7px;
 }
 
 .drawer-body {

@@ -175,14 +175,18 @@ python scripts/build_part_of_sites_geojson.py
 
 `part-*/index.json` 需記錄每個 part 的檔案路徑、feature 數量、geometry 類型和來源 DXF，方便後續批次驗證與前端按需載入。
 
-### 6.2 Section 聚合命令（PoC：SECTION-1）
+### 6.2 Section 聚合命令（全量 SECTION-1 ~ SECTION-13）
 
-用途：把既有 Part of Sites GeoJSON 聚合成 Section GeoJSON，不重跑 DXF 轉檔。  
-目前預設 PoC：
+用途：把既有 Part of Sites GeoJSON 聚合成 Sections GeoJSON，不重跑 DXF 轉檔。  
+腳本：`scripts/build_sections_geojson.py`
 
-- 來源：`part-1` 的 `1A~1I`
-- 輸出 section：`SECTION-1`
-- 輸出 geometry：單一 `MultiPolygon` feature（目前實測包含 3 塊 polygon）
+預設行為：
+
+1. 依合約映射一次生成 `SECTION-1` 至 `SECTION-13`。  
+2. 每個 section 輸出單一 `MultiPolygon` feature（`SECTION-11/12` 目前為空 placeholder，feature 數為 0）。  
+3. 預設清理：
+- 移除非面（point/line）碎片
+- 移除 polygon interior holes（僅保留外圍面）
 
 執行命令：
 
@@ -190,23 +194,33 @@ python scripts/build_part_of_sites_geojson.py
 python scripts/build_sections_geojson.py
 ```
 
-可覆蓋參數：
+常用選項：
 
 - `--part-root`：Part of Sites 資料根目錄（預設 `web/public/data/geojson/part-of-sites`）
 - `--output-root`：Sections 輸出根目錄（預設 `web/public/data/geojson/sections`）
-- `--section-id`：section id（預設 `SECTION-1`）
-- `--section-label`：section 顯示名稱（預設 `Section 1`）
-- `--section-group`：section 分組（預設 `SECTION 1`）
-- `--parts`：逗號分隔 part id（預設 `1A,1B,1C,1D,1E,1F,1G,1H,1I`）
-- `--source-group-slug`：來源 part 群組資料夾（預設 `part-1`）
+- `--sections`：只生成指定 section（例如 `SECTION-1,SECTION-2`）
+- `--keep-holes`：保留 interior holes（預設關閉）
+- `--min-area`：剔除小於此面積的碎片 polygon（單位 m²）
+- `--no-allow-empty-sections`：若 section 無可用幾何則直接報錯（預設允許空 placeholder）
 
-輸出檔案：
+輸出檔案結構：
 
-- `web/public/data/geojson/sections/index.json`
-- `web/public/data/geojson/sections/section-1/index.json`
-- `web/public/data/geojson/sections/section-1/SECTION-1.geojson`
+```text
+web/public/data/geojson/sections/
+  index.json
+  section-1/
+    index.json
+    SECTION-1.geojson
+  section-2/
+    index.json
+    SECTION-2.geojson
+  ...
+  section-13/
+    index.json
+    SECTION-13.geojson
+```
 
-`SECTION-1.geojson` feature properties 會固定帶出：
+Section feature（有幾何時）properties 固定包含：
 
 - `sectionId` / `sectionLotId`
 - `sectionLotLabel`
@@ -214,6 +228,22 @@ python scripts/build_sections_geojson.py
 - `sectionSystemId`
 - `relatedPartIds`
 - `partCount`
+
+預設合約映射：
+
+- `SECTION-1` -> `1A,1B,1C,1D,1E,1F,1G,1H,1I`
+- `SECTION-2` -> `2A,2B,2C`
+- `SECTION-3` -> `3A`
+- `SECTION-4` -> `4A`
+- `SECTION-5` -> `5A,5B`
+- `SECTION-6` -> `6A`
+- `SECTION-7` -> `7A,7B,7C,7D,7E`
+- `SECTION-8` -> `8A,8B,8C`（Subject to Excision）
+- `SECTION-9` -> `9A,9B,9C,9D`
+- `SECTION-10` -> `10A,10B,10C,10D,10E,10F,10G,10H,10I,10J,10K`（合約文本註記排除 `SECTION-11/12`）
+- `SECTION-11` -> 無 part 映射（Drawing Nos. STP2/C2/63/3000~3414；目前空 placeholder）
+- `SECTION-12` -> 無 part 映射（landscape softworks；目前空 placeholder）
+- `SECTION-13` -> `13A,13B,13C`
 
 ## 7) 轉換品質建議
 

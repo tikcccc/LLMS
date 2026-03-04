@@ -61,6 +61,7 @@
       :related-part-of-sites="selectedSectionRelatedPartOfSites"
       :work-status-style="workStatusStyle"
       :work-category-label="workCategoryLabel"
+      :focus-map-state="focusMapTarget"
       :can-edit-work="canEditWork"
       :can-edit-site-boundary="canEditWork"
       :can-delete-work="canEditWork"
@@ -1571,11 +1572,74 @@ const isIdSelected = (ids = [], id) => {
   return ids.some((item) => String(item || "").trim().toLowerCase() === normalized);
 };
 
+const normalizeFocusToken = (value) => String(value || "").trim().toLowerCase();
+const activeMapFocus = ref(null);
+const focusMapTarget = computed(() =>
+  activeMapFocus.value
+    ? { group: activeMapFocus.value.group, id: activeMapFocus.value.id }
+    : null
+);
+
 const forceApplyLayerVisibilityAndFilters = () => {
   updateLayerVisibility(basemapLayer.value, labelLayer.value);
   refreshLayerFilters();
   updateHighlightVisibility();
   refreshHighlights();
+};
+
+const captureFocusSnapshot = () => ({
+  showIntLand: uiStore.showIntLand,
+  showWorkLots: uiStore.showWorkLots,
+  showWorkLotsBusiness: uiStore.showWorkLotsBusiness,
+  showWorkLotsDomestic: uiStore.showWorkLotsDomestic,
+  showWorkLotsGovernment: uiStore.showWorkLotsGovernment,
+  showSiteBoundary: uiStore.showSiteBoundary,
+  showPartOfSites: uiStore.showPartOfSites,
+  showSections: uiStore.showSections,
+  workLotFilterMode: uiStore.workLotFilterMode,
+  workLotSelectedIds: [...uiStore.workLotSelectedIds],
+  siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,
+  siteBoundarySelectedIds: [...uiStore.siteBoundarySelectedIds],
+  partOfSitesFilterMode: uiStore.partOfSitesFilterMode,
+  partOfSitesSelectedIds: [...uiStore.partOfSitesSelectedIds],
+  sectionFilterMode: uiStore.sectionFilterMode,
+  sectionSelectedIds: [...uiStore.sectionSelectedIds],
+});
+
+const restoreFocusSnapshot = (snapshot) => {
+  if (!snapshot) return;
+  applyLayerFilterState(snapshot);
+  if (typeof snapshot.showWorkLotsBusiness === "boolean") {
+    uiStore.setLayerVisibility("showWorkLotsBusiness", snapshot.showWorkLotsBusiness);
+  }
+  if (typeof snapshot.showWorkLotsDomestic === "boolean") {
+    uiStore.setLayerVisibility("showWorkLotsDomestic", snapshot.showWorkLotsDomestic);
+  }
+  if (typeof snapshot.showWorkLotsGovernment === "boolean") {
+    uiStore.setLayerVisibility("showWorkLotsGovernment", snapshot.showWorkLotsGovernment);
+  }
+  forceApplyLayerVisibilityAndFilters();
+};
+
+let focusStateMutationLock = false;
+const runWithFocusStateLock = (task) => {
+  focusStateMutationLock = true;
+  try {
+    task();
+  } finally {
+    focusStateMutationLock = false;
+  }
+};
+
+const clearActiveMapFocus = ({ restoreSnapshot = false } = {}) => {
+  if (!activeMapFocus.value) return;
+  const snapshot = activeMapFocus.value.snapshot || null;
+  activeMapFocus.value = null;
+  if (restoreSnapshot && snapshot) {
+    runWithFocusStateLock(() => {
+      restoreFocusSnapshot(snapshot);
+    });
+  }
 };
 
 const resetFocusOnMapFilters = () => {
@@ -1588,23 +1652,59 @@ const resetFocusOnMapFilters = () => {
   uiStore.setMapFilterMode("siteBoundary", "all");
   uiStore.setMapFilterMode("partOfSites", "all");
   uiStore.setMapFilterMode("section", "all");
-  forceApplyLayerVisibilityAndFilters();
+};
+
+const applyFocusOnMapTarget = (group, targetId) => {
+  const normalizedTargetId = String(targetId || "").trim();
+  if (!normalizedTargetId) return;
+  runWithFocusStateLock(() => {
+    resetFocusOnMapFilters();
+    if (group === "workLot") {
+      uiStore.setLayerVisibility("showWorkLots", true);
+      uiStore.setMapSelectedIds("workLot", [normalizedTargetId]);
+    }
+    if (group === "siteBoundary") {
+      uiStore.setLayerVisibility("showSiteBoundary", true);
+      uiStore.setMapSelectedIds("siteBoundary", [normalizedTargetId]);
+    }
+    if (group === "partOfSites") {
+      uiStore.setLayerVisibility("showPartOfSites", true);
+      uiStore.setMapSelectedIds("partOfSites", [normalizedTargetId]);
+    }
+    if (group === "section") {
+      uiStore.setLayerVisibility("showSections", true);
+      uiStore.setMapSelectedIds("section", [normalizedTargetId]);
+    }
+    forceApplyLayerVisibilityAndFilters();
+  });
+  if (group === "workLot") zoomToWorkLot(normalizedTargetId);
+  if (group === "siteBoundary") zoomToSiteBoundary(normalizedTargetId);
+  if (group === "partOfSites") zoomToPartOfSite(normalizedTargetId);
+  if (group === "section") zoomToSection(normalizedTargetId);
+};
+
+const toggleFocusOnMapTarget = (group, targetId) => {
+  const normalizedTargetId = String(targetId || "").trim();
+  if (!normalizedTargetId) return;
+  const currentGroup = activeMapFocus.value?.group || "";
+  const currentId = normalizeFocusToken(activeMapFocus.value?.id);
+  if (currentGroup === group && currentId === normalizeFocusToken(normalizedTargetId)) {
+    clearActiveMapFocus({ restoreSnapshot: true });
+    return;
+  }
+  const snapshot = activeMapFocus.value?.snapshot || captureFocusSnapshot();
+  activeMapFocus.value = {
+    group,
+    id: normalizedTargetId,
+    snapshot,
+  };
+  applyFocusOnMapTarget(group, normalizedTargetId);
 };
 
 const focusOnMapWorkLot = (id) => {
   const lot = workLotStore.workLots.find((item) => String(item.id) === String(id || "").trim());
   if (!lot) return;
-  const selectedId = String(lot.id);
-  resetFocusOnMapFilters();
-  uiStore.setLayerVisibility("showWorkLots", true);
-  uiStore.setMapSelectedIds("workLot", [selectedId]);
-  forceApplyLayerVisibilityAndFilters();
-  zoomToWorkLot(selectedId);
-  uiStore.setLayerVisibility("showSiteBoundary", false);
-  uiStore.setLayerVisibility("showPartOfSites", false);
-  uiStore.setLayerVisibility("showSections", false);
-  uiStore.setLayerVisibility("showIntLand", false);
-  forceApplyLayerVisibilityAndFilters();
+  toggleFocusOnMapTarget("workLot", String(lot.id));
 };
 
 const focusOnMapSiteBoundary = (id) => {
@@ -1612,16 +1712,7 @@ const focusOnMapSiteBoundary = (id) => {
   if (!feature) return;
   const selectedId = String(feature.getId() ?? id ?? "").trim();
   if (!selectedId) return;
-  resetFocusOnMapFilters();
-  uiStore.setLayerVisibility("showSiteBoundary", true);
-  uiStore.setMapSelectedIds("siteBoundary", [selectedId]);
-  forceApplyLayerVisibilityAndFilters();
-  zoomToSiteBoundary(selectedId);
-  uiStore.setLayerVisibility("showWorkLots", false);
-  uiStore.setLayerVisibility("showPartOfSites", false);
-  uiStore.setLayerVisibility("showSections", false);
-  uiStore.setLayerVisibility("showIntLand", false);
-  forceApplyLayerVisibilityAndFilters();
+  toggleFocusOnMapTarget("siteBoundary", selectedId);
 };
 
 const focusOnMapPartOfSite = (id) => {
@@ -1630,16 +1721,7 @@ const focusOnMapPartOfSite = (id) => {
   const meta = resolvePartOfSiteMeta(feature);
   const selectedId = String(meta.partId || "").trim();
   if (!selectedId) return;
-  resetFocusOnMapFilters();
-  uiStore.setLayerVisibility("showPartOfSites", true);
-  uiStore.setMapSelectedIds("partOfSites", [selectedId]);
-  forceApplyLayerVisibilityAndFilters();
-  zoomToPartOfSite(selectedId);
-  uiStore.setLayerVisibility("showWorkLots", false);
-  uiStore.setLayerVisibility("showSiteBoundary", false);
-  uiStore.setLayerVisibility("showSections", false);
-  uiStore.setLayerVisibility("showIntLand", false);
-  forceApplyLayerVisibilityAndFilters();
+  toggleFocusOnMapTarget("partOfSites", selectedId);
 };
 
 const focusOnMapSection = (id) => {
@@ -1648,16 +1730,61 @@ const focusOnMapSection = (id) => {
   const meta = resolveSectionMeta(feature);
   const selectedId = String(meta.sectionId || "").trim();
   if (!selectedId) return;
-  resetFocusOnMapFilters();
-  uiStore.setLayerVisibility("showSections", true);
-  uiStore.setMapSelectedIds("section", [selectedId]);
-  forceApplyLayerVisibilityAndFilters();
-  zoomToSection(selectedId);
-  uiStore.setLayerVisibility("showWorkLots", false);
-  uiStore.setLayerVisibility("showSiteBoundary", false);
-  uiStore.setLayerVisibility("showPartOfSites", false);
-  uiStore.setLayerVisibility("showIntLand", false);
-  forceApplyLayerVisibilityAndFilters();
+  toggleFocusOnMapTarget("section", selectedId);
+};
+
+const isSingleFocusSelection = (mode, ids, targetId) => {
+  if (mode !== "custom") return false;
+  const normalizedSelected = normalizeIdList(ids).map((item) => normalizeFocusToken(item));
+  if (normalizedSelected.length !== 1) return false;
+  return normalizedSelected[0] === normalizeFocusToken(targetId);
+};
+
+const isActiveFocusStateValid = () => {
+  if (!activeMapFocus.value) return true;
+  const { group, id } = activeMapFocus.value;
+  const othersHidden =
+    !uiStore.showIntLand &&
+    (group === "workLot" ? true : !uiStore.showWorkLots) &&
+    (group === "siteBoundary" ? true : !uiStore.showSiteBoundary) &&
+    (group === "partOfSites" ? true : !uiStore.showPartOfSites) &&
+    (group === "section" ? true : !uiStore.showSections);
+  if (!othersHidden) return false;
+
+  if (group === "workLot") {
+    if (!uiStore.showWorkLots) return false;
+    if (!isSingleFocusSelection(uiStore.workLotFilterMode, uiStore.workLotSelectedIds, id)) {
+      return false;
+    }
+    const lot = workLotStore.workLots.find(
+      (item) => normalizeFocusToken(item.id) === normalizeFocusToken(id)
+    );
+    if (!lot) return false;
+    const category = normalizeWorkLotCategory(lot.category ?? lot.type);
+    if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) return false;
+    if (category === WORK_LOT_CATEGORY.HH && !uiStore.showWorkLotsDomestic) return false;
+    if (category === WORK_LOT_CATEGORY.GL && !uiStore.showWorkLotsGovernment) return false;
+    return true;
+  }
+  if (group === "siteBoundary") {
+    return (
+      uiStore.showSiteBoundary &&
+      isSingleFocusSelection(uiStore.siteBoundaryFilterMode, uiStore.siteBoundarySelectedIds, id)
+    );
+  }
+  if (group === "partOfSites") {
+    return (
+      uiStore.showPartOfSites &&
+      isSingleFocusSelection(uiStore.partOfSitesFilterMode, uiStore.partOfSitesSelectedIds, id)
+    );
+  }
+  if (group === "section") {
+    return (
+      uiStore.showSections &&
+      isSingleFocusSelection(uiStore.sectionFilterMode, uiStore.sectionSelectedIds, id)
+    );
+  }
+  return false;
 };
 
 const zoomToWorkLot = (id) => {
@@ -1962,6 +2089,36 @@ watch(
     refreshHighlights();
     if (uiStore.tool === "MODIFY" || uiStore.tool === "DELETE") {
       rebuildInteractions();
+    }
+  }
+);
+
+watch(
+  () => [
+    activeMapFocus.value?.group || "",
+    activeMapFocus.value?.id || "",
+    uiStore.showIntLand,
+    uiStore.showWorkLots,
+    uiStore.showWorkLotsBusiness,
+    uiStore.showWorkLotsDomestic,
+    uiStore.showWorkLotsGovernment,
+    uiStore.showSiteBoundary,
+    uiStore.showPartOfSites,
+    uiStore.showSections,
+    uiStore.workLotFilterMode,
+    uiStore.siteBoundaryFilterMode,
+    uiStore.partOfSitesFilterMode,
+    uiStore.sectionFilterMode,
+    uiStore.workLotSelectedIds.join("|"),
+    uiStore.siteBoundarySelectedIds.join("|"),
+    uiStore.partOfSitesSelectedIds.join("|"),
+    uiStore.sectionSelectedIds.join("|"),
+  ],
+  () => {
+    if (!activeMapFocus.value) return;
+    if (focusStateMutationLock) return;
+    if (!isActiveFocusStateValid()) {
+      clearActiveMapFocus({ restoreSnapshot: false });
     }
   }
 );
