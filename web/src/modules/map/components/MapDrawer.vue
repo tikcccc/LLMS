@@ -123,6 +123,16 @@
             >
               {{ isPartOfSiteFocusActive ? "Cancel Focus" : "Focus" }}
             </el-button>
+            <el-button
+              v-if="canEditPartOfSite"
+              class="edit-icon-btn"
+              type="primary"
+              text
+              size="small"
+              @click="emit('edit-part-of-site')"
+            >
+              Edit
+            </el-button>
           </div>
           <button
             type="button"
@@ -152,6 +162,16 @@
               @click="emit('focus-map-section', selectedSection.sectionId)"
             >
               {{ isSectionFocusActive ? "Cancel Focus" : "Focus" }}
+            </el-button>
+            <el-button
+              v-if="canEditSection"
+              class="edit-icon-btn"
+              type="primary"
+              text
+              size="small"
+              @click="emit('edit-section')"
+            >
+              Edit
             </el-button>
           </div>
           <button
@@ -493,6 +513,18 @@
               <span class="info-label">Related Parts</span>
               <span class="info-value">{{ selectedSection.partCount || 0 }}</span>
             </div>
+            <div class="info-item">
+              <span class="info-label">Area</span>
+              <span class="info-value">{{ sectionAreaText }}</span>
+            </div>
+            <div v-if="sectionHasAdjustedArea" class="info-item">
+              <span class="info-label">Raw Area</span>
+              <span class="info-value">{{ sectionRawAreaText }}</span>
+            </div>
+            <div v-if="sectionHasAdjustedArea" class="info-item info-item-wide">
+              <span class="info-label">Excluded Overlap</span>
+              <span class="info-value">{{ sectionOverlapAreaText }}</span>
+            </div>
           </div>
         </el-collapse-item>
 
@@ -571,6 +603,8 @@ const props = defineProps({
   focusMapState: { type: Object, default: null },
   canEditWork: { type: Boolean, default: true },
   canEditSiteBoundary: { type: Boolean, default: true },
+  canEditPartOfSite: { type: Boolean, default: true },
+  canEditSection: { type: Boolean, default: true },
   canDeleteWork: { type: Boolean, default: true },
 });
 
@@ -579,6 +613,8 @@ const emit = defineEmits([
   "delete-work-lot",
   "edit-work-lot",
   "edit-site-boundary",
+  "edit-part-of-site",
+  "edit-section",
   "focus-map-work-lot",
   "focus-map-site-boundary",
   "focus-map-part-of-site",
@@ -680,6 +716,20 @@ const partOfSiteOverlapAreaText = computed(() =>
 const partOfSiteHasAdjustedArea = computed(() => {
   if (!props.selectedPartOfSite?.areaAdjusted) return false;
   const overlapArea = Number(props.selectedPartOfSite?.overlapArea);
+  return Number.isFinite(overlapArea) && overlapArea > 0.01;
+});
+
+const sectionAreaText = computed(() => formatAreaText(props.selectedSection?.area));
+
+const sectionRawAreaText = computed(() => formatAreaText(props.selectedSection?.rawArea));
+
+const sectionOverlapAreaText = computed(() =>
+  formatAreaText(props.selectedSection?.overlapArea)
+);
+
+const sectionHasAdjustedArea = computed(() => {
+  if (!props.selectedSection?.areaAdjusted) return false;
+  const overlapArea = Number(props.selectedSection?.overlapArea);
   return Number.isFinite(overlapArea) && overlapArea > 0.01;
 });
 

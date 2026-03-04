@@ -55,8 +55,8 @@
 - `src/modules/map/MapPage.vue`：地圖操作主工作區
 - `src/modules/landbank/LandBankWorkLotsPage.vue`：Work Lots 清單管理
 - `src/modules/landbank/LandBankSiteBoundariesPage.vue`：Site Boundaries 清單管理
-- `src/modules/landbank/LandBankPartOfSitesPage.vue`：Part of Sites 清單檢視
-- `src/modules/landbank/LandBankSectionsPage.vue`：Sections 清單檢視
+- `src/modules/landbank/LandBankPartOfSitesPage.vue`：Part of Sites 清單檢視與屬性編修（`accessDate`、`area`）
+- `src/modules/landbank/LandBankSectionsPage.vue`：Sections 清單檢視與屬性編修（`completionDate`、`area`）
 - `src/modules/users/UsersPage.vue`：使用者頁（demo 佔位）
 - `src/modules/admin/AdminWorkLots.vue`：管理頁匯出檢視
 
@@ -66,8 +66,8 @@
 - `src/stores/useUiStore.js`：地圖工具狀態、選取狀態、圖層顯示、lot 級白名單篩選狀態
 - `src/stores/useWorkLotStore.js`：Work Lot 集合生命週期（增刪改替換 + ID 正規化）
 - `src/stores/useSiteBoundaryStore.js`：Site Boundary 載入/合併/幾何補全/增刪改
-- `src/stores/usePartOfSitesStore.js`：Part of Sites 地圖編輯快照（FeatureCollection）持久化
-- `src/stores/useSectionsStore.js`：Sections 地圖編輯快照（FeatureCollection）持久化
+- `src/stores/usePartOfSitesStore.js`：Part of Sites 地圖編輯快照（FeatureCollection）與屬性 overrides（`accessDate`、`area`）持久化
+- `src/stores/useSectionsStore.js`：Sections 地圖編輯快照（FeatureCollection）與屬性 overrides（`completionDate`、`area`）持久化
 
 ### 4.4 Domain Utility 層
 
@@ -98,7 +98,7 @@ Map UI 元件分工：
 - 工具列：`MapToolbar.vue`
 - 側欄（lot 級圖層篩選/搜尋/scope 結果）：`MapSidePanel.vue`
 - 詳情抽屜：`MapDrawer.vue`
-- 編輯對話框：`WorkLotDialog.vue`、`SiteBoundaryDialog.vue`
+- 編輯對話框：`WorkLotDialog.vue`、`SiteBoundaryDialog.vue`、`PartOfSiteDialog.vue`、`SectionDialog.vue`
 - 地圖覆蓋元件：`MapLegend.vue`、`MapScaleBar.vue`
 
 ## 5) 目錄結構（重點）
@@ -160,7 +160,7 @@ web/src
 2. `useMapInteractions` 建立對應 OpenLayers interaction。
 3. Draw/Modify 產生新的 geometry。
 4. geometry 依目標圖層（work/site boundary/part of sites/section）做正規化與欄位補齊。
-5. Work Lot / Site Boundary 寫回對應 Pinia store；Part of Sites / Sections 寫回 map source 並快照到 `usePartOfSitesStore` / `useSectionsStore`（localStorage）。
+5. Work Lot / Site Boundary 寫回對應 Pinia store；Part of Sites / Sections 寫回 map source 並快照到 `usePartOfSitesStore` / `useSectionsStore`（localStorage），其日期/面積屬性編修會同步寫入 store overrides。
 6. `MapPage` watchers 觸發圖層刷新、高亮刷新、boundary 彙總狀態刷新；Part of Sites / Sections 可由工具列匯出 GeoJSON。
 
 ### 7.3 KPI/報表流程

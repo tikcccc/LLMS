@@ -66,10 +66,14 @@
       :focus-map-state="focusMapTarget"
       :can-edit-work="canEditWork"
       :can-edit-site-boundary="canEditWork"
+      :can-edit-part-of-site="canEditWork"
+      :can-edit-section="canEditWork"
       :can-delete-work="canEditWork"
       @close="handleDrawerClose"
       @edit-work-lot="editSelectedWorkLot"
       @edit-site-boundary="editSelectedSiteBoundary"
+      @edit-part-of-site="editSelectedPartOfSite"
+      @edit-section="editSelectedSection"
       @delete-work-lot="deleteSelectedWorkLot"
       @focus-map-work-lot="focusOnMapWorkLot"
       @focus-map-site-boundary="focusOnMapSiteBoundary"
@@ -117,6 +121,30 @@
       @confirm="confirmSiteBoundary"
       @cancel="cancelSiteBoundary"
     />
+
+    <PartOfSiteDialog
+      v-model="showPartOfSiteDialog"
+      :title="partOfSiteDialogTitle"
+      :confirm-text="partOfSiteDialogConfirmText"
+      :system-id="partOfSiteDialogSystemId"
+      :part-id="partOfSiteDialogPartId"
+      v-model:accessDate="partOfSiteForm.accessDate"
+      v-model:area="partOfSiteForm.area"
+      @confirm="confirmPartOfSite"
+      @cancel="cancelPartOfSite"
+    />
+
+    <SectionDialog
+      v-model="showSectionDialog"
+      :title="sectionDialogTitle"
+      :confirm-text="sectionDialogConfirmText"
+      :system-id="sectionDialogSystemId"
+      :section-id="sectionDialogSectionId"
+      v-model:completionDate="sectionForm.completionDate"
+      v-model:area="sectionForm.area"
+      @confirm="confirmSection"
+      @cancel="cancelSection"
+    />
   </div>
 </template>
 
@@ -132,6 +160,8 @@ import MapSidePanel from "./components/MapSidePanel.vue";
 import MapDrawer from "./components/MapDrawer.vue";
 import WorkLotDialog from "./components/WorkLotDialog.vue";
 import SiteBoundaryDialog from "./components/SiteBoundaryDialog.vue";
+import PartOfSiteDialog from "./components/PartOfSiteDialog.vue";
+import SectionDialog from "./components/SectionDialog.vue";
 import MapScaleBar from "./components/MapScaleBar.vue";
 import MapLegend from "./components/MapLegend.vue";
 
@@ -157,6 +187,14 @@ import {
   createSiteBoundaryEditForm,
   buildSiteBoundaryUpdatePayload,
 } from "../../shared/utils/siteBoundaryEdit";
+import {
+  createPartOfSiteEditForm,
+  buildPartOfSiteUpdatePayload,
+} from "../../shared/utils/partOfSiteEdit";
+import {
+  createSectionEditForm,
+  buildSectionUpdatePayload,
+} from "../../shared/utils/sectionEdit";
 import { useMapCore } from "./composables/useMapCore";
 import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapLayers } from "./composables/useMapLayers";
@@ -389,6 +427,12 @@ const editingWorkLotId = ref(null);
 const showSiteBoundaryDialog = ref(false);
 const siteBoundaryDialogMode = ref("create");
 const editingSiteBoundaryId = ref("");
+const showPartOfSiteDialog = ref(false);
+const partOfSiteDialogMode = ref("create");
+const editingPartOfSiteId = ref("");
+const showSectionDialog = ref(false);
+const sectionDialogMode = ref("create");
+const editingSectionId = ref("");
 
 const workForm = ref({
   operatorName: "",
@@ -412,6 +456,18 @@ const siteBoundaryForm = ref({
   plannedHandoverDate: "",
   completionDate: "",
   others: "",
+});
+const partOfSiteForm = ref({
+  id: "",
+  partId: "",
+  accessDate: "",
+  area: null,
+});
+const sectionForm = ref({
+  id: "",
+  sectionId: "",
+  completionDate: "",
+  area: null,
 });
 
 const workDialogTitle = computed(() =>
@@ -445,6 +501,22 @@ const siteBoundaryDialogTitle = computed(() =>
 const siteBoundaryDialogConfirmText = computed(() =>
   siteBoundaryDialogMode.value === "edit" ? "Save Changes" : "Save"
 );
+const partOfSiteDialogSystemId = computed(() => String(partOfSiteForm.value.id || ""));
+const partOfSiteDialogPartId = computed(() => String(partOfSiteForm.value.partId || ""));
+const partOfSiteDialogTitle = computed(() =>
+  partOfSiteDialogMode.value === "edit" ? "Edit Part of Site" : "Create Part of Site"
+);
+const partOfSiteDialogConfirmText = computed(() =>
+  partOfSiteDialogMode.value === "edit" ? "Save Changes" : "Save"
+);
+const sectionDialogSystemId = computed(() => String(sectionForm.value.id || ""));
+const sectionDialogSectionId = computed(() => String(sectionForm.value.sectionId || ""));
+const sectionDialogTitle = computed(() =>
+  sectionDialogMode.value === "edit" ? "Edit Section" : "Create Section"
+);
+const sectionDialogConfirmText = computed(() =>
+  sectionDialogMode.value === "edit" ? "Save Changes" : "Save"
+);
 
 const resetWorkForm = () => {
   workForm.value = {
@@ -472,9 +544,25 @@ const resetSiteBoundaryForm = () => {
   siteBoundaryForm.value = createSiteBoundaryEditForm();
 };
 
+const resetPartOfSiteForm = () => {
+  partOfSiteForm.value = createPartOfSiteEditForm();
+};
+
+const resetSectionForm = () => {
+  sectionForm.value = createSectionEditForm();
+};
+
 const resetSiteBoundaryDialogEditState = () => {
   siteBoundaryDialogMode.value = "create";
   editingSiteBoundaryId.value = "";
+};
+const resetPartOfSiteDialogEditState = () => {
+  partOfSiteDialogMode.value = "create";
+  editingPartOfSiteId.value = "";
+};
+const resetSectionDialogEditState = () => {
+  sectionDialogMode.value = "create";
+  editingSectionId.value = "";
 };
 
 const leftTab = ref("layers");
@@ -524,6 +612,12 @@ const buildSectionSystemId = (groupLabel, sectionId, featureIndex = 0) => {
   return `SOW-${normalizePartToken(groupLabel, "SEC")}-${normalizePartToken(sectionId, "UNK")}-${seq}`;
 };
 const normalizeSectionValue = (value) => String(value || "").trim();
+const normalizePositiveNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
 const normalizeIdCollection = (value) => {
   if (Array.isArray(value)) {
     return Array.from(
@@ -541,6 +635,24 @@ const normalizeIdCollection = (value) => {
     );
   }
   return [];
+};
+const getPartAreaOverride = (partId) => {
+  const normalizedPartId = normalizePartValue(partId);
+  if (!normalizedPartId || !partOfSitesStore) return null;
+  const override =
+    typeof partOfSitesStore.attributeByPartId === "function"
+      ? partOfSitesStore.attributeByPartId(normalizedPartId)
+      : partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
+  return normalizePositiveNumber(override?.area);
+};
+const getSectionAreaOverride = (sectionId) => {
+  const normalizedSectionId = normalizeSectionValue(sectionId);
+  if (!normalizedSectionId || !sectionsStore) return null;
+  const override =
+    typeof sectionsStore.attributeBySectionId === "function"
+      ? sectionsStore.attributeBySectionId(normalizedSectionId)
+      : sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
+  return normalizePositiveNumber(override?.area);
 };
 
 const resolvePartOfSiteMeta = (feature, index = 0) => {
@@ -1006,6 +1118,76 @@ const editSelectedSiteBoundary = () => {
   showSiteBoundaryDialog.value = true;
 };
 
+const editSelectedPartOfSite = () => {
+  if (!canEditWork.value || !selectedPartOfSite.value) return;
+  const part = selectedPartOfSite.value;
+  partOfSiteDialogMode.value = "edit";
+  editingPartOfSiteId.value = String(part.partId || "");
+  partOfSiteForm.value = createPartOfSiteEditForm(part);
+  showPartOfSiteDialog.value = true;
+};
+
+const editSelectedSection = () => {
+  if (!canEditWork.value || !selectedSection.value) return;
+  const section = selectedSection.value;
+  sectionDialogMode.value = "edit";
+  editingSectionId.value = String(section.sectionId || "");
+  sectionForm.value = createSectionEditForm(section);
+  showSectionDialog.value = true;
+};
+
+const applyPartOfSiteAttributeUpdate = (partId, payload = {}) => {
+  const normalizedPartId = normalizePartValue(partId);
+  if (!normalizedPartId) return false;
+  const feature = findPartOfSitesFeatureById(normalizedPartId);
+  if (!feature) return false;
+
+  const accessDate = String(payload.accessDate || "").trim();
+  const area = normalizePositiveNumber(payload.area);
+  feature.set("accessDate", accessDate);
+  if (area !== null) {
+    feature.set("area", area);
+  } else {
+    feature.unset("area", true);
+  }
+  feature.set("updatedAt", String(payload.updatedAt || "").trim());
+  feature.set("updatedBy", String(payload.updatedBy || "").trim());
+
+  if (typeof partOfSitesStore.setAttributeOverride === "function") {
+    partOfSitesStore.setAttributeOverride(normalizedPartId, {
+      partId: normalizedPartId,
+      ...payload,
+    });
+  }
+  return true;
+};
+
+const applySectionAttributeUpdate = (sectionId, payload = {}) => {
+  const normalizedSectionId = normalizeSectionValue(sectionId);
+  if (!normalizedSectionId) return false;
+  const feature = findSectionFeatureById(normalizedSectionId);
+  if (!feature) return false;
+
+  const completionDate = String(payload.completionDate || "").trim();
+  const area = normalizePositiveNumber(payload.area);
+  feature.set("completionDate", completionDate);
+  if (area !== null) {
+    feature.set("area", area);
+  } else {
+    feature.unset("area", true);
+  }
+  feature.set("updatedAt", String(payload.updatedAt || "").trim());
+  feature.set("updatedBy", String(payload.updatedBy || "").trim());
+
+  if (typeof sectionsStore.setAttributeOverride === "function") {
+    sectionsStore.setAttributeOverride(normalizedSectionId, {
+      sectionId: normalizedSectionId,
+      ...payload,
+    });
+  }
+  return true;
+};
+
 const startSiteBoundaryDrawCreate = () => {
   siteBoundaryDialogMode.value = "create";
   editingSiteBoundaryId.value = "";
@@ -1371,6 +1553,9 @@ const selectedPartOfSite = computed(() => {
     Number.isFinite(partGeometryStat?.overlapArea) && partGeometryStat.overlapArea >= 0
       ? partGeometryStat.overlapArea
       : Math.max(0, storedRawArea - effectiveArea);
+  const overrideArea = getPartAreaOverride(meta.partId);
+  const featureArea = normalizePositiveNumber(feature.get("area"));
+  const areaValue = overrideArea ?? featureArea ?? effectiveArea;
 
   return {
     partId: meta.partId,
@@ -1379,7 +1564,7 @@ const selectedPartOfSite = computed(() => {
     accessDate: meta.accessDate,
     sectionId: meta.sectionId,
     sectionIds: meta.sectionIds,
-    area: effectiveArea,
+    area: areaValue,
     rawArea: storedRawArea,
     overlapArea,
     areaAdjusted: !!partGeometryStat?.wasAdjusted,
@@ -1408,6 +1593,9 @@ const selectedSection = computed(() => {
     Number.isFinite(sectionGeometryStat?.overlapArea) && sectionGeometryStat.overlapArea >= 0
       ? sectionGeometryStat.overlapArea
       : Math.max(0, storedRawArea - effectiveArea);
+  const overrideArea = getSectionAreaOverride(meta.sectionId);
+  const featureArea = normalizePositiveNumber(feature.get("area"));
+  const areaValue = overrideArea ?? featureArea ?? effectiveArea;
   return {
     id: meta.systemId,
     sectionId: meta.sectionId,
@@ -1417,7 +1605,7 @@ const selectedSection = computed(() => {
     partCount:
       Number.isFinite(partCount) && partCount >= 0 ? partCount : meta.relatedPartIds.length,
     relatedPartIds: meta.relatedPartIds,
-    area: effectiveArea,
+    area: areaValue,
     rawArea: storedRawArea,
     overlapArea,
     areaAdjusted: !!sectionGeometryStat?.wasAdjusted,
@@ -2198,6 +2386,52 @@ const cancelSiteBoundary = () => {
     return;
   }
   cancelDraft();
+};
+
+const confirmPartOfSite = () => {
+  if (partOfSiteDialogMode.value !== "edit") return;
+  if (!editingPartOfSiteId.value) return;
+  const payload = buildPartOfSiteUpdatePayload(partOfSiteForm.value, {
+    updatedBy: authStore.roleName,
+    updatedAt: nowIso(),
+  });
+  const updated = applyPartOfSiteAttributeUpdate(editingPartOfSiteId.value, payload);
+  if (!updated) {
+    ElMessage.error("Failed to update Part of Site.");
+    return;
+  }
+  showPartOfSiteDialog.value = false;
+  resetPartOfSiteDialogEditState();
+  handlePartOfSitesSourceChange();
+  ElMessage.success("Part of Site updated.");
+};
+
+const cancelPartOfSite = () => {
+  showPartOfSiteDialog.value = false;
+  resetPartOfSiteDialogEditState();
+};
+
+const confirmSection = () => {
+  if (sectionDialogMode.value !== "edit") return;
+  if (!editingSectionId.value) return;
+  const payload = buildSectionUpdatePayload(sectionForm.value, {
+    updatedBy: authStore.roleName,
+    updatedAt: nowIso(),
+  });
+  const updated = applySectionAttributeUpdate(editingSectionId.value, payload);
+  if (!updated) {
+    ElMessage.error("Failed to update Section.");
+    return;
+  }
+  showSectionDialog.value = false;
+  resetSectionDialogEditState();
+  handleSectionsSourceChange();
+  ElMessage.success("Section updated.");
+};
+
+const cancelSection = () => {
+  showSectionDialog.value = false;
+  resetSectionDialogEditState();
 };
 
 watch(

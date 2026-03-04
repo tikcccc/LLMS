@@ -304,6 +304,17 @@ export const useMapInteractions = ({
       "accessDate",
       normalizeValue(feature.get("accessDate") || feature.get("access_date"))
     );
+    const areaValue = Number(feature.get("area"));
+    if (!Number.isFinite(areaValue) || areaValue <= 0) {
+      const geometry = feature.getGeometry();
+      const geometryArea =
+        geometry && typeof geometry.getArea === "function"
+          ? Math.abs(geometry.getArea())
+          : 0;
+      if (geometryArea > 0) {
+        feature.set("area", geometryArea);
+      }
+    }
     feature.set("layerType", "partOfSites");
     feature.set("refId", partId);
     return { partId, systemId };
@@ -343,6 +354,17 @@ export const useMapInteractions = ({
       : [];
     feature.set("relatedPartIds", relatedPartIds);
     feature.set("partCount", relatedPartIds.length);
+    const areaValue = Number(feature.get("area"));
+    if (!Number.isFinite(areaValue) || areaValue <= 0) {
+      const geometry = feature.getGeometry();
+      const geometryArea =
+        geometry && typeof geometry.getArea === "function"
+          ? Math.abs(geometry.getArea())
+          : 0;
+      if (geometryArea > 0) {
+        feature.set("area", geometryArea);
+      }
+    }
     feature.set("layerType", "section");
     feature.set("refId", sectionId);
     return { sectionId, systemId };
@@ -832,10 +854,30 @@ export const useMapInteractions = ({
             }
             if (layerType === "partOfSites") {
               feature.setGeometry(featureGeometry);
+              const currentArea = Number(feature.get("area"));
+              if (!Number.isFinite(currentArea) || currentArea <= 0) {
+                const area =
+                  typeof featureGeometry.getArea === "function"
+                    ? Math.abs(featureGeometry.getArea())
+                    : 0;
+                if (area > 0) {
+                  feature.set("area", area);
+                }
+              }
               return;
             }
             if (layerType === "section") {
               feature.setGeometry(featureGeometry);
+              const currentArea = Number(feature.get("area"));
+              if (!Number.isFinite(currentArea) || currentArea <= 0) {
+                const area =
+                  typeof featureGeometry.getArea === "function"
+                    ? Math.abs(featureGeometry.getArea())
+                    : 0;
+                if (area > 0) {
+                  feature.set("area", area);
+                }
+              }
               return;
             }
             const relatedSiteBoundaryIds = findSiteBoundaryIdsForGeometry(

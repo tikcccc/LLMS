@@ -51,6 +51,16 @@
       <el-table-column prop="partId" label="Part ID" width="120" fixed="left" />
       <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
+      <el-table-column label="Access Date" width="130">
+        <template #default="{ row }">
+          <TimeText :value="row.accessDate" mode="date" />
+        </template>
+      </el-table-column>
+      <el-table-column label="Area" min-width="170">
+        <template #default="{ row }">
+          {{ formatArea(row.area) }}
+        </template>
+      </el-table-column>
       <el-table-column label="Features" width="90" align="center">
         <template #default="{ row }">
           {{ row.featureCount }}
@@ -71,23 +81,41 @@
           <TimeText :value="row.generatedAt" mode="date" />
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="120" align="right" fixed="right">
+      <el-table-column label="Actions" width="170" align="right" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
             <el-button link type="primary" @click="viewOnMap(row.partId)">View</el-button>
+            <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
           </div>
         </template>
       </el-table-column>
     </el-table>
+
+    <PartOfSiteDialog
+      v-model="showEditDialog"
+      title="Edit Part of Site"
+      confirm-text="Save"
+      :system-id="editForm.id"
+      :part-id="editForm.partId"
+      v-model:accessDate="editForm.accessDate"
+      v-model:area="editForm.area"
+      @confirm="saveEditPartOfSite"
+      @cancel="cancelEditPartOfSite"
+    />
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
+import PartOfSiteDialog from "../map/components/PartOfSiteDialog.vue";
 import TimeText from "../../components/TimeText.vue";
+import { useAuthStore } from "../../stores/useAuthStore";
+import { usePartOfSitesStore } from "../../stores/usePartOfSitesStore";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import {
+  PART_OF_SITES_FILE_CONCURRENCY,
   PART_OF_SITES_CACHE_TTL_MS,
   PART_OF_SITES_GEOJSON_INDEX_URL,
   PART_OF_SITES_INDEX_CONCURRENCY,
@@ -97,14 +125,24 @@ import {
   fetchJsonWithCache,
   mapWithConcurrency,
 } from "../../shared/utils/asyncDataLoader";
+import { nowIso } from "../../shared/utils/time";
+import {
+  createPartOfSiteEditForm,
+  buildPartOfSiteUpdatePayload,
+} from "../../shared/utils/partOfSiteEdit";
+import { featureCollectionAreaSqm } from "../../shared/utils/geojsonArea";
 
 const router = useRouter();
+const authStore = useAuthStore();
+const partOfSitesStore = usePartOfSitesStore();
 
 const loading = ref(false);
 const loadError = ref("");
 const rows = ref([]);
 const searchQuery = ref("");
 const groupFilter = ref("All");
+const showEditDialog = ref(false);
+const editForm = ref(createPartOfSiteEditForm());
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -127,6 +165,58 @@ const geometryTypeText = (types) => {
     ? types.map((type) => String(type || "").trim()).filter(Boolean)
     : [];
   return normalized.length > 0 ? normalized.join(", ") : "—";
+};
+const formatArea = (area) => {
+  const value = Number(area);
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  const hectare = value / 10000;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${hectare.toFixed(
+    2
+  )} ha)`;
+};
+const normalizeDateText = (value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+const normalizeAreaNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+const resolvePartAttributeOverride = (partId) => {
+  const normalizedPartId = String(partId || "").trim();
+  if (!normalizedPartId) return null;
+  if (typeof partOfSitesStore.attributeByPartId === "function") {
+    return partOfSitesStore.attributeByPartId(normalizedPartId);
+  }
+  return partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
+};
+const applyPartOverridesToRow = (row = {}) => {
+  const override = resolvePartAttributeOverride(row.partId);
+  const accessDate =
+    normalizeDateText(override?.accessDate) || normalizeDateText(row.baseAccessDate);
+  const area = normalizeAreaNumber(override?.area) ?? normalizeAreaNumber(row.baseArea);
+  return {
+    ...row,
+    accessDate,
+    area,
+    updatedAt: String(override?.updatedAt || ""),
+    updatedBy: String(override?.updatedBy || ""),
+  };
+};
+const pickAccessDateFromFeatureCollection = (payload = {}) => {
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  for (const feature of features) {
+    const properties = feature?.properties || {};
+    const value = normalizeDateText(properties.accessDate || properties.access_date);
+    if (value) return value;
+  }
+  return "";
 };
 
 const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
@@ -173,13 +263,32 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
         const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
         const generatedAt = String(groupIndexData?.generatedAt || rootGeneratedAt).trim();
 
-        return items.flatMap((item) => {
-          const partId = String(item?.id || "").trim();
-          if (!partId) return [];
-          const featureCount = Number(item?.featureCount);
-          const geometryTypes = Array.isArray(item?.geometryTypes) ? item.geometryTypes : [];
-          return [
-            {
+        return mapWithConcurrency(
+          items,
+          async (item) => {
+            const partId = String(item?.id || "").trim();
+            if (!partId) return null;
+            const featureCount = Number(item?.featureCount);
+            const geometryTypes = Array.isArray(item?.geometryTypes) ? item.geometryTypes : [];
+            const fileUrl = String(item?.file || "").trim();
+            let baseAccessDate = "";
+            let baseArea = null;
+
+            if (fileUrl) {
+              try {
+                const featureCollection = await fetchJsonOrThrow(
+                  fileUrl,
+                  `Part of Sites GeoJSON (${partId})`,
+                  { forceRefresh }
+                );
+                baseAccessDate = pickAccessDateFromFeatureCollection(featureCollection);
+                baseArea = normalizeAreaNumber(featureCollectionAreaSqm(featureCollection));
+              } catch (error) {
+                console.warn("[part-of-sites] feature file load failed", partId, error);
+              }
+            }
+
+            return applyPartOverridesToRow({
               key: `${groupLabel}:${partId}`,
               partId,
               groupLabel,
@@ -189,13 +298,16 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
               geometryTypes,
               sourceDxf: String(item?.sourceDxf || "").trim(),
               generatedAt,
-            },
-          ];
-        });
+              baseAccessDate,
+              baseArea,
+            });
+          },
+          { concurrency: PART_OF_SITES_FILE_CONCURRENCY }
+        );
       },
       { concurrency: PART_OF_SITES_INDEX_CONCURRENCY }
     );
-    const collected = groupedRows.flat();
+    const collected = groupedRows.flat().filter(Boolean);
 
     rows.value = collected.sort(
       (left, right) =>
@@ -227,6 +339,8 @@ const filteredRows = computed(() =>
         row.partId,
         row.groupLabel,
         row.systemId,
+        row.accessDate,
+        row.area,
         row.sourceDxf,
         row.featureCount,
         geometryTypeText(row.geometryTypes),
@@ -239,6 +353,47 @@ const filteredRows = computed(() =>
 const viewOnMap = (partOfSiteId) => {
   router.push({ path: "/map", query: { partOfSiteId } });
 };
+
+const openEditDialog = (row) => {
+  editForm.value = createPartOfSiteEditForm(row);
+  showEditDialog.value = true;
+};
+
+const saveEditPartOfSite = () => {
+  const partId = String(editForm.value.partId || "").trim();
+  if (!partId) return;
+  const payload = buildPartOfSiteUpdatePayload(editForm.value, {
+    updatedAt: nowIso(),
+    updatedBy: authStore.roleName,
+  });
+  partOfSitesStore.setAttributeOverride(partId, {
+    partId,
+    ...payload,
+  });
+  rows.value = rows.value.map((row) =>
+    String(row.partId || "").trim().toLowerCase() === partId.toLowerCase()
+      ? applyPartOverridesToRow({
+          ...row,
+          baseAccessDate: row.baseAccessDate || row.accessDate || "",
+          baseArea: row.baseArea ?? row.area ?? null,
+        })
+      : row
+  );
+  showEditDialog.value = false;
+  ElMessage.success("Part of Site updated.");
+};
+
+const cancelEditPartOfSite = () => {
+  showEditDialog.value = false;
+};
+
+watch(
+  () => partOfSitesStore.attributeOverrides,
+  () => {
+    rows.value = rows.value.map((row) => applyPartOverridesToRow(row));
+  },
+  { deep: true }
+);
 
 onMounted(() => {
   loadPartOfSites();

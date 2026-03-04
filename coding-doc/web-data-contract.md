@@ -54,6 +54,7 @@
 | `sectionGroup` | string | No | 分組（例如合約/區段分組） |
 | `sectionSystemId` | string | Yes | 系統唯一鍵（幾何修改/快照識別） |
 | `completionDate` | string(`YYYY-MM-DD`) | No | section 完工日期（可空） |
+| `area` | number | No | section 面積（m²，可人工覆寫） |
 | `relatedPartIds` | string[] | No | 關聯 part id 清單（`section(1) -> part(n)`） |
 | `partCount` | number | No | 關聯 part 計數（可由 `relatedPartIds.length` 推導） |
 
@@ -61,8 +62,17 @@
 
 | 欄位 | 型別 | 必填 | 說明 |
 | --- | --- | --- | --- |
+| `accessDate` | string(`YYYY-MM-DD`) | No | part 可進場日期（可空） |
+| `area` | number | No | part 面積（m²，可人工覆寫） |
 | `sectionId` | string | No | 主要關聯 section id |
 | `sectionIds` | string[] | No | 預留多關聯欄位；目前 UI 以第一個值作為主要顯示 |
+
+### Part / Section Attribute Overrides（Pinia Persist）
+
+| Store | Key | 欄位 |
+| --- | --- | --- |
+| `usePartOfSitesStore` | `attributeOverrides[partIdLower]` | `partId`、`accessDate`、`area`、`updatedAt`、`updatedBy` |
+| `useSectionsStore` | `attributeOverrides[sectionIdLower]` | `sectionId`、`completionDate`、`area`、`updatedAt`、`updatedBy` |
 
 ### 關聯同步規則（目前前端實作）
 

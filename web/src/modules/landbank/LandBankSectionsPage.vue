@@ -51,6 +51,16 @@
       <el-table-column prop="sectionId" label="Section ID" width="120" fixed="left" />
       <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
+      <el-table-column label="Completion Date" width="140">
+        <template #default="{ row }">
+          <TimeText :value="row.completionDate" mode="date" />
+        </template>
+      </el-table-column>
+      <el-table-column label="Area" min-width="170">
+        <template #default="{ row }">
+          {{ formatArea(row.area) }}
+        </template>
+      </el-table-column>
       <el-table-column label="Related Parts" width="120" align="center">
         <template #default="{ row }">
           {{ row.partCount }}
@@ -76,31 +86,58 @@
           <TimeText :value="row.generatedAt" mode="date" />
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="120" align="right" fixed="right">
+      <el-table-column label="Actions" width="170" align="right" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
             <el-button link type="primary" @click="viewOnMap(row.sectionId)">View</el-button>
+            <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
           </div>
         </template>
       </el-table-column>
     </el-table>
+
+    <SectionDialog
+      v-model="showEditDialog"
+      title="Edit Section"
+      confirm-text="Save"
+      :system-id="editForm.id"
+      :section-id="editForm.sectionId"
+      v-model:completionDate="editForm.completionDate"
+      v-model:area="editForm.area"
+      @confirm="saveEditSection"
+      @cancel="cancelEditSection"
+    />
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
+import SectionDialog from "../map/components/SectionDialog.vue";
 import TimeText from "../../components/TimeText.vue";
+import { useAuthStore } from "../../stores/useAuthStore";
+import { useSectionsStore } from "../../stores/useSectionsStore";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import { SECTIONS_GEOJSON_INDEX_URL } from "../../shared/config/mapApi";
+import { nowIso } from "../../shared/utils/time";
+import {
+  createSectionEditForm,
+  buildSectionUpdatePayload,
+} from "../../shared/utils/sectionEdit";
+import { featureCollectionAreaSqm } from "../../shared/utils/geojsonArea";
 
 const router = useRouter();
+const authStore = useAuthStore();
+const sectionsStore = useSectionsStore();
 
 const loading = ref(false);
 const loadError = ref("");
 const rows = ref([]);
 const searchQuery = ref("");
 const groupFilter = ref("All");
+const showEditDialog = ref(false);
+const editForm = ref(createSectionEditForm());
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -123,6 +160,58 @@ const geometryTypeText = (types) => {
     ? types.map((type) => String(type || "").trim()).filter(Boolean)
     : [];
   return normalized.length > 0 ? normalized.join(", ") : "—";
+};
+const formatArea = (area) => {
+  const value = Number(area);
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  const hectare = value / 10000;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 0 })} m² (${hectare.toFixed(
+    2
+  )} ha)`;
+};
+const normalizeDateText = (value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+const normalizeAreaNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+const resolveSectionAttributeOverride = (sectionId) => {
+  const normalizedSectionId = String(sectionId || "").trim();
+  if (!normalizedSectionId) return null;
+  if (typeof sectionsStore.attributeBySectionId === "function") {
+    return sectionsStore.attributeBySectionId(normalizedSectionId);
+  }
+  return sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
+};
+const applySectionOverridesToRow = (row = {}) => {
+  const override = resolveSectionAttributeOverride(row.sectionId);
+  const completionDate =
+    normalizeDateText(override?.completionDate) || normalizeDateText(row.baseCompletionDate);
+  const area = normalizeAreaNumber(override?.area) ?? normalizeAreaNumber(row.baseArea);
+  return {
+    ...row,
+    completionDate,
+    area,
+    updatedAt: String(override?.updatedAt || ""),
+    updatedBy: String(override?.updatedBy || ""),
+  };
+};
+const pickCompletionDateFromFeatureCollection = (payload = {}) => {
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  for (const feature of features) {
+    const properties = feature?.properties || {};
+    const value = normalizeDateText(properties.completionDate || properties.completion_date);
+    if (value) return value;
+  }
+  return "";
 };
 
 const fetchJsonOrThrow = async (url, label) => {
@@ -158,25 +247,47 @@ const loadSections = async () => {
       const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
       const generatedAt = String(groupIndexData?.generatedAt || rootGeneratedAt).trim();
 
-      items.forEach((item) => {
+      for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+        const item = items[itemIndex] || {};
         const sectionId = String(item?.id || "").trim();
-        if (!sectionId) return;
+        if (!sectionId) continue;
         const featureCount = Number(item?.featureCount);
         const partCount = Number(item?.partCount);
         const geometryTypes = Array.isArray(item?.geometryTypes) ? item.geometryTypes : [];
-        collected.push({
-          key: `${groupLabel}:${sectionId}`,
-          sectionId,
-          groupLabel,
-          systemId: buildSectionSystemId(groupLabel, sectionId),
-          featureCount:
-            Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
-          partCount: Number.isFinite(partCount) && partCount >= 0 ? partCount : 0,
-          geometryTypes,
-          sourceDxf: String(item?.sourceDxf || "").trim(),
-          generatedAt,
-        });
-      });
+        const fileUrl = String(item?.file || "").trim();
+        let baseCompletionDate = "";
+        let baseArea = null;
+
+        if (fileUrl) {
+          try {
+            const featureCollection = await fetchJsonOrThrow(
+              fileUrl,
+              `Section GeoJSON (${sectionId})`
+            );
+            baseCompletionDate = pickCompletionDateFromFeatureCollection(featureCollection);
+            baseArea = normalizeAreaNumber(featureCollectionAreaSqm(featureCollection));
+          } catch (error) {
+            console.warn("[sections] feature file load failed", sectionId, error);
+          }
+        }
+
+        collected.push(
+          applySectionOverridesToRow({
+            key: `${groupLabel}:${sectionId}`,
+            sectionId,
+            groupLabel,
+            systemId: buildSectionSystemId(groupLabel, sectionId),
+            featureCount:
+              Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
+            partCount: Number.isFinite(partCount) && partCount >= 0 ? partCount : 0,
+            geometryTypes,
+            sourceDxf: String(item?.sourceDxf || "").trim(),
+            generatedAt,
+            baseCompletionDate,
+            baseArea,
+          })
+        );
+      }
     }
 
     rows.value = collected.sort(
@@ -207,6 +318,8 @@ const filteredRows = computed(() =>
         row.sectionId,
         row.groupLabel,
         row.systemId,
+        row.completionDate,
+        row.area,
         row.partCount,
         row.sourceDxf,
         row.featureCount,
@@ -220,6 +333,47 @@ const filteredRows = computed(() =>
 const viewOnMap = (sectionId) => {
   router.push({ path: "/map", query: { sectionId } });
 };
+
+const openEditDialog = (row) => {
+  editForm.value = createSectionEditForm(row);
+  showEditDialog.value = true;
+};
+
+const saveEditSection = () => {
+  const sectionId = String(editForm.value.sectionId || "").trim();
+  if (!sectionId) return;
+  const payload = buildSectionUpdatePayload(editForm.value, {
+    updatedAt: nowIso(),
+    updatedBy: authStore.roleName,
+  });
+  sectionsStore.setAttributeOverride(sectionId, {
+    sectionId,
+    ...payload,
+  });
+  rows.value = rows.value.map((row) =>
+    String(row.sectionId || "").trim().toLowerCase() === sectionId.toLowerCase()
+      ? applySectionOverridesToRow({
+          ...row,
+          baseCompletionDate: row.baseCompletionDate || row.completionDate || "",
+          baseArea: row.baseArea ?? row.area ?? null,
+        })
+      : row
+  );
+  showEditDialog.value = false;
+  ElMessage.success("Section updated.");
+};
+
+const cancelEditSection = () => {
+  showEditDialog.value = false;
+};
+
+watch(
+  () => sectionsStore.attributeOverrides,
+  () => {
+    rows.value = rows.value.map((row) => applySectionOverridesToRow(row));
+  },
+  { deep: true }
+);
 
 onMounted(() => {
   loadSections();

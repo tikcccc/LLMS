@@ -76,9 +76,9 @@
 - 詳情抽屜：
 - Work Lot 詳情、關聯 site boundary、編輯/刪除
 - Site Boundary 詳情、進度、關聯 work lot 篩選
-- Part of Sites 詳情（`System ID`、`accessDate`、有效面積；若偵測到跨 part 重疊，會顯示 raw area 與排除重疊面積）
+- Part of Sites 詳情（`System ID`、`accessDate`、`area`，支援抽屜 `Edit` 編修；若偵測到跨 part 重疊，會顯示 raw area 與排除重疊面積）
 - Part of Sites 抽屜提供 `Related Sections` 清單（沿用 section-part 關聯邏輯），可直接點擊定位 section
-- Section 詳情（`System ID`、`completionDate`、`related part count`）
+- Section 詳情（`System ID`、`completionDate`、`area`、`related part count`，支援抽屜 `Edit` 編修）
 - 右側抽屜 header 支援 `Focus` 按鈕：可快速聚焦到目前 lot/site/part/section，並切換成僅顯示該圖徵（隱藏其他 lot/site/part/section）
 - Work Lot 抽屜狀態標籤移至 title 下方，避免與操作按鈕擠壓
 - `Focus` 為可切換狀態：啟用後按鈕高亮並可改為 `Cancel Focus`；若使用者改動側欄圖層/篩選導致非 focus 顯示，會自動退出 focus 狀態（不提示）；若在 focus 期間收起/關閉側欄，則視同按下 `Cancel Focus`
@@ -143,7 +143,10 @@
 - Part ID
 - Group
 - System ID（以既有規則顯示）
+- Access Date（可編修）
+- Area（可編修）
 - Feature Count / Geometry Types / Source DXF / Generated At
+- `Edit`（dialog）可維護 `accessDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?partOfSiteId=`）
 
 ## `/landbank/sections` Sections 清單
@@ -154,7 +157,10 @@
 - Section ID
 - Group
 - System ID（以既有規則顯示）
+- Completion Date（可編修）
+- Area（可編修）
 - Related Parts / Feature Count / Geometry Types / Source DXF / Generated At
+- `Edit`（dialog）可維護 `completionDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?sectionId=`）
 
 ## `/users` 使用者頁

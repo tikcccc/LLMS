@@ -68,6 +68,20 @@ export const useMapLayers = ({
     if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
     return normalized;
   };
+  const normalizeDateValue = (value) => {
+    const normalized = normalizeFeatureId(value);
+    if (!normalized) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+    const parsed = new Date(normalized);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toISOString().slice(0, 10);
+  };
+  const normalizePositiveNumber = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
   const normalizeIdList = (value) => {
     const list = Array.isArray(value)
       ? value
@@ -138,6 +152,22 @@ export const useMapLayers = ({
     const geometryType = feature?.getGeometry?.()?.getType?.();
     return geometryType === "Polygon" || geometryType === "MultiPolygon";
   };
+  const getPartAttributeOverride = (partId) => {
+    const normalizedPartId = normalizePartOfSitesId(partId);
+    if (!normalizedPartId || !partOfSitesStore) return null;
+    if (typeof partOfSitesStore.attributeByPartId === "function") {
+      return partOfSitesStore.attributeByPartId(normalizedPartId);
+    }
+    return partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
+  };
+  const getSectionAttributeOverride = (sectionId) => {
+    const normalizedSectionId = normalizeSectionId(sectionId);
+    if (!normalizedSectionId || !sectionsStore) return null;
+    if (typeof sectionsStore.attributeBySectionId === "function") {
+      return sectionsStore.attributeBySectionId(normalizedSectionId);
+    }
+    return sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
+  };
 
   const format = new GeoJSON();
 
@@ -183,6 +213,14 @@ export const useMapLayers = ({
         featureIndex,
       });
 
+    const baseAccessDate = normalizeDateValue(feature.get("accessDate") || feature.get("access_date"));
+    const baseArea = normalizePositiveNumber(feature.get("area"));
+    const override = getPartAttributeOverride(lotId);
+    const overrideAccessDate = normalizeDateValue(override?.accessDate);
+    const overrideArea = normalizePositiveNumber(override?.area);
+    const resolvedAccessDate = overrideAccessDate || baseAccessDate;
+    const resolvedArea = overrideArea ?? baseArea;
+
     feature.setId(systemId);
     feature.set("partId", lotId);
     feature.set("partGroup", groupLabel);
@@ -191,10 +229,18 @@ export const useMapLayers = ({
     feature.set("partOfSitesSystemId", systemId);
     feature.set("partOfSitesGroup", groupLabel);
     feature.unset("name", true);
-    feature.set(
-      "accessDate",
-      normalizeFeatureId(feature.get("accessDate") || feature.get("access_date")) || ""
-    );
+    feature.set("accessDate", resolvedAccessDate);
+    if (resolvedArea !== null) {
+      feature.set("area", resolvedArea);
+    } else {
+      feature.unset("area", true);
+    }
+    if (override?.updatedAt) {
+      feature.set("updatedAt", normalizeFeatureId(override.updatedAt) || "");
+    }
+    if (override?.updatedBy) {
+      feature.set("updatedBy", normalizeFeatureId(override.updatedBy) || "");
+    }
     feature.set("layerType", "partOfSites");
     feature.set("refId", lotId);
     return feature;
@@ -239,6 +285,15 @@ export const useMapLayers = ({
         feature?.get("relatedPartLotIds") ||
         feature?.get("partIds")
     );
+    const baseCompletionDate = normalizeDateValue(
+      feature.get("completionDate") || feature.get("completion_date")
+    );
+    const baseArea = normalizePositiveNumber(feature.get("area"));
+    const override = getSectionAttributeOverride(sectionId);
+    const overrideCompletionDate = normalizeDateValue(override?.completionDate);
+    const overrideArea = normalizePositiveNumber(override?.area);
+    const resolvedCompletionDate = overrideCompletionDate || baseCompletionDate;
+    const resolvedArea = overrideArea ?? baseArea;
 
     feature.setId(systemId);
     feature.set("sectionId", sectionId);
@@ -246,10 +301,18 @@ export const useMapLayers = ({
     feature.set("sectionLotId", sectionId);
     feature.set("sectionLotLabel", sectionLabel);
     feature.set("sectionSystemId", systemId);
-    feature.set(
-      "completionDate",
-      normalizeFeatureId(feature.get("completionDate") || feature.get("completion_date")) || ""
-    );
+    feature.set("completionDate", resolvedCompletionDate);
+    if (resolvedArea !== null) {
+      feature.set("area", resolvedArea);
+    } else {
+      feature.unset("area", true);
+    }
+    if (override?.updatedAt) {
+      feature.set("updatedAt", normalizeFeatureId(override.updatedAt) || "");
+    }
+    if (override?.updatedBy) {
+      feature.set("updatedBy", normalizeFeatureId(override.updatedBy) || "");
+    }
     feature.set("relatedPartIds", explicitRelatedPartIds);
     feature.set("partCount", explicitRelatedPartIds.length);
     feature.set("layerType", "section");
