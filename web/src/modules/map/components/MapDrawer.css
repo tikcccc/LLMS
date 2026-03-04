@@ -9,7 +9,7 @@
   background: transparent;
 }
 
-.info-collapse :deep(.el-collapse-item__header) {
+.info-collapse .el-collapse-item__header {
   background: #f8fafc;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -21,12 +21,12 @@
   margin-bottom: 6px;
 }
 
-.info-collapse :deep(.el-collapse-item__wrap) {
+.info-collapse .el-collapse-item__wrap {
   border: none;
   background: transparent;
 }
 
-.info-collapse :deep(.el-collapse-item__content) {
+.info-collapse .el-collapse-item__content {
   padding: 0 0 8px 0;
 }
 
@@ -115,7 +115,7 @@
   white-space: nowrap;
 }
 
-.related-item-head :deep(.el-tag) {
+.related-item-head .el-tag {
   flex-shrink: 0;
 }
 

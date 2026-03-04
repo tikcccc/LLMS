@@ -42,390 +42,96 @@
       />
     </template>
 
-    <div v-if="selectedWorkLot" class="drawer-body">
-      <el-collapse v-model="activeCollapse" class="info-collapse">
-        <el-collapse-item name="basic" title="Basic Information">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">System ID</span>
-              <span class="info-value">{{ selectedWorkLot.id }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Category</span>
-              <span class="info-value">{{ workCategoryLabel(selectedWorkLot.category) }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Responsible Person</span>
-              <span class="info-value">{{ selectedWorkLot.responsiblePerson || "—" }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Area</span>
-              <span class="info-value">{{ workLotAreaText }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Due Date</span>
-              <span class="info-value">
-                <TimeText :value="selectedWorkLot.dueDate" mode="date" />
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Assess Date</span>
-              <span class="info-value">
-                <TimeText :value="selectedWorkLot.assessDate" mode="date" />
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Completion Date</span>
-              <span class="info-value">
-                <TimeText :value="selectedWorkLot.completionDate" mode="date" />
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Float (Months)</span>
-              <span class="info-value">
-                {{
-                  selectedWorkLot.floatMonths === null ||
-                  selectedWorkLot.floatMonths === undefined
-                    ? "—"
-                    : selectedWorkLot.floatMonths
-                }}
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Force Eviction</span>
-              <span class="info-value">{{ selectedWorkLot.forceEviction ? "Yes" : "No" }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Operational Status</span>
-              <span class="info-value">{{ selectedWorkLot.status }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Updated By</span>
-              <span class="info-value">{{ selectedWorkLot.updatedBy || "—" }}</span>
-            </div>
-            <div class="info-item info-item-wide">
-              <span class="info-label">Updated At</span>
-              <span class="info-value">
-                <TimeText :value="selectedWorkLot.updatedAt" />
-              </span>
-            </div>
-          </div>
-        </el-collapse-item>
+    <MapDrawerBodyWork
+      v-if="selectedWorkLot"
+      :selected-work-lot="selectedWorkLot"
+      :related-site-boundaries="relatedSiteBoundaries"
+      :active-collapse="activeCollapse"
+      :work-category-label="workCategoryLabel"
+      :work-lot-area-text="workLotAreaText"
+      :site-boundary-status-style="siteBoundaryStatusStyle"
+      @update:active-collapse="activeCollapse = $event"
+      @focus-site-boundary="emit('focus-site-boundary', $event)"
+    />
 
-        <el-collapse-item name="relatedSites" title="Related Sites">
-          <div v-if="relatedSiteBoundaries.length > 0" class="related-list">
-            <button
-              v-for="site in relatedSiteBoundaries"
-              :key="site.id"
-              class="related-item"
-              type="button"
-              @click="emit('focus-site-boundary', site.id)"
-            >
-              <div class="related-item-head">
-                <span class="related-item-title" :title="site.name || 'Site Boundary'">
-                  {{ site.name || "Site Boundary" }}
-                </span>
-                <el-tag
-                  size="small"
-                  effect="plain"
-                  :style="siteBoundaryStatusStyle(site.statusKey, site.overdue)"
-                >
-                  {{ site.status || "Pending Clearance" }}
-                </el-tag>
-              </div>
-              <div class="related-item-meta">
-                Handover <TimeText :value="site.plannedHandoverDate" mode="date" />
-              </div>
-            </button>
-          </div>
-          <el-empty v-else :image-size="60" description="No related sites" />
-        </el-collapse-item>
+    <MapDrawerBodySiteBoundary
+      v-else-if="selectedSiteBoundary"
+      :selected-site-boundary="selectedSiteBoundary"
+      :related-work-lots="relatedWorkLots"
+      :active-collapse="activeCollapse"
+      :site-boundary-area-text="siteBoundaryAreaText"
+      :site-boundary-progress-percent="siteBoundaryProgressPercent"
+      :site-boundary-status-style="siteBoundaryStatusStyle"
+      :work-status-style="workStatusStyle"
+      :related-work-lots-keyword="relatedWorkLotsKeyword"
+      :related-work-lots-status-filter="relatedWorkLotsStatusFilter"
+      :related-work-lots-due-filter="relatedWorkLotsDueFilter"
+      :related-work-lot-status-options="relatedWorkLotStatusOptions"
+      :related-work-lot-due-options="RELATED_WORKLOT_DUE_OPTIONS"
+      :filtered-related-work-lots="filteredRelatedWorkLots"
+      @update:active-collapse="activeCollapse = $event"
+      @update:related-work-lots-keyword="relatedWorkLotsKeyword = $event"
+      @update:related-work-lots-status-filter="relatedWorkLotsStatusFilter = $event"
+      @update:related-work-lots-due-filter="relatedWorkLotsDueFilter = $event"
+      @focus-work-lot="emit('focus-work-lot', $event)"
+    />
 
-        <el-collapse-item name="description" title="Description">
-          <div class="block-text">{{ selectedWorkLot.description || "—" }}</div>
-        </el-collapse-item>
+    <MapDrawerBodyPartOfSite
+      v-else-if="selectedPartOfSite"
+      :selected-part-of-site="selectedPartOfSite"
+      :related-sections="relatedSections"
+      :active-collapse="activeCollapse"
+      :part-of-site-area-text="partOfSiteAreaText"
+      :part-of-site-raw-area-text="partOfSiteRawAreaText"
+      :part-of-site-overlap-area-text="partOfSiteOverlapAreaText"
+      :part-of-site-has-adjusted-area="partOfSiteHasAdjustedArea"
+      @update:active-collapse="activeCollapse = $event"
+      @focus-section="emit('focus-section', $event)"
+    />
 
-        <el-collapse-item name="remark" title="Remark">
-          <div class="block-text">{{ selectedWorkLot.remark || "—" }}</div>
-        </el-collapse-item>
-      </el-collapse>
+    <MapDrawerBodySection
+      v-else-if="selectedSection"
+      :selected-section="selectedSection"
+      :related-part-of-sites="relatedPartOfSites"
+      :active-collapse="activeCollapse"
+      :section-area-text="sectionAreaText"
+      :section-raw-area-text="sectionRawAreaText"
+      :section-overlap-area-text="sectionOverlapAreaText"
+      :section-has-adjusted-area="sectionHasAdjustedArea"
+      @update:active-collapse="activeCollapse = $event"
+      @focus-part-of-site="emit('focus-part-of-site', $event)"
+    />
 
-      <ConfirmDialog
-        v-model="showDeleteWorkLotConfirm"
-        title="Delete Work Lot"
-        :message="workLotDeleteMessage"
-        description="This action cannot be undone."
-        confirm-text="Delete"
-        confirm-type="danger"
-        @confirm="handleConfirmDeleteWorkLot"
-      />
-    </div>
+    <MapDrawerBodyIntLand
+      v-else-if="selectedIntLand"
+      :selected-int-land="selectedIntLand"
+      :int-land-area-text="intLandAreaText"
+      :active-collapse="activeCollapse"
+      @update:active-collapse="activeCollapse = $event"
+    />
 
-    <div v-else-if="selectedSiteBoundary" class="drawer-body">
-      <el-collapse v-model="activeCollapse" class="info-collapse">
-        <el-collapse-item name="basic" title="Basic Information">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">System ID</span>
-              <span class="info-value">{{ selectedSiteBoundary.id }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Area</span>
-              <span class="info-value">{{ siteBoundaryAreaText }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Handover Date</span>
-              <span class="info-value">
-                <TimeText :value="selectedSiteBoundary.plannedHandoverDate" mode="date" />
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Contract No.</span>
-              <span class="info-value">{{ selectedSiteBoundary.contractNo || "—" }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Future Use</span>
-              <span class="info-value">{{ selectedSiteBoundary.futureUse || "—" }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Management Status</span>
-              <span class="info-value">
-                <el-tag
-                  size="small"
-                  effect="plain"
-                  :style="
-                    siteBoundaryStatusStyle(
-                      selectedSiteBoundary.boundaryStatusKey,
-                      !!selectedSiteBoundary.overdue
-                    )
-                  "
-                >
-                  {{ selectedSiteBoundary.boundaryStatus || "Pending Clearance" }}
-                </el-tag>
-              </span>
-            </div>
-            <div class="info-item info-item-wide">
-              <span class="info-label">Handover Progress</span>
-              <SiteBoundaryProgress
-                :percentage="siteBoundaryProgressPercent"
-                :completed="selectedSiteBoundary.operatorCompleted || 0"
-                :total="selectedSiteBoundary.operatorTotal || 0"
-                :status-key="selectedSiteBoundary.boundaryStatusKey"
-                :overdue="!!selectedSiteBoundary.overdue"
-              />
-            </div>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item name="relatedWorkLots" title="Related Work Lots">
-          <div v-if="relatedWorkLots.length > 0" class="related-filters">
-            <el-input
-              v-model="relatedWorkLotsKeyword"
-              size="small"
-              clearable
-              placeholder="Search related work lots"
-            />
-            <el-select v-model="relatedWorkLotsStatusFilter" size="small">
-              <el-option
-                v-for="option in relatedWorkLotStatusOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-            <el-select v-model="relatedWorkLotsDueFilter" size="small">
-              <el-option
-                v-for="option in RELATED_WORKLOT_DUE_OPTIONS"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </div>
-
-          <div v-if="filteredRelatedWorkLots.length > 0" class="related-list">
-            <button
-              v-for="lot in filteredRelatedWorkLots"
-              :key="lot.id"
-              class="related-item"
-              type="button"
-              @click="emit('focus-work-lot', lot.id)"
-            >
-              <div class="related-item-head">
-                <span class="related-item-title" :title="lot.operatorName || 'Work Lot'">
-                  {{ lot.operatorName || "Work Lot" }}
-                </span>
-                <el-tag
-                  size="small"
-                  effect="plain"
-                  :style="workStatusStyle(lot.status, lot.dueDate)"
-                >
-                  {{ lot.status }}
-                </el-tag>
-              </div>
-              <div class="related-item-meta">
-                Due <TimeText :value="lot.dueDate" mode="date" />
-              </div>
-            </button>
-          </div>
-          <el-empty
-            v-else
-            :image-size="60"
-            :description="
-              relatedWorkLots.length > 0
-                ? 'No related work lots match filters'
-                : 'No related work lots'
-            "
-          />
-        </el-collapse-item>
-      </el-collapse>
-    </div>
-
-    <div v-else-if="selectedPartOfSite" class="drawer-body">
-      <el-collapse v-model="activeCollapse" class="info-collapse">
-        <el-collapse-item name="basic" title="Basic Information">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">System ID</span>
-              <span class="info-value">{{ selectedPartOfSite.id }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Access Date</span>
-              <span class="info-value">
-                <TimeText :value="selectedPartOfSite.accessDate" mode="date" empty="—" />
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Area</span>
-              <span class="info-value">{{ partOfSiteAreaText }}</span>
-            </div>
-            <div v-if="partOfSiteHasAdjustedArea" class="info-item">
-              <span class="info-label">Raw Area</span>
-              <span class="info-value">{{ partOfSiteRawAreaText }}</span>
-            </div>
-            <div v-if="partOfSiteHasAdjustedArea" class="info-item info-item-wide">
-              <span class="info-label">Excluded Overlap</span>
-              <span class="info-value">{{ partOfSiteOverlapAreaText }}</span>
-            </div>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item name="relatedSections" title="Related Sections">
-          <div v-if="relatedSections.length > 0" class="related-list">
-            <button
-              v-for="section in relatedSections"
-              :key="section.id"
-              class="related-item"
-              type="button"
-              @click="emit('focus-section', section.id)"
-            >
-              <div class="related-item-head">
-                <span class="related-item-title" :title="section.title || section.id">
-                  {{ section.title || section.id }}
-                </span>
-                <el-tag size="small" effect="plain">Section</el-tag>
-              </div>
-              <div class="related-item-meta">
-                {{ section.group || "—" }} · {{ section.systemId || "—" }}
-              </div>
-            </button>
-          </div>
-          <el-empty v-else :image-size="60" description="No related sections" />
-        </el-collapse-item>
-      </el-collapse>
-    </div>
-
-    <div v-else-if="selectedSection" class="drawer-body">
-      <el-collapse v-model="activeCollapse" class="info-collapse">
-        <el-collapse-item name="basic" title="Basic Information">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">System ID</span>
-              <span class="info-value">{{ selectedSection.id }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Completion Date</span>
-              <span class="info-value">
-                <TimeText :value="selectedSection.completionDate" mode="date" empty="—" />
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Related Parts</span>
-              <span class="info-value">{{ selectedSection.partCount || 0 }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Area</span>
-              <span class="info-value">{{ sectionAreaText }}</span>
-            </div>
-            <div v-if="sectionHasAdjustedArea" class="info-item">
-              <span class="info-label">Raw Area</span>
-              <span class="info-value">{{ sectionRawAreaText }}</span>
-            </div>
-            <div v-if="sectionHasAdjustedArea" class="info-item info-item-wide">
-              <span class="info-label">Excluded Overlap</span>
-              <span class="info-value">{{ sectionOverlapAreaText }}</span>
-            </div>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item name="relatedParts" title="Related Part of Sites">
-          <div v-if="relatedPartOfSites.length > 0" class="related-list">
-            <button
-              v-for="part in relatedPartOfSites"
-              :key="part.id"
-              class="related-item"
-              type="button"
-              @click="emit('focus-part-of-site', part.id)"
-            >
-              <div class="related-item-head">
-                <span class="related-item-title" :title="part.title || part.id">
-                  {{ part.title || part.id }}
-                </span>
-                <el-tag size="small" effect="plain">Part of Site</el-tag>
-              </div>
-              <div class="related-item-meta">
-                {{ part.group || "—" }} · {{ part.systemId || "—" }}
-              </div>
-            </button>
-          </div>
-          <el-empty v-else :image-size="60" description="No related part of sites" />
-        </el-collapse-item>
-      </el-collapse>
-    </div>
-
-    <div v-else-if="selectedIntLand" class="drawer-body">
-      <el-collapse v-model="activeCollapse" class="info-collapse">
-        <el-collapse-item name="basic" title="Basic Information">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">ID</span>
-              <span class="info-value">{{ selectedIntLand.id }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Source Layer</span>
-              <span class="info-value">{{ selectedIntLand.layer }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Entity</span>
-              <span class="info-value">{{ selectedIntLand.entity }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Area</span>
-              <span class="info-value">{{ intLandAreaText }}</span>
-            </div>
-          </div>
-        </el-collapse-item>
-      </el-collapse>
-    </div>
+    <ConfirmDialog
+      v-if="selectedWorkLot"
+      v-model="showDeleteWorkLotConfirm"
+      title="Delete Work Lot"
+      :message="workLotDeleteMessage"
+      description="This action cannot be undone."
+      confirm-text="Delete"
+      confirm-type="danger"
+      @confirm="handleConfirmDeleteWorkLot"
+    />
   </el-drawer>
 </template>
 
 <script setup>
-import TimeText from "../../../components/TimeText.vue";
 import ConfirmDialog from "../../../components/ConfirmDialog.vue";
-import SiteBoundaryProgress from "../../../components/SiteBoundaryProgress.vue";
 import { siteBoundaryStatusStyle } from "../utils/siteBoundaryStatusStyle";
 import { useMapDrawerState } from "./composables/useMapDrawerState";
+import MapDrawerBodyIntLand from "./MapDrawerBodyIntLand.vue";
+import MapDrawerBodyPartOfSite from "./MapDrawerBodyPartOfSite.vue";
+import MapDrawerBodySection from "./MapDrawerBodySection.vue";
+import MapDrawerBodySiteBoundary from "./MapDrawerBodySiteBoundary.vue";
+import MapDrawerBodyWork from "./MapDrawerBodyWork.vue";
 import MapDrawerHeader from "./MapDrawerHeader.vue";
 
 const props = defineProps({
@@ -464,6 +170,7 @@ const emit = defineEmits([
   "focus-part-of-site",
   "focus-section",
 ]);
+
 const {
   isOpen,
   workLotHeaderTitle,
@@ -500,4 +207,4 @@ const {
 } = useMapDrawerState({ props, emit });
 </script>
 
-<style scoped src="./MapDrawer.css"></style>
+<style src="./MapDrawer.css"></style>
