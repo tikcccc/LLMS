@@ -149,7 +149,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import "ol/ol.css";
 import { ElMessage } from "element-plus";
@@ -201,20 +201,26 @@ import {
 } from "../../shared/utils/sectionEdit";
 import { useMapCore } from "./composables/useMapCore";
 import { useMapCoordinateSelection } from "./composables/useMapCoordinateSelection";
+import { useMapDialogActions } from "./composables/useMapDialogActions";
 import { useMapDialogForms } from "./composables/useMapDialogForms";
+import { useMapEditLayerType } from "./composables/useMapEditLayerType";
+import { useMapFeatureRelations } from "./composables/useMapFeatureRelations";
 import { useMapFocusTargetActions } from "./composables/useMapFocusTargetActions";
 import { useMapFocusState } from "./composables/useMapFocusState";
 import { useMapHighlights } from "./composables/useMapHighlights";
+import { useMapKeyboardShortcuts } from "./composables/useMapKeyboardShortcuts";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
 import { useMapLayerFilterPanelState } from "./composables/useMapLayerFilterPanelState";
+import { useMapPageLifecycle } from "./composables/useMapPageLifecycle";
+import { useMapPageWatchers } from "./composables/useMapPageWatchers";
 import { useMapSectionPartRelations } from "./composables/useMapSectionPartRelations";
 import { useMapZoomRouteActions } from "./composables/useMapZoomRouteActions";
 import { useMapScopeResults } from "./composables/useMapScopeResults";
 import { useMapScopeState } from "./composables/useMapScopeState";
 import { useMapSelectionDetails } from "./composables/useMapSelectionDetails";
+import { useMapSourceDataActions } from "./composables/useMapSourceDataActions";
 import { EPSG_2326 } from "./ol/projection";
-import { findSiteBoundaryIdsForGeometry } from "./utils/siteBoundaryMatch";
 import {
   createPartOfSiteMetaResolver,
   createSectionMetaResolver,
@@ -241,8 +247,11 @@ const canEditWork = computed(
   () => authStore.role === "SITE_ADMIN" || authStore.role === "SITE_OFFICER"
 );
 const canEditLayer = computed(() => canEditWork.value);
-const editLayerType = ref("work");
-const activeLayerType = computed(() => (canEditWork.value ? editLayerType.value : null));
+const { activeLayerType, setActiveLayerType } = useMapEditLayerType({
+  canEditWork,
+  canEditLayer,
+  uiStore,
+});
 
 const selectedWorkLot = computed(
   () => workLotStore.workLots.find((lot) => lot.id === uiStore.selectedWorkLotId) || null
@@ -305,45 +314,6 @@ const {
   siteBoundaryStore,
   partOfSitesStore,
   sectionsStore,
-});
-
-const {
-  getPartGeometryStatById,
-  getSectionGeometryStatById,
-  resolvePartHighlightGeometry,
-  resolveSectionHighlightGeometry,
-  syncSectionPartRelations,
-} = useMapSectionPartRelations({
-  sectionsSource,
-  partOfSitesSource,
-  resolvePartOfSiteMeta: (...args) => resolvePartOfSiteMeta(...args),
-  resolveSectionMeta: (...args) => resolveSectionMeta(...args),
-  normalizeIdCollection,
-  minOverlapArea: 1.0,
-});
-
-const {
-  workHighlightSource,
-  workHighlightLayer,
-  partOfSitesHighlightSource,
-  partOfSitesHighlightLayer,
-  sectionHighlightSource,
-  sectionHighlightLayer,
-  siteBoundaryHighlightSource,
-  siteBoundaryHighlightLayer,
-  refreshHighlights,
-  setHighlightFeature,
-  clearHighlightOverride,
-  updateHighlightVisibility,
-} = useMapHighlights({
-  createWorkFeature,
-  selectedWorkLot,
-  uiStore,
-  partOfSitesSource,
-  sectionsSource,
-  siteBoundarySource,
-  resolvePartOfSitesHighlightGeometry: resolvePartHighlightGeometry,
-  resolveSectionHighlightGeometry,
 });
 
 const hasDraft = ref(false);
@@ -455,6 +425,20 @@ const resolvePartOfSiteMeta = createPartOfSiteMetaResolver({
 const resolveSectionMeta = createSectionMetaResolver({
   resolveContractPackageValue,
 });
+const {
+  getPartGeometryStatById,
+  getSectionGeometryStatById,
+  resolvePartHighlightGeometry,
+  resolveSectionHighlightGeometry,
+  syncSectionPartRelations,
+} = useMapSectionPartRelations({
+  sectionsSource,
+  partOfSitesSource,
+  resolvePartOfSiteMeta,
+  resolveSectionMeta,
+  normalizeIdCollection,
+  minOverlapArea: 1.0,
+});
 const { resolvePartSelectionByCoordinate, resolveSectionSelectionByCoordinate } =
   useMapCoordinateSelection({
     partOfSitesSource,
@@ -464,6 +448,46 @@ const { resolvePartSelectionByCoordinate, resolveSectionSelectionByCoordinate } 
     getPartGeometryStatById,
     getSectionGeometryStatById,
   });
+const {
+  resolveRelatedSiteBoundaryIdsByGeometryObject,
+  syncWorkLotBoundaryLinks,
+  withRelatedIdFallback,
+  findSiteBoundaryFeatureById,
+  findPartOfSitesFeatureById,
+  findSectionFeatureById,
+} = useMapFeatureRelations({
+  format,
+  projectionCode: EPSG_2326,
+  siteBoundarySource,
+  siteBoundaryStore,
+  workLotStore,
+  getSiteBoundaryFeatureById,
+  getPartOfSitesFeatureById,
+  getSectionFeatureById,
+});
+const {
+  workHighlightSource,
+  workHighlightLayer,
+  partOfSitesHighlightSource,
+  partOfSitesHighlightLayer,
+  sectionHighlightSource,
+  sectionHighlightLayer,
+  siteBoundaryHighlightSource,
+  siteBoundaryHighlightLayer,
+  refreshHighlights,
+  setHighlightFeature,
+  clearHighlightOverride,
+  updateHighlightVisibility,
+} = useMapHighlights({
+  createWorkFeature,
+  selectedWorkLot,
+  uiStore,
+  partOfSitesSource,
+  sectionsSource,
+  siteBoundarySource,
+  resolvePartOfSitesHighlightGeometry: resolvePartHighlightGeometry,
+  resolveSectionHighlightGeometry,
+});
 
 const getPartAreaOverride = (partId, contractPackage = "") => {
   const normalizedPartId = normalizePartValue(partId);
@@ -519,222 +543,35 @@ const {
   workLotCategory: WORK_LOT_CATEGORY,
 });
 
-const setActiveLayerType = (layerType) => {
-  if (!canEditLayer.value) return;
-  if (!["work", "siteBoundary", "partOfSites", "section"].includes(layerType)) return;
-  editLayerType.value = layerType;
-  if (layerType === "siteBoundary") {
-    if (!uiStore.showSiteBoundary) {
-      uiStore.setLayerVisibility("showSiteBoundary", true);
-    }
-    return;
-  }
-  if (layerType === "section") {
-    if (!uiStore.showSections) {
-      uiStore.setLayerVisibility("showSections", true);
-    }
-    return;
-  }
-  if (layerType === "partOfSites") {
-    if (!uiStore.showPartOfSites) {
-      uiStore.setLayerVisibility("showPartOfSites", true);
-    }
-    return;
-  }
-  if (!uiStore.showWorkLots) {
-    uiStore.setLayerVisibility("showWorkLots", true);
-    uiStore.setLayerVisibility("showWorkLotsBusiness", true);
-    uiStore.setLayerVisibility("showWorkLotsDomestic", true);
-    uiStore.setLayerVisibility("showWorkLotsGovernment", true);
-  }
-};
-
-const deleteSelectedWorkLot = () => {
-  if (!selectedWorkLot.value) return;
-  const workLotId = selectedWorkLot.value.id;
-  workLotStore.removeWorkLot(workLotId);
-  uiStore.clearSelection();
-  clearHighlightOverride();
-  refreshHighlights();
-};
-
-const editSelectedWorkLot = () => {
-  if (!canEditWork.value || !selectedWorkLot.value) return;
-  const lot = selectedWorkLot.value;
-  workDialogMode.value = "edit";
-  editingWorkLotId.value = lot.id;
-  workForm.value = createWorkLotEditForm(lot, {
-    relatedSiteBoundaryIds: withRelatedIdFallback(
-      resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry),
-      lot.relatedSiteBoundaryIds
-    ),
-  });
-  showWorkDialog.value = true;
-};
-
-const editSelectedSiteBoundary = () => {
-  if (!canEditWork.value || !selectedSiteBoundary.value) return;
-  const boundary = selectedSiteBoundary.value;
-  siteBoundaryDialogMode.value = "edit";
-  editingSiteBoundaryId.value = String(boundary.id || "");
-  siteBoundaryForm.value = createSiteBoundaryEditForm(boundary);
-  showSiteBoundaryDialog.value = true;
-};
-
-const editSelectedPartOfSite = () => {
-  if (!canEditWork.value || !selectedPartOfSite.value) return;
-  const part = selectedPartOfSite.value;
-  partOfSiteDialogMode.value = "edit";
-  editingPartOfSiteId.value = String(part.partId || "");
-  editingPartOfSiteContractPackage.value = normalizeContractPackageValue(part.contractPackage);
-  partOfSiteForm.value = createPartOfSiteEditForm(part);
-  showPartOfSiteDialog.value = true;
-};
-
-const editSelectedSection = () => {
-  if (!canEditWork.value || !selectedSection.value) return;
-  const section = selectedSection.value;
-  sectionDialogMode.value = "edit";
-  editingSectionId.value = String(section.sectionId || "");
-  editingSectionContractPackage.value = normalizeContractPackageValue(section.contractPackage);
-  sectionForm.value = createSectionEditForm(section);
-  showSectionDialog.value = true;
-};
-
-const applyPartOfSiteAttributeUpdate = (
-  partId,
-  payload = {},
-  { contractPackage = "" } = {}
-) => {
-  const normalizedPartId = normalizePartValue(partId);
-  if (!normalizedPartId) return false;
-  const feature = findPartOfSitesFeatureById(normalizedPartId, contractPackage);
-  if (!feature) return false;
-  const resolvedPackage = resolveContractPackageValue([
-    contractPackage,
-    feature?.get("contractPackage"),
-    feature?.get("contract_package"),
-    feature?.get("phase"),
-    feature?.get("package"),
-  ]);
-
-  const accessDate = String(payload.accessDate || "").trim();
-  const area = normalizePositiveNumber(payload.area);
-  feature.set("accessDate", accessDate);
-  if (area !== null) {
-    feature.set("area", area);
-  } else {
-    feature.unset("area", true);
-  }
-  feature.set("updatedAt", String(payload.updatedAt || "").trim());
-  feature.set("updatedBy", String(payload.updatedBy || "").trim());
-
-  if (typeof partOfSitesStore.setAttributeOverride === "function") {
-    partOfSitesStore.setAttributeOverride(normalizedPartId, {
-      partId: normalizedPartId,
-      contractPackage: resolvedPackage,
-      ...payload,
-    }, resolvedPackage);
-  }
-  return true;
-};
-
-const applySectionAttributeUpdate = (
-  sectionId,
-  payload = {},
-  { contractPackage = "" } = {}
-) => {
-  const normalizedSectionId = normalizeSectionValue(sectionId);
-  if (!normalizedSectionId) return false;
-  const feature = findSectionFeatureById(normalizedSectionId, contractPackage);
-  if (!feature) return false;
-  const resolvedPackage = resolveContractPackageValue([
-    contractPackage,
-    feature?.get("contractPackage"),
-    feature?.get("contract_package"),
-    feature?.get("phase"),
-    feature?.get("package"),
-  ]);
-
-  const completionDate = String(payload.completionDate || "").trim();
-  const area = normalizePositiveNumber(payload.area);
-  feature.set("completionDate", completionDate);
-  if (area !== null) {
-    feature.set("area", area);
-  } else {
-    feature.unset("area", true);
-  }
-  feature.set("updatedAt", String(payload.updatedAt || "").trim());
-  feature.set("updatedBy", String(payload.updatedBy || "").trim());
-
-  if (typeof sectionsStore.setAttributeOverride === "function") {
-    sectionsStore.setAttributeOverride(normalizedSectionId, {
-      sectionId: normalizedSectionId,
-      contractPackage: resolvedPackage,
-      ...payload,
-    }, resolvedPackage);
-  }
-  return true;
-};
-
 const startSiteBoundaryDrawCreate = () => {
   siteBoundaryDialogMode.value = "create";
   editingSiteBoundaryId.value = "";
   resetSiteBoundaryForm();
 };
 
-const canExportPartOfSites = computed(() => {
-  partOfSitesSourceVersion.value;
-  return (partOfSitesSource?.getFeatures().length || 0) > 0;
+const {
+  canExportPartOfSites,
+  canExportSections,
+  handlePartOfSitesSourceChange,
+  handleSectionsSourceChange,
+  handleExportPartOfSites,
+  handleExportSections,
+} = useMapSourceDataActions({
+  partOfSitesSourceVersion,
+  sectionSourceVersion,
+  partOfSitesSource,
+  sectionsSource,
+  persistPartOfSitesSnapshot,
+  persistSectionsSnapshot,
+  syncSectionPartRelations,
+  sanitizeMapFilterSelections,
+  refreshLayerFilters,
+  updateHighlightVisibility,
+  refreshHighlights,
+  exportPartOfSitesSnapshot,
+  exportSectionsSnapshot,
+  notify: ElMessage,
 });
-const canExportSections = computed(() => {
-  sectionSourceVersion.value;
-  return (sectionsSource?.getFeatures().length || 0) > 0;
-});
-
-const handlePartOfSitesSourceChange = () => {
-  persistPartOfSitesSnapshot({ source: "map-edit" });
-  partOfSitesSourceVersion.value += 1;
-  syncSectionPartRelations();
-  sectionSourceVersion.value += 1;
-  sanitizeMapFilterSelections();
-  refreshLayerFilters();
-  updateHighlightVisibility();
-  refreshHighlights();
-};
-const handleSectionsSourceChange = () => {
-  persistSectionsSnapshot({ source: "map-edit" });
-  sectionSourceVersion.value += 1;
-  syncSectionPartRelations();
-  partOfSitesSourceVersion.value += 1;
-  sanitizeMapFilterSelections();
-  refreshLayerFilters();
-  updateHighlightVisibility();
-  refreshHighlights();
-};
-
-const handleExportPartOfSites = () => {
-  if (!canExportPartOfSites.value) return;
-  try {
-    const timestamp = new Date().toISOString().slice(0, 10);
-    exportPartOfSitesSnapshot(`part-of-sites-map-${timestamp}.geojson`);
-    ElMessage.success("Part of Sites GeoJSON exported.");
-  } catch (error) {
-    console.warn("[map] export part of sites failed", error);
-    ElMessage.error("Failed to export Part of Sites GeoJSON.");
-  }
-};
-const handleExportSections = () => {
-  if (!canExportSections.value) return;
-  try {
-    const timestamp = new Date().toISOString().slice(0, 10);
-    exportSectionsSnapshot(`sections-map-${timestamp}.geojson`);
-    ElMessage.success("Sections GeoJSON exported.");
-  } catch (error) {
-    console.warn("[map] export sections failed", error);
-    ElMessage.error("Failed to export Sections GeoJSON.");
-  }
-};
 
 const {
   setTool,
@@ -779,62 +616,6 @@ const {
   resolveSectionIdAtCoordinate: resolveSectionSelectionByCoordinate,
 });
 
-const resolveRelatedSiteBoundaryIdsByGeometryObject = (geometryObject) => {
-  if (!geometryObject || !siteBoundarySource) return [];
-  try {
-    const geometry = format.readGeometry(geometryObject, {
-      dataProjection: EPSG_2326,
-      featureProjection: EPSG_2326,
-    });
-    return findSiteBoundaryIdsForGeometry(geometry, siteBoundarySource);
-  } catch (error) {
-    console.warn("[map] resolve related site boundaries for work lot failed", error);
-    return [];
-  }
-};
-
-const syncWorkLotBoundaryLinks = () => {
-  const hasSourceFeatures = siteBoundarySource?.getFeatures().length > 0;
-  if (!hasSourceFeatures && siteBoundaryStore.siteBoundaries.length > 0) {
-    return;
-  }
-  workLotStore.workLots.forEach((lot) => {
-    const autoRelatedIds = resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry).map(
-      (item) => String(item)
-    );
-    const currentRelated = Array.isArray(lot.relatedSiteBoundaryIds)
-      ? lot.relatedSiteBoundaryIds.map((item) => String(item))
-      : [];
-    const changed =
-      autoRelatedIds.length !== currentRelated.length ||
-      autoRelatedIds.some((item, index) => item !== currentRelated[index]);
-    if (!changed) return;
-    workLotStore.updateWorkLot(lot.id, {
-      relatedSiteBoundaryIds: autoRelatedIds,
-    });
-  });
-};
-
-const withRelatedIdFallback = (derivedIds, fallbackIds = []) =>
-  Array.isArray(derivedIds) && derivedIds.length > 0
-    ? derivedIds
-    : Array.isArray(fallbackIds)
-      ? fallbackIds
-      : [];
-
-const findSiteBoundaryFeatureById = (id) => {
-  if (!id) return null;
-  return getSiteBoundaryFeatureById(id);
-};
-
-const findPartOfSitesFeatureById = (id, contractPackage = "") => {
-  if (!id) return null;
-  return getPartOfSitesFeatureById(id, contractPackage);
-};
-const findSectionFeatureById = (id, contractPackage = "") => {
-  if (!id) return null;
-  return getSectionFeatureById(id, contractPackage);
-};
 const {
   scopeWorkLotResults,
   scopeSiteBoundaryResults,
@@ -889,13 +670,89 @@ const {
   defaultWorkLotStatus: WORK_LOT_STATUS.WAITING_ASSESSMENT,
 });
 
+const {
+  deleteSelectedWorkLot,
+  editSelectedWorkLot,
+  editSelectedSiteBoundary,
+  editSelectedPartOfSite,
+  editSelectedSection,
+  confirmWork,
+  cancelWork,
+  confirmSiteBoundary,
+  cancelSiteBoundary,
+  confirmPartOfSite,
+  cancelPartOfSite,
+  confirmSection,
+  cancelSection,
+} = useMapDialogActions({
+  canEditWork,
+  selectedWorkLot,
+  selectedSiteBoundary,
+  selectedPartOfSite,
+  selectedSection,
+  workLotStore,
+  siteBoundaryStore,
+  partOfSitesStore,
+  sectionsStore,
+  uiStore,
+  authStore,
+  workForm,
+  siteBoundaryForm,
+  partOfSiteForm,
+  sectionForm,
+  showWorkDialog,
+  workDialogMode,
+  editingWorkLotId,
+  showSiteBoundaryDialog,
+  siteBoundaryDialogMode,
+  editingSiteBoundaryId,
+  showPartOfSiteDialog,
+  partOfSiteDialogMode,
+  editingPartOfSiteId,
+  editingPartOfSiteContractPackage,
+  showSectionDialog,
+  sectionDialogMode,
+  editingSectionId,
+  editingSectionContractPackage,
+  resetWorkForm,
+  resetWorkDialogEditState,
+  resetSiteBoundaryForm,
+  resetSiteBoundaryDialogEditState,
+  resetPartOfSiteDialogEditState,
+  resetSectionDialogEditState,
+  createWorkLotEditForm,
+  createSiteBoundaryEditForm,
+  createPartOfSiteEditForm,
+  createSectionEditForm,
+  buildWorkLotUpdatePayload,
+  buildSiteBoundaryUpdatePayload,
+  buildPartOfSiteUpdatePayload,
+  buildSectionUpdatePayload,
+  resolveRelatedSiteBoundaryIdsByGeometryObject,
+  withRelatedIdFallback,
+  pendingGeometry,
+  clearDraft,
+  cancelDraft,
+  nowIso,
+  todayHongKong,
+  normalizeContractPackageValue,
+  resolveContractPackageValue,
+  normalizePartValue,
+  normalizeSectionValue,
+  normalizePositiveNumber,
+  findPartOfSitesFeatureById,
+  findSectionFeatureById,
+  refreshHighlights,
+  clearHighlightOverride,
+  onPartOfSitesChanged: handlePartOfSitesSourceChange,
+  onSectionsChanged: handleSectionsSourceChange,
+  notify: ElMessage,
+});
+
 const handleDrawerClose = () => {
   uiStore.clearSelection();
   clearHighlightOverride();
-  workHighlightSource?.clear(true);
-  partOfSitesHighlightSource?.clear(true);
-  sectionHighlightSource?.clear(true);
-  siteBoundaryHighlightSource?.clear(true);
+  clearAllHighlights();
   if (selectInteraction.value?.getFeatures) {
     selectInteraction.value.getFeatures().clear();
   }
@@ -996,431 +853,66 @@ const onRoleChange = () => {
   rebuildInteractions();
 };
 
-const confirmWork = () => {
-  if (workDialogMode.value === "edit") {
-    const workLotId = editingWorkLotId.value;
-    if (!workLotId) return;
-    const existing = workLotStore.workLots.find((lot) => lot.id === workLotId);
-    const autoRelatedIds = withRelatedIdFallback(
-      resolveRelatedSiteBoundaryIdsByGeometryObject(existing?.geometry),
-      existing?.relatedSiteBoundaryIds
-    );
-    workLotStore.updateWorkLot(
-      workLotId,
-      buildWorkLotUpdatePayload(workForm.value, {
-        workLotId,
-        fallbackOperatorName: existing?.operatorName || `Work Lot ${workLotId}`,
-        relatedSiteBoundaryIds: autoRelatedIds,
-        updatedBy: authStore.roleName,
-        updatedAt: nowIso(),
-      })
-    );
-    showWorkDialog.value = false;
-    resetWorkDialogEditState();
-    return;
-  }
+const { handleKeydown } = useMapKeyboardShortcuts({
+  uiStore,
+  canEditLayer,
+  setTool,
+  cancelTool,
+});
 
-  if (!pendingGeometry.value) return;
-  const workLotName = workForm.value.operatorName.trim() || "Work Lot";
-  const relatedSiteBoundaryIds = resolveRelatedSiteBoundaryIdsByGeometryObject(
-    pendingGeometry.value
-  );
-  workLotStore.addWorkLot({
-    operatorName: workLotName,
-    category: workForm.value.category,
-    relatedSiteBoundaryIds,
-    responsiblePerson: workForm.value.responsiblePerson,
-    assessDate: workForm.value.assessDate,
-    dueDate: workForm.value.dueDate || todayHongKong(),
-    completionDate: workForm.value.completionDate,
-    floatMonths: workForm.value.floatMonths,
-    forceEviction: workForm.value.forceEviction,
-    status: workForm.value.status,
-    description: workForm.value.description,
-    remark: workForm.value.remark,
-    geometry: pendingGeometry.value,
-    updatedBy: authStore.roleName,
-    updatedAt: nowIso(),
-  });
-  resetWorkForm();
-  showWorkDialog.value = false;
-  clearDraft();
-  resetWorkDialogEditState();
-};
+const { clearAllHighlights } = useMapPageWatchers({
+  workLotStore,
+  siteBoundaryStore,
+  uiStore,
+  authStore,
+  route,
+  activeLayerType,
+  activeMapFocus,
+  isFocusStateLocked,
+  isActiveFocusStateValid,
+  clearActiveMapFocus,
+  showWorkDialog,
+  workDialogMode,
+  workForm,
+  pendingGeometry,
+  resolveRelatedSiteBoundaryIdsByGeometryObject,
+  refreshWorkSources,
+  refreshSiteBoundaryState,
+  refreshSiteBoundarySource,
+  syncWorkLotBoundaryLinks,
+  sanitizeMapFilterSelections,
+  refreshLayerFilters,
+  refreshHighlights,
+  updateLayerVisibility,
+  basemapLayer,
+  labelLayer,
+  updateHighlightVisibility,
+  rebuildInteractions,
+  onRoleChange,
+  clearHighlightOverride,
+  findSiteBoundaryFeatureById,
+  findPartOfSitesFeatureById,
+  findSectionFeatureById,
+  siteBoundarySource,
+  partOfSitesSource,
+  sectionsSource,
+  workHighlightSource,
+  partOfSitesHighlightSource,
+  sectionHighlightSource,
+  siteBoundaryHighlightSource,
+  selectInteraction,
+  siteBoundarySourceVersion,
+  partOfSitesSourceVersion,
+  sectionSourceVersion,
+  applyFocusFromRoute,
+});
 
-const cancelWork = () => {
-  if (workDialogMode.value === "edit") {
-    showWorkDialog.value = false;
-    resetWorkDialogEditState();
-    return;
-  }
-  cancelDraft();
-};
-
-const confirmSiteBoundary = () => {
-  if (siteBoundaryDialogMode.value === "edit") {
-    if (!editingSiteBoundaryId.value) return;
-    siteBoundaryStore.updateSiteBoundary(
-      editingSiteBoundaryId.value,
-      buildSiteBoundaryUpdatePayload(siteBoundaryForm.value)
-    );
-    showSiteBoundaryDialog.value = false;
-    resetSiteBoundaryDialogEditState();
-    return;
-  }
-  if (!pendingGeometry.value) return;
-  const created = siteBoundaryStore.addSiteBoundary({
-    ...buildSiteBoundaryUpdatePayload(siteBoundaryForm.value),
-    name: String(siteBoundaryForm.value.name || "").trim() || "Site Boundary",
-    geometry: pendingGeometry.value,
-    entity: pendingGeometry.value?.type || "Polygon",
-  });
-  uiStore.selectSiteBoundary(created.id);
-  resetSiteBoundaryForm();
-  clearDraft();
-  resetSiteBoundaryDialogEditState();
-};
-
-const cancelSiteBoundary = () => {
-  if (siteBoundaryDialogMode.value === "edit") {
-    showSiteBoundaryDialog.value = false;
-    resetSiteBoundaryDialogEditState();
-    return;
-  }
-  cancelDraft();
-};
-
-const confirmPartOfSite = () => {
-  if (partOfSiteDialogMode.value !== "edit") return;
-  if (!editingPartOfSiteId.value) return;
-  const payload = buildPartOfSiteUpdatePayload(partOfSiteForm.value, {
-    updatedBy: authStore.roleName,
-    updatedAt: nowIso(),
-  });
-  const updated = applyPartOfSiteAttributeUpdate(editingPartOfSiteId.value, payload, {
-    contractPackage: editingPartOfSiteContractPackage.value,
-  });
-  if (!updated) {
-    ElMessage.error("Failed to update Part of Site.");
-    return;
-  }
-  showPartOfSiteDialog.value = false;
-  resetPartOfSiteDialogEditState();
-  handlePartOfSitesSourceChange();
-  ElMessage.success("Part of Site updated.");
-};
-
-const cancelPartOfSite = () => {
-  showPartOfSiteDialog.value = false;
-  resetPartOfSiteDialogEditState();
-};
-
-const confirmSection = () => {
-  if (sectionDialogMode.value !== "edit") return;
-  if (!editingSectionId.value) return;
-  const payload = buildSectionUpdatePayload(sectionForm.value, {
-    updatedBy: authStore.roleName,
-    updatedAt: nowIso(),
-  });
-  const updated = applySectionAttributeUpdate(editingSectionId.value, payload, {
-    contractPackage: editingSectionContractPackage.value,
-  });
-  if (!updated) {
-    ElMessage.error("Failed to update Section.");
-    return;
-  }
-  showSectionDialog.value = false;
-  resetSectionDialogEditState();
-  handleSectionsSourceChange();
-  ElMessage.success("Section updated.");
-};
-
-const cancelSection = () => {
-  showSectionDialog.value = false;
-  resetSectionDialogEditState();
-};
-
-watch(
-  () => workLotStore.workLots,
-  () => {
-    refreshWorkSources();
-    refreshSiteBoundaryState();
-    sanitizeMapFilterSelections();
-    refreshLayerFilters();
-    siteBoundarySourceVersion.value += 1;
-    refreshHighlights();
-  },
-  { deep: true }
-);
-
-watch(
-  () => siteBoundaryStore.siteBoundaries,
-  () => {
-    refreshSiteBoundarySource();
-    syncWorkLotBoundaryLinks();
-    sanitizeMapFilterSelections();
-    refreshLayerFilters();
-    siteBoundarySourceVersion.value += 1;
-    refreshHighlights();
-  },
-  { deep: true }
-);
-
-watch(
-  () => uiStore.tool,
-  () => rebuildInteractions()
-);
-
-watch(
-  () => activeLayerType.value,
-  (nextLayerType) => {
-    if (!nextLayerType) return;
-    uiStore.clearSelection();
-    clearHighlightOverride();
-    if (uiStore.tool !== "PAN") {
-      rebuildInteractions();
-    }
-  }
-);
-
-watch(
-  () => showWorkDialog.value,
-  (open) => {
-    if (!open || workDialogMode.value !== "create") return;
-    workForm.value.relatedSiteBoundaryIds =
-      resolveRelatedSiteBoundaryIdsByGeometryObject(pendingGeometry.value);
-  }
-);
-
-watch(
-  () => [
-    uiStore.showBasemap,
-    uiStore.showLabels,
-    uiStore.showIntLand,
-    uiStore.showPartOfSites,
-    uiStore.showPartOfSitesC1,
-    uiStore.showPartOfSitesC2,
-    uiStore.showSections,
-    uiStore.showSectionsC1,
-    uiStore.showSectionsC2,
-    uiStore.showSiteBoundary,
-    uiStore.showSiteBoundaryC1,
-    uiStore.showSiteBoundaryC2,
-    uiStore.showWorkLots,
-    uiStore.showWorkLotsC1,
-    uiStore.showWorkLotsC2,
-    uiStore.showWorkLotsBusiness,
-    uiStore.showWorkLotsDomestic,
-    uiStore.showWorkLotsGovernment,
-  ],
-  () => {
-    updateLayerVisibility(basemapLayer.value, labelLayer.value);
-    refreshLayerFilters();
-    updateHighlightVisibility();
-    refreshHighlights();
-    if (uiStore.tool !== "PAN") {
-      rebuildInteractions();
-    }
-  }
-);
-
-watch(
-  () => [
-    uiStore.workLotFilterMode,
-    uiStore.siteBoundaryFilterMode,
-    uiStore.partOfSitesFilterMode,
-    uiStore.sectionFilterMode,
-    uiStore.workLotSelectedIds.join("|"),
-    uiStore.siteBoundarySelectedIds.join("|"),
-    uiStore.partOfSitesSelectedIds.join("|"),
-    uiStore.sectionSelectedIds.join("|"),
-  ],
-  () => {
-    refreshLayerFilters();
-    updateHighlightVisibility();
-    refreshHighlights();
-    if (uiStore.tool === "MODIFY" || uiStore.tool === "DELETE") {
-      rebuildInteractions();
-    }
-  }
-);
-
-watch(
-  () => [
-    activeMapFocus.value?.group || "",
-    activeMapFocus.value?.id || "",
-    uiStore.showIntLand,
-    uiStore.showWorkLots,
-    uiStore.showWorkLotsC1,
-    uiStore.showWorkLotsC2,
-    uiStore.showWorkLotsBusiness,
-    uiStore.showWorkLotsDomestic,
-    uiStore.showWorkLotsGovernment,
-    uiStore.showSiteBoundary,
-    uiStore.showSiteBoundaryC1,
-    uiStore.showSiteBoundaryC2,
-    uiStore.showPartOfSites,
-    uiStore.showPartOfSitesC1,
-    uiStore.showPartOfSitesC2,
-    uiStore.showSections,
-    uiStore.showSectionsC1,
-    uiStore.showSectionsC2,
-    uiStore.workLotFilterMode,
-    uiStore.siteBoundaryFilterMode,
-    uiStore.partOfSitesFilterMode,
-    uiStore.sectionFilterMode,
-    uiStore.workLotSelectedIds.join("|"),
-    uiStore.siteBoundarySelectedIds.join("|"),
-    uiStore.partOfSitesSelectedIds.join("|"),
-    uiStore.sectionSelectedIds.join("|"),
-  ],
-  () => {
-    if (!activeMapFocus.value) return;
-    if (isFocusStateLocked()) return;
-    if (!isActiveFocusStateValid()) {
-      clearActiveMapFocus({ restoreSnapshot: false });
-    }
-  }
-);
-
-watch(
-  () => authStore.role,
-  () => onRoleChange()
-);
-
-watch(
-  () => uiStore.selectedWorkLotId,
-  (value) => {
-    if (!value) return;
-    const exists = workLotStore.workLots.some((lot) => lot.id === value);
-    if (!exists) uiStore.clearSelection();
-  }
-);
-
-watch(
-  () => uiStore.selectedWorkLotId,
-  (workId) => {
-    updateHighlightVisibility();
-    refreshHighlights();
-    if (!workId && selectInteraction.value?.getFeatures) {
-      selectInteraction.value.getFeatures().clear();
-    }
-  }
-);
-
-watch(
-  () => uiStore.selectedSiteBoundaryId,
-  (value) => {
-    if (value && siteBoundarySource) {
-      const exists = !!findSiteBoundaryFeatureById(value);
-      if (!exists) {
-        uiStore.clearSelection();
-        return;
-      }
-    }
-    updateHighlightVisibility();
-    refreshHighlights();
-    if (!value && selectInteraction.value?.getFeatures) {
-      selectInteraction.value.getFeatures().clear();
-    }
-  }
-);
-
-watch(
-  () => uiStore.selectedPartOfSiteId,
-  (value) => {
-    if (value && partOfSitesSource) {
-      const exists = !!findPartOfSitesFeatureById(value);
-      if (!exists) {
-        uiStore.clearSelection();
-        return;
-      }
-    }
-    updateHighlightVisibility();
-    refreshHighlights();
-    if (!value && selectInteraction.value?.getFeatures) {
-      selectInteraction.value.getFeatures().clear();
-    }
-  }
-);
-watch(
-  () => uiStore.selectedSectionId,
-  (value) => {
-    if (value && sectionsSource) {
-      const exists = !!findSectionFeatureById(value);
-      if (!exists) {
-        uiStore.clearSelection();
-        return;
-      }
-    }
-    updateHighlightVisibility();
-    refreshHighlights();
-    if (!value && selectInteraction.value?.getFeatures) {
-      selectInteraction.value.getFeatures().clear();
-    }
-  }
-);
-
-watch(
-  () => route.query,
-  () => {
-    applyFocusFromRoute();
-  }
-);
-
-const handleKeydown = (event) => {
-  const target = event.target;
-  const isInputTarget =
-    target instanceof HTMLElement &&
-    (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-  if (isInputTarget) return;
-
-  if (event.key === "Escape" && uiStore.tool !== "PAN") {
-    cancelTool();
-    return;
-  }
-
-  const key = event.key.toLowerCase();
-  if (key === "v") {
-    setTool("PAN");
-    return;
-  }
-  if (key === "l") {
-    setTool("MEASURE");
-    return;
-  }
-  if (key === "d") {
-    setTool("DRAW");
-    return;
-  }
-  if (key === "c") {
-    setTool("DRAW_CIRCLE");
-    return;
-  }
-  if (!canEditLayer.value) return;
-  if (key === "p") {
-    setTool("POLYGON");
-    return;
-  }
-  if (key === "o") {
-    setTool("POLYGON_CIRCLE");
-    return;
-  }
-  if (key === "m") {
-    setTool("MODIFY");
-    return;
-  }
-  if (key === "x") {
-    setTool("DELETE");
-  }
-};
-
-onMounted(async () => {
-  if (uiStore.tool !== "PAN") {
-    uiStore.setTool("PAN");
-  }
-  await siteBoundaryStore.ensureLoaded();
-  initMap([
+useMapPageLifecycle({
+  uiStore,
+  mapRef,
+  siteBoundaryStore,
+  initMap,
+  mapLayers: [
     intLandLayer,
     partOfSitesLayer,
     partOfSitesHighlightLayer,
@@ -1432,54 +924,31 @@ onMounted(async () => {
     workHouseholdLayer,
     workGovernmentLayer,
     workHighlightLayer,
-  ]);
-  refreshWorkSources();
-  sanitizeMapFilterSelections();
-  loadIntLandGeojson();
-  loadPartOfSitesGeojson().then(() => {
-    partOfSitesSourceVersion.value += 1;
-    syncSectionPartRelations();
-    sectionSourceVersion.value += 1;
-    sanitizeMapFilterSelections();
-    refreshLayerFilters();
-    refreshHighlights();
-    applyFocusFromRoute();
-  });
-  loadSectionsGeojson().then(() => {
-    sectionSourceVersion.value += 1;
-    syncSectionPartRelations();
-    partOfSitesSourceVersion.value += 1;
-    sanitizeMapFilterSelections();
-    refreshLayerFilters();
-    refreshHighlights();
-    applyFocusFromRoute();
-  });
-  const shouldAutoFit = !hasFocusQueryInRoute();
-  loadSiteBoundaryGeojson().then(() => {
-    siteBoundarySourceVersion.value += 1;
-    syncWorkLotBoundaryLinks();
-    refreshSiteBoundaryState();
-    sanitizeMapFilterSelections();
-    if (shouldAutoFit) {
-      fitToSiteBoundary();
-    }
-    applyFocusFromRoute();
-    refreshHighlights();
-  });
-  updateLayerOpacity();
-  updateLayerVisibility(basemapLayer.value, labelLayer.value);
-  updateHighlightVisibility();
-  refreshHighlights();
-  rebuildInteractions();
-  applyFocusFromRoute();
-  window.addEventListener("keydown", handleKeydown);
-});
-
-onBeforeUnmount(() => {
-  if (mapRef.value) {
-    mapRef.value.setTarget(null);
-  }
-  window.removeEventListener("keydown", handleKeydown);
+  ],
+  refreshWorkSources,
+  sanitizeMapFilterSelections,
+  loadIntLandGeojson,
+  loadPartOfSitesGeojson,
+  loadSectionsGeojson,
+  loadSiteBoundaryGeojson,
+  partOfSitesSourceVersion,
+  sectionSourceVersion,
+  siteBoundarySourceVersion,
+  syncSectionPartRelations,
+  syncWorkLotBoundaryLinks,
+  refreshSiteBoundaryState,
+  refreshLayerFilters,
+  refreshHighlights,
+  hasFocusQueryInRoute,
+  fitToSiteBoundary,
+  applyFocusFromRoute,
+  updateLayerOpacity,
+  updateLayerVisibility,
+  basemapLayer,
+  labelLayer,
+  updateHighlightVisibility,
+  rebuildInteractions,
+  handleKeydown,
 });
 </script>
 
