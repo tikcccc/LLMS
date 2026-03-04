@@ -50,7 +50,7 @@
 - Site Boundary（lot 級多選白名單）
 - Work Lots（lot 級多選白名單）
 - `Part of Sites / Sections / Site Boundary / Work Lots` 均支援 C1/C2 phase 子開關（可分開顯示或同時疊加）
-- Layers 區提供「Phase (Global)」總控，可一鍵套用全圖層 C1/C2（含 `Only C1` / `Only C2`）
+- Layers 區提供「Phase (Global)」總控，可一鍵套用全圖層 C1/C2
 - 跨圖層可同時勾選多個 lot，僅影響地圖可見性
 - 瀏覽工具：
 - Pan/select

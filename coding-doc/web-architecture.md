@@ -1,6 +1,6 @@
 # Web Architecture
 
-最後更新：2026-03-04  
+最後更新：2026-03-05  
 範圍：`web/` 前端 demo 應用
 
 ## 1) 文件目標
@@ -88,15 +88,24 @@
 
 - `useMapCore.js`：地圖實例、底圖/標籤圖層初始化
 - `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入（Drawing/Part of Sites/Sections/Site Boundary/Work Lot）與 lot 級白名單渲染控制
+- `useMapLayerDataIO.js`：地圖資料 I/O（GeoJSON 載入、Part/Section 快照 build/persist/export）
 - `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select；scope 結果涵蓋 Sections / Part of Sites / Site Boundary / Work Lot），並支援 Part/Section 點擊時以座標命中有效幾何做二次判定，降低重疊區誤選
+- `useMapFocusState.js`：Map 抽屜 focus mode 狀態機（snapshot 捕捉/還原、focus 鎖、有效性校驗）
 - `useMapHighlights.js`：選中要素高亮圖層（Work Lot / Part of Sites / Sections / Site Boundary）
 - `modules/map/utils/partGeometryResolution.js`：Part of Sites/Sections 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）；重疊優先序為「內含或高覆蓋率的小幾何優先，其餘重疊由較小面積優先，最後用 ID 自然序穩定化」
+- `modules/map/utils/featureMeta.js`：Part/Section 純函數（ID/數值正規化、System ID 產生、feature -> meta 解析器）
+- `modules/map/utils/layerFeatureHelpers.js`：Map layer feature 純函數（ID/日期/數值正規化、lot-id/system-id、filter 判定）
+- `modules/map/utils/layerFilterState.js`：Layers 面板 state 快照與 patch 套用（`layerFilterState` 讀寫邏輯）
+- `modules/map/utils/layerFilterSelectors.js`：Layers/Scope 側欄列表 selector 純函數（`layerFilterOptions`、`siteBoundaryResults`、`workLotResults`、`partOfSitesResults`、`sectionResults`、`scope*Results`）
+- `modules/map/utils/relationSelectors.js`：Drawer 關聯清單 selector（work lot <-> site boundary、part <-> section）
+- `modules/map/utils/interactionHelpers.js`：互動層純函數（tool 判定、Part/Section ID/system-id 生成、feature 查找）
 - Part of Sites 載入策略：`index.json -> group index -> part 檔案`，其中 group 與 part 檔案以有限併發下載，並對 JSON 請求套用記憶體 TTL 快取
 
 Map UI 元件分工：
 
 - 工具列：`MapToolbar.vue`
 - 側欄（lot 級圖層篩選/搜尋/scope 結果）：`MapSidePanel.vue`
+- 側欄 composables：`components/composables/useMapSidePanelFilters.js`、`components/composables/useMapSidePanelLayout.js`
 - 詳情抽屜：`MapDrawer.vue`
 - 編輯對話框：`WorkLotDialog.vue`、`SiteBoundaryDialog.vue`、`PartOfSiteDialog.vue`、`SectionDialog.vue`
 - 地圖覆蓋元件：`MapLegend.vue`、`MapScaleBar.vue`

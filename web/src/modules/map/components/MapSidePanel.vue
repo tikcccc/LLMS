@@ -86,22 +86,6 @@
                 <el-checkbox v-model="showGlobalC2Proxy" size="small" class="phase-toggle">
                   C2
                 </el-checkbox>
-                <button
-                  type="button"
-                  class="inline-action"
-                  :class="{ active: isGlobalOnlyC1 }"
-                  @click="applyGlobalC1Only"
-                >
-                  Only C1
-                </button>
-                <button
-                  type="button"
-                  class="inline-action"
-                  :class="{ active: isGlobalOnlyC2 }"
-                  @click="applyGlobalC2Only"
-                >
-                  Only C2
-                </button>
               </div>
             </div>
           </section>
@@ -179,6 +163,7 @@
                     v-for="item in filteredPartOfSitesOptions"
                     :key="`part-${item.id}`"
                     :label="item.id"
+                    :value="item.id"
                     class="check-item"
                   >
                     <span
@@ -267,6 +252,7 @@
                     v-for="item in filteredSectionOptions"
                     :key="`section-${item.id}`"
                     :label="item.id"
+                    :value="item.id"
                     class="check-item"
                   >
                     <span
@@ -357,6 +343,7 @@
                     v-for="item in filteredSiteBoundaryOptions"
                     :key="`site-${item.id}`"
                     :label="item.id"
+                    :value="item.id"
                     class="check-item"
                   >
                     <span
@@ -453,6 +440,7 @@
                     v-for="item in filteredWorkLotOptions"
                     :key="`work-${item.id}`"
                     :label="item.id"
+                    :value="item.id"
                     class="check-item"
                   >
                     <span
@@ -773,8 +761,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { siteBoundaryStatusStyle } from "../utils/siteBoundaryStatusStyle";
+import { useMapSidePanelFilters } from "./composables/useMapSidePanelFilters";
+import { useMapSidePanelLayout } from "./composables/useMapSidePanelLayout";
 
 const props = defineProps({
   leftTab: { type: String, required: true },
@@ -810,519 +798,87 @@ const emit = defineEmits([
   "focus-section",
   "panel-close",
 ]);
-
-const leftTabProxy = computed({
-  get: () => props.leftTab,
-  set: (value) => emit("update:leftTab", value),
-});
-const workSearchProxy = computed({
-  get: () => props.workSearchQuery,
-  set: (value) => emit("update:workSearchQuery", value),
-});
-const siteBoundarySearchProxy = computed({
-  get: () => props.siteBoundarySearchQuery,
-  set: (value) => emit("update:siteBoundarySearchQuery", value),
-});
-const partOfSitesSearchProxy = computed({
-  get: () => props.partOfSitesSearchQuery,
-  set: (value) => emit("update:partOfSitesSearchQuery", value),
-});
-const sectionSearchProxy = computed({
-  get: () => props.sectionSearchQuery,
-  set: (value) => emit("update:sectionSearchQuery", value),
-});
-
-const normalizeIdList = (value) => {
-  if (!Array.isArray(value)) return [];
-  const dedupe = new Set();
-  value.forEach((item) => {
-    const normalized = String(item || "").trim();
-    if (!normalized) return;
-    dedupe.add(normalized);
-  });
-  return Array.from(dedupe);
-};
-
-const patchLayerFilterState = (patch) => {
-  if (!patch || typeof patch !== "object") return;
-  emit("update:layerFilterState", patch);
-};
-
-const createBooleanFilterProxy = (key, fallback = false) =>
-  computed({
-    get: () => {
-      const value = props.layerFilterState?.[key];
-      return typeof value === "boolean" ? value : fallback;
-    },
-    set: (value) => patchLayerFilterState({ [key]: !!value }),
-  });
-
-const showBasemapProxy = createBooleanFilterProxy("showBasemap", true);
-const showLabelsProxy = createBooleanFilterProxy("showLabels", true);
-const showIntLandProxy = createBooleanFilterProxy("showIntLand", false);
-const showPartOfSitesProxy = createBooleanFilterProxy("showPartOfSites", false);
-const showPartOfSitesC1Proxy = createBooleanFilterProxy("showPartOfSitesC1", true);
-const showPartOfSitesC2Proxy = createBooleanFilterProxy("showPartOfSitesC2", true);
-const showSectionsProxy = createBooleanFilterProxy("showSections", false);
-const showSectionsC1Proxy = createBooleanFilterProxy("showSectionsC1", true);
-const showSectionsC2Proxy = createBooleanFilterProxy("showSectionsC2", true);
-const showSiteBoundaryProxy = createBooleanFilterProxy("showSiteBoundary", true);
-const showSiteBoundaryC1Proxy = createBooleanFilterProxy("showSiteBoundaryC1", true);
-const showSiteBoundaryC2Proxy = createBooleanFilterProxy("showSiteBoundaryC2", true);
-const showWorkLotsProxy = createBooleanFilterProxy("showWorkLots", true);
-const showWorkLotsC1Proxy = createBooleanFilterProxy("showWorkLotsC1", true);
-const showWorkLotsC2Proxy = createBooleanFilterProxy("showWorkLotsC2", true);
-
-const PHASE_GROUP_KEY_PAIRS = [
-  ["showPartOfSitesC1", "showPartOfSitesC2"],
-  ["showSectionsC1", "showSectionsC2"],
-  ["showSiteBoundaryC1", "showSiteBoundaryC2"],
-  ["showWorkLotsC1", "showWorkLotsC2"],
-];
-
-const getLayerBoolean = (key) => !!props.layerFilterState?.[key];
-
-const buildGlobalPhasePatch = ({ c1, c2 } = {}) => {
-  const patch = {};
-  PHASE_GROUP_KEY_PAIRS.forEach(([c1Key, c2Key]) => {
-    if (typeof c1 === "boolean") patch[c1Key] = c1;
-    if (typeof c2 === "boolean") patch[c2Key] = c2;
-  });
-  return patch;
-};
-
-const showGlobalC1Proxy = computed({
-  get: () => PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => getLayerBoolean(c1Key)),
-  set: (value) => patchLayerFilterState(buildGlobalPhasePatch({ c1: !!value })),
-});
-
-const showGlobalC2Proxy = computed({
-  get: () => PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => getLayerBoolean(c2Key)),
-  set: (value) => patchLayerFilterState(buildGlobalPhasePatch({ c2: !!value })),
-});
-
-const isGlobalOnlyC1 = computed(
-  () =>
-    PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => getLayerBoolean(c1Key)) &&
-    PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => !getLayerBoolean(c2Key))
-);
-
-const isGlobalOnlyC2 = computed(
-  () =>
-    PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => !getLayerBoolean(c1Key)) &&
-    PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => getLayerBoolean(c2Key))
-);
-
-const applyGlobalC1Only = () => patchLayerFilterState(buildGlobalPhasePatch({ c1: true, c2: false }));
-const applyGlobalC2Only = () => patchLayerFilterState(buildGlobalPhasePatch({ c1: false, c2: true }));
-
-const getFilterMode = (modeKey) =>
-  props.layerFilterState?.[modeKey] === "custom" ? "custom" : "all";
-
-const getSelectedIds = (idsKey) => normalizeIdList(props.layerFilterState?.[idsKey]);
-
-const layerFilterKeyword = ref("");
-
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
-
-const resolveLayerOptions = (key) =>
-  Array.isArray(props.layerFilterOptions?.[key]) ? props.layerFilterOptions[key] : [];
-
-const filterLayerOptions = (items = []) => {
-  const keyword = normalizeText(layerFilterKeyword.value);
-  if (!keyword) return items;
-  return items.filter((item) => {
-    const candidates = [
-      item.id,
-      item.label,
-      item.layer,
-      item.handle,
-      item.categoryLabel,
-      item.contractPackage,
-    ];
-    return candidates.some((candidate) => normalizeText(candidate).includes(keyword));
-  });
-};
-
-const compactBoundaryStatus = (value) => {
-  const normalized = String(value || "").trim();
-  return normalized || "Pending Clearance";
-};
-const compactWorkStatus = (value) => {
-  const normalized = String(value || "").trim();
-  return normalized || "Waiting for Assessment";
-};
-const siteBoundaryStatusColor = (statusKey, overdue = false) => ({
-  color: siteBoundaryStatusStyle(statusKey, overdue)?.color || "#475569",
-});
-const workStatusColor = (status, dueDate = "") => ({
-  color: props.workStatusStyle(status, dueDate)?.color || "#475569",
-});
-
-const partOfSitesOptions = computed(() => resolveLayerOptions("partOfSites"));
-const sectionOptions = computed(() => resolveLayerOptions("sections"));
-const siteBoundaryOptions = computed(() => resolveLayerOptions("siteBoundaries"));
-const workLotOptions = computed(() => resolveLayerOptions("workLots"));
-
-const filteredPartOfSitesOptions = computed(() => filterLayerOptions(partOfSitesOptions.value));
-const filteredSectionOptions = computed(() => filterLayerOptions(sectionOptions.value));
-const filteredSiteBoundaryOptions = computed(() => filterLayerOptions(siteBoundaryOptions.value));
-const filteredWorkLotOptions = computed(() => filterLayerOptions(workLotOptions.value));
-
-const partOfSitesAllIds = computed(() => partOfSitesOptions.value.map((item) => item.id));
-const sectionAllIds = computed(() => sectionOptions.value.map((item) => item.id));
-const siteBoundaryAllIds = computed(() => siteBoundaryOptions.value.map((item) => item.id));
-const workLotAllIds = computed(() => workLotOptions.value.map((item) => item.id));
-
-const resolveDisplaySelectedIds = (modeKey, idsKey, allIds) =>
-  getFilterMode(modeKey) === "all" ? [...allIds] : getSelectedIds(idsKey);
-
-const resolveSelectedCount = (modeKey, idsKey, allIds) => {
-  if (getFilterMode(modeKey) === "all") return allIds.length;
-  const selected = getSelectedIds(idsKey).map((id) => id.toLowerCase());
-  return allIds.filter((id) => selected.includes(String(id || "").toLowerCase())).length;
-};
-
-const partOfSitesDisplaySelectedIds = computed(() =>
-  resolveDisplaySelectedIds("partOfSitesFilterMode", "partOfSitesSelectedIds", partOfSitesAllIds.value)
-);
-const sectionDisplaySelectedIds = computed(() =>
-  resolveDisplaySelectedIds("sectionFilterMode", "sectionSelectedIds", sectionAllIds.value)
-);
-const siteBoundaryDisplaySelectedIds = computed(() =>
-  resolveDisplaySelectedIds(
-    "siteBoundaryFilterMode",
-    "siteBoundarySelectedIds",
-    siteBoundaryAllIds.value
-  )
-);
-const workLotDisplaySelectedIds = computed(() =>
-  resolveDisplaySelectedIds("workLotFilterMode", "workLotSelectedIds", workLotAllIds.value)
-);
-
-const partOfSitesSelectedCount = computed(() =>
-  resolveSelectedCount(
-    "partOfSitesFilterMode",
-    "partOfSitesSelectedIds",
-    partOfSitesAllIds.value
-  )
-);
-const sectionSelectedCount = computed(() =>
-  resolveSelectedCount(
-    "sectionFilterMode",
-    "sectionSelectedIds",
-    sectionAllIds.value
-  )
-);
-const siteBoundarySelectedCount = computed(() =>
-  resolveSelectedCount(
-    "siteBoundaryFilterMode",
-    "siteBoundarySelectedIds",
-    siteBoundaryAllIds.value
-  )
-);
-const workLotSelectedCount = computed(() =>
-  resolveSelectedCount("workLotFilterMode", "workLotSelectedIds", workLotAllIds.value)
-);
-
-const partOfSitesTotal = computed(() => partOfSitesAllIds.value.length);
-const sectionTotal = computed(() => sectionAllIds.value.length);
-const siteBoundaryTotal = computed(() => siteBoundaryAllIds.value.length);
-const workLotTotal = computed(() => workLotAllIds.value.length);
-
-const setGroupSelectionAll = (modeKey, idsKey) => {
-  patchLayerFilterState({
-    [modeKey]: "all",
-    [idsKey]: [],
-  });
-};
-
-const setGroupSelectionNone = (modeKey, idsKey) => {
-  patchLayerFilterState({
-    [modeKey]: "custom",
-    [idsKey]: [],
-  });
-};
-
-const updateGroupSelection = (modeKey, idsKey, values, allIds) => {
-  const selected = normalizeIdList(values);
-  const all = normalizeIdList(allIds);
-  if (all.length > 0 && selected.length === all.length) {
-    setGroupSelectionAll(modeKey, idsKey);
-    return;
-  }
-  patchLayerFilterState({
-    [modeKey]: "custom",
-    [idsKey]: selected,
-  });
-};
-
-const selectAllPartOfSites = () =>
-  setGroupSelectionAll("partOfSitesFilterMode", "partOfSitesSelectedIds");
-const clearPartOfSites = () =>
-  setGroupSelectionNone("partOfSitesFilterMode", "partOfSitesSelectedIds");
-const onPartOfSitesSelectionChange = (value) =>
-  updateGroupSelection(
-    "partOfSitesFilterMode",
-    "partOfSitesSelectedIds",
-    value,
-    partOfSitesAllIds.value
-  );
-const selectAllSections = () =>
-  setGroupSelectionAll("sectionFilterMode", "sectionSelectedIds");
-const clearSections = () =>
-  setGroupSelectionNone("sectionFilterMode", "sectionSelectedIds");
-const onSectionSelectionChange = (value) =>
-  updateGroupSelection(
-    "sectionFilterMode",
-    "sectionSelectedIds",
-    value,
-    sectionAllIds.value
-  );
-
-const selectAllSiteBoundaries = () =>
-  setGroupSelectionAll("siteBoundaryFilterMode", "siteBoundarySelectedIds");
-const clearSiteBoundaries = () =>
-  setGroupSelectionNone("siteBoundaryFilterMode", "siteBoundarySelectedIds");
-const onSiteBoundarySelectionChange = (value) =>
-  updateGroupSelection(
-    "siteBoundaryFilterMode",
-    "siteBoundarySelectedIds",
-    value,
-    siteBoundaryAllIds.value
-  );
-
-const selectAllWorkLots = () =>
-  setGroupSelectionAll("workLotFilterMode", "workLotSelectedIds");
-const clearWorkLots = () =>
-  setGroupSelectionNone("workLotFilterMode", "workLotSelectedIds");
-const onWorkLotSelectionChange = (value) =>
-  updateGroupSelection("workLotFilterMode", "workLotSelectedIds", value, workLotAllIds.value);
-
-const siteBoundaryWorkLotCountText = (boundary) => {
-  const count = Number(boundary?.workLotCount);
-  if (!Number.isFinite(count) || count <= 0) return "No work lots";
-  return count === 1 ? "1 work lot" : `${count} work lots`;
-};
-
-const MOBILE_BREAKPOINT = 900;
-const mobilePanelOpen = ref(true);
-const isMobile = ref(false);
-const isDesktopCollapsed = ref(false);
-
-const partOfSitesExpanded = ref(true);
-const sectionsExpanded = ref(true);
-const siteBoundariesExpanded = ref(true);
-const workLotsExpanded = ref(true);
-
-const TAB_TITLES = {
-  layers: "Layers",
-  scope: "Scope Results",
-  partofsites: "Part of Sites",
-  sections: "Sections",
-  worklots: "Work Lots",
-  siteboundaries: "Site Boundaries",
-};
-
-const mobilePanelTitle = computed(() => TAB_TITLES[leftTabProxy.value] || "Panel");
-
-const PANEL_WIDTH_STORAGE_KEY = "ND_LLM_V1_map_side_panel_width";
-const PANEL_COLLAPSE_STORAGE_KEY = "ND_LLM_V1_map_side_panel_collapsed";
-
-const PANEL_MIN_WIDTH = 280;
-const PANEL_DEFAULT_WIDTH = 360;
-const PANEL_MAX_WIDTH = 560;
-const PANEL_COLLAPSED_WIDTH = 52;
-
-const readStoredSize = (key, fallback) => {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-};
-
-const readStoredBoolean = (key, fallback = false) => {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (raw === "1") return true;
-  if (raw === "0") return false;
-  return fallback;
-};
-
-const clampPanelWidth = (width) => {
-  if (!Number.isFinite(width)) return PANEL_DEFAULT_WIDTH;
-  if (typeof window === "undefined") {
-    return Math.min(Math.max(width, PANEL_MIN_WIDTH), PANEL_MAX_WIDTH);
-  }
-  const viewportMax = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 56);
-  const hardMax = Math.min(PANEL_MAX_WIDTH, viewportMax);
-  return Math.min(Math.max(width, PANEL_MIN_WIDTH), hardMax);
-};
-
-const panelWidth = ref(
-  clampPanelWidth(readStoredSize(PANEL_WIDTH_STORAGE_KEY, PANEL_DEFAULT_WIDTH))
-);
-const isResizing = ref(false);
-const panelStyle = computed(() => ({
-  "--panel-width": `${
-    !isMobile.value && isDesktopCollapsed.value ? PANEL_COLLAPSED_WIDTH : panelWidth.value
-  }px`,
-}));
-
-let dragStartX = 0;
-let dragStartWidth = panelWidth.value;
-
-const persistPanelSize = () => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(panelWidth.value));
-};
-
-const persistPanelCollapsed = () => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    PANEL_COLLAPSE_STORAGE_KEY,
-    isDesktopCollapsed.value ? "1" : "0"
-  );
-};
-
-const handleResizeMove = (event) => {
-  if (!isResizing.value) return;
-  const deltaX = event.clientX - dragStartX;
-  panelWidth.value = clampPanelWidth(dragStartWidth + deltaX);
-};
-
-const stopResize = () => {
-  if (!isResizing.value) return;
-  isResizing.value = false;
-  window.removeEventListener("pointermove", handleResizeMove);
-  window.removeEventListener("pointerup", stopResize);
-  window.removeEventListener("pointercancel", stopResize);
-  persistPanelSize();
-};
-
-const startResize = (event) => {
-  if (typeof window === "undefined" || window.innerWidth <= MOBILE_BREAKPOINT) return;
-  if (isDesktopCollapsed.value) return;
-  if (event.button !== undefined && event.button !== 0) return;
-  event.preventDefault();
-  isResizing.value = true;
-  dragStartX = event.clientX;
-  dragStartWidth = panelWidth.value;
-  window.addEventListener("pointermove", handleResizeMove);
-  window.addEventListener("pointerup", stopResize);
-  window.addEventListener("pointercancel", stopResize);
-};
-
-const resetPanelSize = () => {
-  panelWidth.value = clampPanelWidth(PANEL_DEFAULT_WIDTH);
-  persistPanelSize();
-};
-
-let mobileQueryList = null;
-
-const applyMobileMode = (mobile) => {
-  isMobile.value = mobile;
-  if (mobile) {
-    mobilePanelOpen.value = false;
-    stopResize();
-    return;
-  }
-  mobilePanelOpen.value = true;
-};
-
-const toggleMobilePanel = () => {
-  if (!isMobile.value) return;
-  mobilePanelOpen.value = !mobilePanelOpen.value;
-  if (!mobilePanelOpen.value) {
-    emit("panel-close");
-  }
-};
-
-const toggleDesktopCollapsed = () => {
-  if (isMobile.value) return;
-  isDesktopCollapsed.value = !isDesktopCollapsed.value;
-  if (isDesktopCollapsed.value) {
-    emit("panel-close");
-  }
-  stopResize();
-  persistPanelCollapsed();
-};
-
-const togglePartOfSitesExpanded = () => {
-  partOfSitesExpanded.value = !partOfSitesExpanded.value;
-};
-const toggleSectionsExpanded = () => {
-  sectionsExpanded.value = !sectionsExpanded.value;
-};
-
-const toggleSiteBoundariesExpanded = () => {
-  siteBoundariesExpanded.value = !siteBoundariesExpanded.value;
-};
-
-const toggleWorkLotsExpanded = () => {
-  workLotsExpanded.value = !workLotsExpanded.value;
-};
-
-const closeMobilePanel = () => {
-  if (!isMobile.value) return;
-  if (!mobilePanelOpen.value) return;
-  mobilePanelOpen.value = false;
-  emit("panel-close");
-};
-
-const handleMobileMediaChange = (event) => {
-  applyMobileMode(event.matches);
-};
-
-const handleWindowResize = () => {
-  panelWidth.value = clampPanelWidth(panelWidth.value);
-  persistPanelSize();
-};
-
-watch(
-  () => props.leftTab,
-  () => {
-    if (isMobile.value) {
-      mobilePanelOpen.value = true;
-    }
-  }
-);
-
-watch(
-  () => props.hasScopeQuery,
-  (value) => {
-    if (!value && props.leftTab === "scope") {
-      emit("update:leftTab", "layers");
-    }
-  }
-);
-
-onMounted(() => {
-  if (typeof window === "undefined") return;
-  isDesktopCollapsed.value = readStoredBoolean(PANEL_COLLAPSE_STORAGE_KEY, false);
-  mobileQueryList = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
-  applyMobileMode(mobileQueryList.matches);
-  if (typeof mobileQueryList.addEventListener === "function") {
-    mobileQueryList.addEventListener("change", handleMobileMediaChange);
-  } else if (typeof mobileQueryList.addListener === "function") {
-    mobileQueryList.addListener(handleMobileMediaChange);
-  }
-  window.addEventListener("resize", handleWindowResize);
-});
-
-onBeforeUnmount(() => {
-  stopResize();
-  if (typeof window === "undefined") return;
-  if (mobileQueryList) {
-    if (typeof mobileQueryList.removeEventListener === "function") {
-      mobileQueryList.removeEventListener("change", handleMobileMediaChange);
-    } else if (typeof mobileQueryList.removeListener === "function") {
-      mobileQueryList.removeListener(handleMobileMediaChange);
-    }
-  }
-  window.removeEventListener("resize", handleWindowResize);
-});
+const {
+  leftTabProxy,
+  workSearchProxy,
+  siteBoundarySearchProxy,
+  partOfSitesSearchProxy,
+  sectionSearchProxy,
+  showBasemapProxy,
+  showLabelsProxy,
+  showIntLandProxy,
+  showPartOfSitesProxy,
+  showPartOfSitesC1Proxy,
+  showPartOfSitesC2Proxy,
+  showSectionsProxy,
+  showSectionsC1Proxy,
+  showSectionsC2Proxy,
+  showSiteBoundaryProxy,
+  showSiteBoundaryC1Proxy,
+  showSiteBoundaryC2Proxy,
+  showWorkLotsProxy,
+  showWorkLotsC1Proxy,
+  showWorkLotsC2Proxy,
+  showGlobalC1Proxy,
+  showGlobalC2Proxy,
+  layerFilterKeyword,
+  filteredPartOfSitesOptions,
+  filteredSectionOptions,
+  filteredSiteBoundaryOptions,
+  filteredWorkLotOptions,
+  partOfSitesDisplaySelectedIds,
+  sectionDisplaySelectedIds,
+  siteBoundaryDisplaySelectedIds,
+  workLotDisplaySelectedIds,
+  partOfSitesSelectedCount,
+  sectionSelectedCount,
+  siteBoundarySelectedCount,
+  workLotSelectedCount,
+  partOfSitesTotal,
+  sectionTotal,
+  siteBoundaryTotal,
+  workLotTotal,
+  selectAllPartOfSites,
+  clearPartOfSites,
+  onPartOfSitesSelectionChange,
+  selectAllSections,
+  clearSections,
+  onSectionSelectionChange,
+  selectAllSiteBoundaries,
+  clearSiteBoundaries,
+  onSiteBoundarySelectionChange,
+  selectAllWorkLots,
+  clearWorkLots,
+  onWorkLotSelectionChange,
+  compactBoundaryStatus,
+  compactWorkStatus,
+  siteBoundaryStatusStyle,
+  siteBoundaryStatusColor,
+  workStatusColor,
+  siteBoundaryWorkLotCountText,
+} = useMapSidePanelFilters({ props, emit });
+
+const {
+  mobilePanelOpen,
+  isMobile,
+  isResizing,
+  isDesktopCollapsed,
+  partOfSitesExpanded,
+  sectionsExpanded,
+  siteBoundariesExpanded,
+  workLotsExpanded,
+  mobilePanelTitle,
+  panelStyle,
+  startResize,
+  resetPanelSize,
+  toggleMobilePanel,
+  toggleDesktopCollapsed,
+  togglePartOfSitesExpanded,
+  toggleSectionsExpanded,
+  toggleSiteBoundariesExpanded,
+  toggleWorkLotsExpanded,
+  closeMobilePanel,
+} = useMapSidePanelLayout({ props, emit });
 </script>
 
 <style scoped>
@@ -1531,12 +1087,6 @@ onBeforeUnmount(() => {
 .inline-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.inline-action.active {
-  border-color: rgba(37, 99, 235, 0.45);
-  background: rgba(219, 234, 254, 0.9);
-  color: #1d4ed8;
 }
 
 .section-toggle-btn {

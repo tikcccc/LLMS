@@ -202,6 +202,7 @@ import {
   buildSectionUpdatePayload,
 } from "../../shared/utils/sectionEdit";
 import { useMapCore } from "./composables/useMapCore";
+import { useMapFocusState } from "./composables/useMapFocusState";
 import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
@@ -213,6 +214,36 @@ import {
   geometriesOverlapByArea,
   getResolvedPartGeometryStat,
 } from "./utils/partGeometryResolution";
+import {
+  createPartOfSiteMetaResolver,
+  createSectionMetaResolver,
+  normalizeIdCollection,
+  normalizePartValue,
+  normalizePositiveNumber,
+  normalizeSectionValue,
+} from "./utils/featureMeta";
+import {
+  applyLayerFilterStateToUiStore,
+  buildLayerFilterStateFromUiStore,
+  normalizeLayerSelectedIdList,
+} from "./utils/layerFilterState";
+import {
+  buildLayerFilterOptions,
+  buildPartOfSitesResults,
+  buildScopePartOfSitesResults,
+  buildScopeSectionResults,
+  buildScopeSiteBoundaryResults,
+  buildScopeWorkLotResults,
+  buildSiteBoundaryResults,
+  buildSectionResults,
+  buildWorkLotResults,
+} from "./utils/layerFilterSelectors";
+import {
+  buildSelectedPartOfSiteRelatedSections,
+  buildSelectedSectionRelatedPartOfSites,
+  buildSelectedSiteBoundaryRelatedWorkLots,
+  buildSelectedWorkLotRelatedSites,
+} from "./utils/relationSelectors";
 import { workStatusStyle } from "./utils/statusStyle";
 
 const authStore = useAuthStore();
@@ -595,16 +626,6 @@ const hasScopeQuery = computed(
     scopeSectionIds.value.length > 0
 );
 
-const normalizeIdList = (values = []) => {
-  if (!Array.isArray(values)) return [];
-  const dedupe = new Set();
-  values.forEach((value) => {
-    const normalized = String(value || "").trim();
-    if (!normalized) return;
-    dedupe.add(normalized);
-  });
-  return Array.from(dedupe);
-};
 const normalizeContractPackageValue = (value) => normalizeContractPackage(value);
 const resolveContractPackageValue = (values = []) =>
   resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
@@ -631,47 +652,12 @@ const ensureContractPackageVisible = (group, contractPackage) => {
     uiStore.setLayerVisibility(key, true);
   }
 };
-
-const normalizePartValue = (value) => String(value || "").trim();
-
-const normalizePartToken = (value, fallback) => {
-  const token = normalizePartValue(value).replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  return token || fallback;
-};
-
-const buildPartOfSitesSystemId = (groupLabel, partId, featureIndex = 0) => {
-  const seq = String(Math.max(0, Number(featureIndex) || 0) + 1).padStart(3, "0");
-  return `POS-${normalizePartToken(groupLabel, "PART")}-${normalizePartToken(partId, "UNK")}-${seq}`;
-};
-const buildSectionSystemId = (groupLabel, sectionId, featureIndex = 0) => {
-  const seq = String(Math.max(0, Number(featureIndex) || 0) + 1).padStart(3, "0");
-  return `SOW-${normalizePartToken(groupLabel, "SEC")}-${normalizePartToken(sectionId, "UNK")}-${seq}`;
-};
-const normalizeSectionValue = (value) => String(value || "").trim();
-const normalizePositiveNumber = (value) => {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed;
-};
-const normalizeIdCollection = (value) => {
-  if (Array.isArray(value)) {
-    return Array.from(
-      new Set(value.map((item) => String(item || "").trim()).filter(Boolean))
-    );
-  }
-  if (typeof value === "string") {
-    return Array.from(
-      new Set(
-        value
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean)
-      )
-    );
-  }
-  return [];
-};
+const resolvePartOfSiteMeta = createPartOfSiteMetaResolver({
+  resolveContractPackageValue,
+});
+const resolveSectionMeta = createSectionMetaResolver({
+  resolveContractPackageValue,
+});
 const getPartAreaOverride = (partId, contractPackage = "") => {
   const normalizedPartId = normalizePartValue(partId);
   if (!normalizedPartId || !partOfSitesStore) return null;
@@ -697,342 +683,27 @@ const getSectionAreaOverride = (sectionId, contractPackage = "") => {
   return normalizePositiveNumber(override?.area);
 };
 
-const resolvePartOfSiteMeta = (feature, index = 0) => {
-  const partId =
-    normalizePartValue(feature?.get("partOfSitesLotId")) ||
-    normalizePartValue(feature?.get("partId")) ||
-    normalizePartValue(feature?.get("part_id")) ||
-    normalizePartValue(feature?.get("refId")) ||
-    normalizePartValue(feature?.getId?.()) ||
-    normalizePartValue(feature?.get("id")) ||
-    `part_of_site_${String(index + 1).padStart(5, "0")}`;
-  const label =
-    normalizePartValue(feature?.get("partOfSitesLotLabel")) ||
-    normalizePartValue(feature?.get("partId")) ||
-    partId;
-  const group =
-    normalizePartValue(feature?.get("partOfSitesGroup")) ||
-    normalizePartValue(feature?.get("partGroup"));
-  const systemId =
-    normalizePartValue(feature?.get("partOfSitesSystemId")) ||
-    normalizePartValue(feature?.get("systemId")) ||
-    buildPartOfSitesSystemId(group, partId, index);
-  const accessDate =
-    normalizePartValue(feature?.get("accessDate")) ||
-    normalizePartValue(feature?.get("access_date"));
-  const contractPackage = resolveContractPackageValue([
-    feature?.get("contractPackage"),
-    feature?.get("contract_package"),
-    feature?.get("phase"),
-    feature?.get("package"),
-    feature?.get("partOfSitesGroup"),
-    feature?.get("partGroup"),
-    feature?.get("sourceDxf"),
-    feature?.get("sourceDxfs"),
-  ]);
-  const sectionIds = normalizeIdCollection(
-    feature?.get("sectionIds") || feature?.get("relatedSectionIds")
-  );
-  const sectionId =
-    normalizePartValue(feature?.get("sectionId")) ||
-    normalizePartValue(feature?.get("section_id")) ||
-    sectionIds[0] ||
-    "";
-
-  return {
-    partId,
-    label,
-    group,
-    systemId,
-    accessDate,
-    contractPackage,
-    sectionId,
-    sectionIds: sectionId ? Array.from(new Set([sectionId, ...sectionIds])) : sectionIds,
-  };
-};
-const resolveSectionMeta = (feature, index = 0) => {
-  const sectionId =
-    normalizeSectionValue(feature?.get("sectionLotId")) ||
-    normalizeSectionValue(feature?.get("sectionId")) ||
-    normalizeSectionValue(feature?.get("section_id")) ||
-    normalizeSectionValue(feature?.get("refId")) ||
-    normalizeSectionValue(feature?.getId?.()) ||
-    normalizeSectionValue(feature?.get("id")) ||
-    `section_${String(index + 1).padStart(5, "0")}`;
-  const title =
-    normalizeSectionValue(feature?.get("sectionLotLabel")) ||
-    normalizeSectionValue(feature?.get("sectionLabel")) ||
-    sectionId;
-  const group =
-    normalizeSectionValue(feature?.get("sectionGroup")) ||
-    normalizeSectionValue(feature?.get("section_group"));
-  const systemId =
-    normalizeSectionValue(feature?.get("sectionSystemId")) ||
-    normalizeSectionValue(feature?.get("systemId")) ||
-    buildSectionSystemId(group, sectionId, index);
-  const completionDate =
-    normalizeSectionValue(feature?.get("completionDate")) ||
-    normalizeSectionValue(feature?.get("completion_date"));
-  const contractPackage = resolveContractPackageValue([
-    feature?.get("contractPackage"),
-    feature?.get("contract_package"),
-    feature?.get("phase"),
-    feature?.get("package"),
-    feature?.get("sectionGroup"),
-    feature?.get("section_group"),
-    feature?.get("sourceDxf"),
-    feature?.get("sourceDxfs"),
-    feature?.get("description"),
-  ]);
-  const relatedPartIds = normalizeIdCollection(
-    feature?.get("relatedPartIds") ||
-      feature?.get("relatedPartLotIds") ||
-      feature?.get("partIds")
-  );
-  return {
-    sectionId,
-    title,
-    group,
-    systemId,
-    contractPackage,
-    completionDate,
-    relatedPartIds,
-  };
-};
-
-const applyLayerFilterState = (nextState = {}) => {
-  if (!nextState || typeof nextState !== "object") return;
-  if (typeof nextState.showBasemap === "boolean") {
-    uiStore.setLayerVisibility("showBasemap", nextState.showBasemap);
-  }
-  if (typeof nextState.showLabels === "boolean") {
-    uiStore.setLayerVisibility("showLabels", nextState.showLabels);
-  }
-  if (typeof nextState.showIntLand === "boolean") {
-    uiStore.setLayerVisibility("showIntLand", nextState.showIntLand);
-  }
-  if (typeof nextState.showPartOfSites === "boolean") {
-    uiStore.setLayerVisibility("showPartOfSites", nextState.showPartOfSites);
-  }
-  if (typeof nextState.showPartOfSitesC1 === "boolean") {
-    uiStore.setLayerVisibility("showPartOfSitesC1", nextState.showPartOfSitesC1);
-  }
-  if (typeof nextState.showPartOfSitesC2 === "boolean") {
-    uiStore.setLayerVisibility("showPartOfSitesC2", nextState.showPartOfSitesC2);
-  }
-  if (typeof nextState.showSections === "boolean") {
-    uiStore.setLayerVisibility("showSections", nextState.showSections);
-  }
-  if (typeof nextState.showSectionsC1 === "boolean") {
-    uiStore.setLayerVisibility("showSectionsC1", nextState.showSectionsC1);
-  }
-  if (typeof nextState.showSectionsC2 === "boolean") {
-    uiStore.setLayerVisibility("showSectionsC2", nextState.showSectionsC2);
-  }
-  if (typeof nextState.showSiteBoundary === "boolean") {
-    uiStore.setLayerVisibility("showSiteBoundary", nextState.showSiteBoundary);
-  }
-  if (typeof nextState.showSiteBoundaryC1 === "boolean") {
-    uiStore.setLayerVisibility("showSiteBoundaryC1", nextState.showSiteBoundaryC1);
-  }
-  if (typeof nextState.showSiteBoundaryC2 === "boolean") {
-    uiStore.setLayerVisibility("showSiteBoundaryC2", nextState.showSiteBoundaryC2);
-  }
-  if (typeof nextState.showWorkLots === "boolean") {
-    uiStore.setLayerVisibility("showWorkLots", nextState.showWorkLots);
-  }
-  if (typeof nextState.showWorkLotsC1 === "boolean") {
-    uiStore.setLayerVisibility("showWorkLotsC1", nextState.showWorkLotsC1);
-  }
-  if (typeof nextState.showWorkLotsC2 === "boolean") {
-    uiStore.setLayerVisibility("showWorkLotsC2", nextState.showWorkLotsC2);
-  }
-
-  if (Object.prototype.hasOwnProperty.call(nextState, "workLotFilterMode")) {
-    uiStore.setMapFilterMode("workLot", nextState.workLotFilterMode);
-  }
-  if (Object.prototype.hasOwnProperty.call(nextState, "siteBoundaryFilterMode")) {
-    uiStore.setMapFilterMode("siteBoundary", nextState.siteBoundaryFilterMode);
-  }
-  if (Object.prototype.hasOwnProperty.call(nextState, "partOfSitesFilterMode")) {
-    uiStore.setMapFilterMode("partOfSites", nextState.partOfSitesFilterMode);
-  }
-  if (Object.prototype.hasOwnProperty.call(nextState, "sectionFilterMode")) {
-    uiStore.setMapFilterMode("section", nextState.sectionFilterMode);
-  }
-
-  if (Array.isArray(nextState.workLotSelectedIds)) {
-    const ids = normalizeIdList(nextState.workLotSelectedIds);
-    if (nextState.workLotFilterMode === "all") {
-      uiStore.setMapFilterMode("workLot", "all");
-    } else {
-      uiStore.setMapSelectedIds("workLot", ids);
-    }
-  }
-  if (Array.isArray(nextState.siteBoundarySelectedIds)) {
-    const ids = normalizeIdList(nextState.siteBoundarySelectedIds);
-    if (nextState.siteBoundaryFilterMode === "all") {
-      uiStore.setMapFilterMode("siteBoundary", "all");
-    } else {
-      uiStore.setMapSelectedIds("siteBoundary", ids);
-    }
-  }
-  if (Array.isArray(nextState.partOfSitesSelectedIds)) {
-    const ids = normalizeIdList(nextState.partOfSitesSelectedIds);
-    if (nextState.partOfSitesFilterMode === "all") {
-      uiStore.setMapFilterMode("partOfSites", "all");
-    } else {
-      uiStore.setMapSelectedIds("partOfSites", ids);
-    }
-  }
-  if (Array.isArray(nextState.sectionSelectedIds)) {
-    const ids = normalizeIdList(nextState.sectionSelectedIds);
-    if (nextState.sectionFilterMode === "all") {
-      uiStore.setMapFilterMode("section", "all");
-    } else {
-      uiStore.setMapSelectedIds("section", ids);
-    }
-  }
-};
-
 const layerFilterState = computed({
-  get: () => ({
-    showBasemap: uiStore.showBasemap,
-    showLabels: uiStore.showLabels,
-    showIntLand: uiStore.showIntLand,
-    showPartOfSites: uiStore.showPartOfSites,
-    showPartOfSitesC1: uiStore.showPartOfSitesC1,
-    showPartOfSitesC2: uiStore.showPartOfSitesC2,
-    showSections: uiStore.showSections,
-    showSectionsC1: uiStore.showSectionsC1,
-    showSectionsC2: uiStore.showSectionsC2,
-    showSiteBoundary: uiStore.showSiteBoundary,
-    showSiteBoundaryC1: uiStore.showSiteBoundaryC1,
-    showSiteBoundaryC2: uiStore.showSiteBoundaryC2,
-    showWorkLots: uiStore.showWorkLots,
-    showWorkLotsC1: uiStore.showWorkLotsC1,
-    showWorkLotsC2: uiStore.showWorkLotsC2,
-    workLotFilterMode: uiStore.workLotFilterMode,
-    workLotSelectedIds: [...uiStore.workLotSelectedIds],
-    siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,
-    siteBoundarySelectedIds: [...uiStore.siteBoundarySelectedIds],
-    partOfSitesFilterMode: uiStore.partOfSitesFilterMode,
-    partOfSitesSelectedIds: [...uiStore.partOfSitesSelectedIds],
-    sectionFilterMode: uiStore.sectionFilterMode,
-    sectionSelectedIds: [...uiStore.sectionSelectedIds],
-  }),
-  set: (value) => applyLayerFilterState(value),
+  get: () => buildLayerFilterStateFromUiStore(uiStore),
+  set: (value) => applyLayerFilterStateToUiStore(uiStore, value),
 });
 
 const layerFilterOptions = computed(() => {
   siteBoundarySourceVersion.value;
   partOfSitesSourceVersion.value;
   sectionSourceVersion.value;
-  const workLots = [...workLotStore.workLots]
-    .map((lot) => {
-      const normalizedCategory = normalizeWorkLotCategory(lot.category ?? lot.type);
-      const categoryCode =
-        normalizedCategory === WORK_LOT_CATEGORY.BU
-          ? "BU"
-          : normalizedCategory === WORK_LOT_CATEGORY.HH
-            ? "HH"
-            : "GL";
-      return {
-        id: String(lot.id),
-        contractPackage: resolveContractPackageValue([
-          lot.contractPackage,
-          lot.contract_package,
-          lot.phase,
-          lot.package,
-          lot.contractNo,
-        ]),
-        label: lot.operatorName || "Work Lot",
-        category: normalizedCategory,
-        categoryLabel: workCategoryLabel(normalizedCategory),
-        categoryCode,
-        status: lot.status || "",
-        dueDate: lot.dueDate || "",
-      };
-    })
-    .sort((a, b) =>
-      a.label.localeCompare(b.label, undefined, { numeric: true }) ||
-      a.id.localeCompare(b.id, undefined, { numeric: true })
-    );
-
-  const siteBoundaries = siteBoundarySource
-    ? siteBoundarySource
-        .getFeatures()
-        .map((feature, index) => {
-          const id = String(
-            feature.getId() ?? feature.get("refId") ?? `site_boundary_${index + 1}`
-          );
-          return {
-            id,
-            contractPackage: resolveContractPackageValue([
-              feature.get("contractPackage"),
-              feature.get("contract_package"),
-              feature.get("phase"),
-              feature.get("package"),
-              feature.get("contractNo"),
-              feature.get("layer"),
-            ]),
-            label: feature.get("name") || "Site Boundary",
-            boundaryStatus: feature.get("boundaryStatus") || "Pending Clearance",
-            boundaryStatusKey: feature.get("boundaryStatusKey") || "PENDING_CLEARANCE",
-            overdue: !!feature.get("overdue"),
-          };
-        })
-        .sort((a, b) =>
-          a.label.localeCompare(b.label, undefined, { numeric: true }) ||
-          a.id.localeCompare(b.id, undefined, { numeric: true })
-        )
-    : [];
-
-  const partById = new Map();
-  if (partOfSitesSource) {
-    partOfSitesSource.getFeatures().forEach((feature, index) => {
-      const meta = resolvePartOfSiteMeta(feature, index);
-      if (partById.has(meta.partId)) return;
-      partById.set(meta.partId, {
-        id: meta.partId,
-        contractPackage: meta.contractPackage,
-        label: meta.label,
-        group: meta.group,
-        systemId: meta.systemId,
-        accessDate: meta.accessDate,
-      });
-    });
-  }
-  const partOfSites = Array.from(partById.values()).sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, { numeric: true }) ||
-    a.id.localeCompare(b.id, undefined, { numeric: true })
-  );
-  const sectionById = new Map();
-  if (sectionsSource) {
-    sectionsSource.getFeatures().forEach((feature, index) => {
-      const meta = resolveSectionMeta(feature, index);
-      if (sectionById.has(meta.sectionId)) return;
-      sectionById.set(meta.sectionId, {
-        id: meta.sectionId,
-        contractPackage: meta.contractPackage,
-        label: meta.title,
-        group: meta.group,
-        systemId: meta.systemId,
-        partCount: Number(feature.get("partCount")) || meta.relatedPartIds.length || 0,
-      });
-    });
-  }
-  const sections = Array.from(sectionById.values()).sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, { numeric: true }) ||
-    a.id.localeCompare(b.id, undefined, { numeric: true })
-  );
-
-  return {
-    workLots,
-    siteBoundaries,
-    partOfSites,
-    sections,
-  };
+  return buildLayerFilterOptions({
+    workLots: workLotStore.workLots,
+    siteBoundaryFeatures: siteBoundarySource?.getFeatures() || [],
+    partOfSitesFeatures: partOfSitesSource?.getFeatures() || [],
+    sectionFeatures: sectionsSource?.getFeatures() || [],
+    resolveContractPackageValue,
+    resolvePartOfSiteMeta,
+    resolveSectionMeta,
+    normalizeWorkLotCategory,
+    workCategoryLabel,
+    workLotCategory: WORK_LOT_CATEGORY,
+  });
 });
 
 const sanitizeMapFilterSelections = () => {
@@ -1075,112 +746,31 @@ const setActiveLayerType = (layerType) => {
 };
 
 const workLotResults = computed(() => {
-  const query = workSearchQuery.value.trim();
-  if (!query) {
-    return [...workLotStore.workLots]
-      .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
-      .slice(0, 80);
-  }
-  return [...workLotStore.workLots]
-    .filter((lot) =>
-      fuzzyMatchAny(
-        [
-          lot.id,
-          (lot.relatedSiteBoundaryIds || []).join(", "),
-          lot.operatorName,
-          workCategoryLabel(lot.category),
-          lot.responsiblePerson,
-          lot.assessDate,
-          lot.dueDate,
-          lot.completionDate,
-          lot.floatMonths,
-          lot.area,
-          lot.status,
-          lot.description,
-          lot.remark,
-        ],
-        query
-      )
-    )
-    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
-    .slice(0, 80);
+  return buildWorkLotResults({
+    workLots: workLotStore.workLots,
+    query: workSearchQuery.value,
+    fuzzyMatchAny,
+    workCategoryLabel,
+  });
 });
 
 const partOfSitesResults = computed(() => {
   partOfSitesSourceVersion.value;
-  if (!partOfSitesSource) return [];
-
-  const partById = new Map();
-  partOfSitesSource.getFeatures().forEach((feature, index) => {
-    const meta = resolvePartOfSiteMeta(feature, index);
-    if (partById.has(meta.partId)) return;
-    partById.set(meta.partId, {
-      id: meta.partId,
-      title: meta.label,
-      group: meta.group,
-      systemId: meta.systemId,
-      accessDate: meta.accessDate,
-    });
+  return buildPartOfSitesResults({
+    partOfSitesFeatures: partOfSitesSource?.getFeatures() || [],
+    query: partOfSitesSearchQuery.value,
+    fuzzyMatchAny,
+    resolvePartOfSiteMeta,
   });
-
-  const query = partOfSitesSearchQuery.value.trim();
-  return Array.from(partById.values())
-    .filter((item) =>
-      fuzzyMatchAny(
-        [item.id, item.title, item.group, item.systemId, item.accessDate],
-        query
-      )
-    )
-    .sort(
-      (left, right) =>
-        left.title.localeCompare(right.title, undefined, { numeric: true }) ||
-        left.id.localeCompare(right.id, undefined, { numeric: true })
-    )
-    .slice(0, 120);
 });
 const sectionResults = computed(() => {
   sectionSourceVersion.value;
-  if (!sectionsSource) return [];
-
-  const sectionById = new Map();
-  sectionsSource.getFeatures().forEach((feature, index) => {
-    const meta = resolveSectionMeta(feature, index);
-    if (sectionById.has(meta.sectionId)) return;
-    const partCount = Number(feature.get("partCount"));
-    sectionById.set(meta.sectionId, {
-      id: meta.sectionId,
-      title: meta.title,
-      group: meta.group,
-      systemId: meta.systemId,
-      completionDate: meta.completionDate,
-      partCount:
-        Number.isFinite(partCount) && partCount >= 0
-          ? partCount
-          : meta.relatedPartIds.length,
-    });
+  return buildSectionResults({
+    sectionFeatures: sectionsSource?.getFeatures() || [],
+    query: sectionSearchQuery.value,
+    fuzzyMatchAny,
+    resolveSectionMeta,
   });
-
-  const query = sectionSearchQuery.value.trim();
-  return Array.from(sectionById.values())
-    .filter((item) =>
-      fuzzyMatchAny(
-        [
-          item.id,
-          item.title,
-          item.group,
-          item.systemId,
-          item.completionDate,
-          item.partCount,
-        ],
-        query
-      )
-    )
-    .sort(
-      (left, right) =>
-        left.title.localeCompare(right.title, undefined, { numeric: true }) ||
-        left.id.localeCompare(right.id, undefined, { numeric: true })
-    )
-    .slice(0, 120);
 });
 
 const handleScopeQueryResult = ({
@@ -1769,284 +1359,81 @@ const selectedSection = computed(() => {
 
 const selectedWorkLotRelatedSites = computed(() => {
   siteBoundarySourceVersion.value;
-  const lot = selectedWorkLot.value;
-  if (!lot) return [];
-  const relatedSiteBoundaryIds = withRelatedIdFallback(
-    resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry),
-    lot.relatedSiteBoundaryIds
-  );
-  return Array.from(
-    new Set((relatedSiteBoundaryIds || []).map((item) => String(item)).filter(Boolean))
-  )
-    .map((siteBoundaryId) => {
-      const feature = findSiteBoundaryFeatureById(siteBoundaryId);
-      return {
-        id: String(feature?.getId() ?? siteBoundaryId),
-        name: feature?.get("name") ?? "",
-        status: feature?.get("boundaryStatus") ?? "Pending Clearance",
-        statusKey: feature?.get("kpiStatus") ?? "PENDING_CLEARANCE",
-        plannedHandoverDate: feature?.get("plannedHandoverDate") ?? "",
-        overdue: !!feature?.get("overdue"),
-      };
-    })
-    .sort(
-      (a, b) =>
-        a.name.localeCompare(b.name, undefined, { numeric: true }) ||
-        a.id.localeCompare(b.id, undefined, { numeric: true })
-    );
+  return buildSelectedWorkLotRelatedSites({
+    selectedWorkLot: selectedWorkLot.value,
+    resolveRelatedSiteBoundaryIdsByGeometryObject,
+    withRelatedIdFallback,
+    findSiteBoundaryFeatureById,
+  });
 });
 
 const selectedSiteBoundaryRelatedWorkLots = computed(() => {
-  const siteBoundaryId = selectedSiteBoundary.value?.id;
-  if (!siteBoundaryId) return [];
-  const normalizedSiteBoundaryId = String(siteBoundaryId).toLowerCase();
-  return workLotStore.workLots
-    .filter((lot) => {
-      const relatedIds = Array.isArray(lot.relatedSiteBoundaryIds)
-        ? lot.relatedSiteBoundaryIds
-        : [];
-      return relatedIds.some(
-        (relatedId) => String(relatedId).toLowerCase() === normalizedSiteBoundaryId
-      );
-    })
-    .map((lot) => ({
-      id: String(lot.id),
-      operatorName: lot.operatorName || "Work Lot",
-      status: lot.status || WORK_LOT_STATUS.WAITING_ASSESSMENT,
-      dueDate: lot.dueDate || "",
-    }))
-    .sort((a, b) => {
-      const dueA = a.dueDate || "9999-12-31";
-      const dueB = b.dueDate || "9999-12-31";
-      return (
-        dueA.localeCompare(dueB) ||
-        a.operatorName.localeCompare(b.operatorName, undefined, { numeric: true })
-      );
-    });
+  return buildSelectedSiteBoundaryRelatedWorkLots({
+    selectedSiteBoundary: selectedSiteBoundary.value,
+    workLots: workLotStore.workLots,
+    defaultWorkLotStatus: WORK_LOT_STATUS.WAITING_ASSESSMENT,
+  });
 });
 const selectedPartOfSiteRelatedSections = computed(() => {
-  const partId = selectedPartOfSite.value?.partId;
-  if (!partId) return [];
   sectionSourceVersion.value;
-  const explicitRelatedIds = normalizeIdCollection(selectedPartOfSite.value?.sectionIds);
-
-  const relatedById = new Map();
-  if (explicitRelatedIds.length > 0) {
-    explicitRelatedIds.forEach((sectionId) => {
-      const normalizedSectionId = String(sectionId || "").trim();
-      if (!normalizedSectionId) return;
-      const key = normalizedSectionId.toLowerCase();
-      if (relatedById.has(key)) return;
-      const feature = findSectionFeatureById(normalizedSectionId);
-      if (feature) {
-        const meta = resolveSectionMeta(feature);
-        relatedById.set(key, {
-          id: meta.sectionId,
-          title: meta.title,
-          group: meta.group,
-          systemId: meta.systemId,
-        });
-        return;
-      }
-      relatedById.set(key, {
-        id: normalizedSectionId,
-        title: normalizedSectionId,
-        group: "",
-        systemId: "",
-      });
-    });
-  } else {
-    const normalizedPartId = partId.toLowerCase();
-    sectionsSource?.getFeatures().forEach((feature, index) => {
-      const meta = resolveSectionMeta(feature, index);
-      const relatedPartIds = meta.relatedPartIds.map((value) => String(value).toLowerCase());
-      if (!relatedPartIds.includes(normalizedPartId)) return;
-      const key = String(meta.sectionId || "").toLowerCase();
-      if (!key || relatedById.has(key)) return;
-      relatedById.set(key, {
-        id: meta.sectionId,
-        title: meta.title,
-        group: meta.group,
-        systemId: meta.systemId,
-      });
-    });
-  }
-  return Array.from(relatedById.values()).sort(
-    (a, b) =>
-      a.title.localeCompare(b.title, undefined, { numeric: true }) ||
-      a.id.localeCompare(b.id, undefined, { numeric: true })
-  );
+  return buildSelectedPartOfSiteRelatedSections({
+    selectedPartOfSite: selectedPartOfSite.value,
+    normalizeIdCollection,
+    findSectionFeatureById,
+    resolveSectionMeta,
+    sectionFeatures: sectionsSource?.getFeatures() || [],
+  });
 });
 const selectedSectionRelatedPartOfSites = computed(() => {
-  const sectionId = selectedSection.value?.sectionId;
-  if (!sectionId) return [];
   partOfSitesSourceVersion.value;
-  const explicitRelatedIds = normalizeIdCollection(selectedSection.value?.relatedPartIds);
-
-  const relatedById = new Map();
-  if (explicitRelatedIds.length > 0) {
-    explicitRelatedIds.forEach((partId) => {
-      const normalizedPartId = String(partId || "").trim();
-      if (!normalizedPartId) return;
-      const key = normalizedPartId.toLowerCase();
-      if (relatedById.has(key)) return;
-      const feature = findPartOfSitesFeatureById(normalizedPartId);
-      if (feature) {
-        const meta = resolvePartOfSiteMeta(feature);
-        relatedById.set(key, {
-          id: meta.partId,
-          title: meta.label,
-          group: meta.group,
-          systemId: meta.systemId,
-        });
-        return;
-      }
-      relatedById.set(key, {
-        id: normalizedPartId,
-        title: normalizedPartId,
-        group: "",
-        systemId: "",
-      });
-    });
-  } else {
-    const normalizedSectionId = sectionId.toLowerCase();
-    partOfSitesSource?.getFeatures().forEach((feature, index) => {
-      const meta = resolvePartOfSiteMeta(feature, index);
-      const sectionIds = meta.sectionIds.map((value) => String(value).toLowerCase());
-      if (!sectionIds.includes(normalizedSectionId)) return;
-      const key = String(meta.partId || "").toLowerCase();
-      if (!key || relatedById.has(key)) return;
-      relatedById.set(key, {
-        id: meta.partId,
-        title: meta.label,
-        group: meta.group,
-        systemId: meta.systemId,
-      });
-    });
-  }
-  return Array.from(relatedById.values()).sort(
-    (a, b) =>
-      a.title.localeCompare(b.title, undefined, { numeric: true }) ||
-      a.id.localeCompare(b.id, undefined, { numeric: true })
-  );
+  return buildSelectedSectionRelatedPartOfSites({
+    selectedSection: selectedSection.value,
+    normalizeIdCollection,
+    findPartOfSitesFeatureById,
+    resolvePartOfSiteMeta,
+    partOfSitesFeatures: partOfSitesSource?.getFeatures() || [],
+  });
 });
 
 const siteBoundaryResults = computed(() => {
   siteBoundarySourceVersion.value;
-  if (!siteBoundarySource) return [];
-
-  const workLotCountByBoundaryId = workLotStore.workLots.reduce((map, lot) => {
-    const relatedIds = Array.isArray(lot?.relatedSiteBoundaryIds)
-      ? lot.relatedSiteBoundaryIds
-      : [];
-    relatedIds
-      .map((value) => String(value || "").trim().toLowerCase())
-      .filter(Boolean)
-      .forEach((normalizedId) => {
-        map.set(normalizedId, (map.get(normalizedId) || 0) + 1);
-      });
-    return map;
-  }, new Map());
-
-  const query = siteBoundarySearchQuery.value.trim().toLowerCase();
-  return siteBoundarySource
-    .getFeatures()
-    .map((feature, index) => {
-      const id = String(feature.getId() ?? `site_boundary_${String(index + 1).padStart(5, "0")}`);
-      const fallbackCount = Number(feature.get("operatorTotal"));
-      const mappedCount = workLotCountByBoundaryId.get(id.toLowerCase());
-      const workLotCount = Number.isFinite(mappedCount)
-        ? mappedCount
-        : Number.isFinite(fallbackCount)
-          ? fallbackCount
-          : 0;
-
-      return {
-        id,
-        name: feature.get("name") ?? "",
-        plannedHandoverDate: feature.get("plannedHandoverDate") ?? "",
-        boundaryStatus: feature.get("boundaryStatus") ?? "Pending Clearance",
-        boundaryStatusKey: feature.get("kpiStatus") ?? "PENDING_CLEARANCE",
-        overdue: !!feature.get("overdue"),
-        workLotCount,
-      };
-    })
-    .filter((item) => {
-      if (!query) return true;
-      return (
-        item.id.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query) ||
-        item.boundaryStatus.toLowerCase().includes(query) ||
-        item.plannedHandoverDate.toLowerCase().includes(query) ||
-        String(item.workLotCount).includes(query)
-      );
-    })
-    .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  return buildSiteBoundaryResults({
+    siteBoundaryFeatures: siteBoundarySource?.getFeatures() || [],
+    workLots: workLotStore.workLots,
+    query: siteBoundarySearchQuery.value,
+  });
 });
 
 const scopeWorkLotResults = computed(() => {
-  if (!scopeWorkLotIds.value.length) return [];
-  const byId = new Map(workLotStore.workLots.map((lot) => [String(lot.id), lot]));
-  return scopeWorkLotIds.value.map((id) => byId.get(String(id))).filter(Boolean);
+  return buildScopeWorkLotResults({
+    scopeWorkLotIds: scopeWorkLotIds.value,
+    workLots: workLotStore.workLots,
+  });
 });
 
 const scopeSiteBoundaryResults = computed(() => {
   siteBoundarySourceVersion.value;
-  if (!scopeSiteBoundaryIds.value.length) return [];
-
-  return scopeSiteBoundaryIds.value
-    .map((id) => findSiteBoundaryFeatureById(id))
-    .filter(Boolean)
-    .map((feature) => ({
-      id: String(feature.getId() ?? feature.get("refId")),
-      name: feature.get("name") ?? "",
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
+  return buildScopeSiteBoundaryResults({
+    scopeSiteBoundaryIds: scopeSiteBoundaryIds.value,
+    findSiteBoundaryFeatureById,
+  });
 });
 
 const scopePartOfSitesResults = computed(() => {
   partOfSitesSourceVersion.value;
-  if (!scopePartOfSitesIds.value.length) return [];
-
-  return scopePartOfSitesIds.value
-    .map((id) => findPartOfSitesFeatureById(id))
-    .filter(Boolean)
-    .map((feature, index) => {
-      const meta = resolvePartOfSiteMeta(feature, index);
-      return {
-        id: meta.partId,
-        title: meta.label,
-        group: meta.group,
-        systemId: meta.systemId,
-      };
-    })
-    .sort(
-      (left, right) =>
-        left.title.localeCompare(right.title, undefined, { numeric: true }) ||
-        left.id.localeCompare(right.id, undefined, { numeric: true })
-    );
+  return buildScopePartOfSitesResults({
+    scopePartOfSitesIds: scopePartOfSitesIds.value,
+    findPartOfSitesFeatureById,
+    resolvePartOfSiteMeta,
+  });
 });
 const scopeSectionResults = computed(() => {
   sectionSourceVersion.value;
-  if (!scopeSectionIds.value.length) return [];
-
-  return scopeSectionIds.value
-    .map((id) => findSectionFeatureById(id))
-    .filter(Boolean)
-    .map((feature, index) => {
-      const meta = resolveSectionMeta(feature, index);
-      return {
-        id: meta.sectionId,
-        title: meta.title,
-        group: meta.group,
-        systemId: meta.systemId,
-      };
-    })
-    .sort(
-      (left, right) =>
-        left.title.localeCompare(right.title, undefined, { numeric: true }) ||
-        left.id.localeCompare(right.id, undefined, { numeric: true })
-    );
+  return buildScopeSectionResults({
+    scopeSectionIds: scopeSectionIds.value,
+    findSectionFeatureById,
+    resolveSectionMeta,
+  });
 });
 
 const handleDrawerClose = () => {
@@ -2114,14 +1501,6 @@ const isIdSelected = (ids = [], id) => {
   return ids.some((item) => String(item || "").trim().toLowerCase() === normalized);
 };
 
-const normalizeFocusToken = (value) => String(value || "").trim().toLowerCase();
-const activeMapFocus = ref(null);
-const focusMapTarget = computed(() =>
-  activeMapFocus.value
-    ? { group: activeMapFocus.value.group, id: activeMapFocus.value.id }
-    : null
-);
-
 const forceApplyLayerVisibilityAndFilters = () => {
   updateLayerVisibility(basemapLayer.value, labelLayer.value);
   refreshLayerFilters();
@@ -2129,132 +1508,36 @@ const forceApplyLayerVisibilityAndFilters = () => {
   refreshHighlights();
 };
 
-const captureFocusSnapshot = () => ({
-  showIntLand: uiStore.showIntLand,
-  showWorkLots: uiStore.showWorkLots,
-  showWorkLotsC1: uiStore.showWorkLotsC1,
-  showWorkLotsC2: uiStore.showWorkLotsC2,
-  showWorkLotsBusiness: uiStore.showWorkLotsBusiness,
-  showWorkLotsDomestic: uiStore.showWorkLotsDomestic,
-  showWorkLotsGovernment: uiStore.showWorkLotsGovernment,
-  showSiteBoundary: uiStore.showSiteBoundary,
-  showSiteBoundaryC1: uiStore.showSiteBoundaryC1,
-  showSiteBoundaryC2: uiStore.showSiteBoundaryC2,
-  showPartOfSites: uiStore.showPartOfSites,
-  showPartOfSitesC1: uiStore.showPartOfSitesC1,
-  showPartOfSitesC2: uiStore.showPartOfSitesC2,
-  showSections: uiStore.showSections,
-  showSectionsC1: uiStore.showSectionsC1,
-  showSectionsC2: uiStore.showSectionsC2,
-  workLotFilterMode: uiStore.workLotFilterMode,
-  workLotSelectedIds: [...uiStore.workLotSelectedIds],
-  siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,
-  siteBoundarySelectedIds: [...uiStore.siteBoundarySelectedIds],
-  partOfSitesFilterMode: uiStore.partOfSitesFilterMode,
-  partOfSitesSelectedIds: [...uiStore.partOfSitesSelectedIds],
-  sectionFilterMode: uiStore.sectionFilterMode,
-  sectionSelectedIds: [...uiStore.sectionSelectedIds],
+const {
+  activeMapFocus,
+  focusMapTarget,
+  clearActiveMapFocus,
+  handleSidePanelClose,
+  toggleFocusOnMapTarget,
+  isActiveFocusStateValid,
+  isFocusStateLocked,
+} = useMapFocusState({
+  uiStore,
+  workLotStore,
+  contractPackage: CONTRACT_PACKAGE,
+  workLotCategory: WORK_LOT_CATEGORY,
+  resolveContractPackageValue,
+  normalizeWorkLotCategory,
+  findSiteBoundaryFeatureById,
+  findPartOfSitesFeatureById,
+  findSectionFeatureById,
+  resolvePartOfSiteMeta,
+  resolveSectionMeta,
+  normalizeLayerSelectedIdList,
+  applyLayerFilterStateToUiStore,
+  refreshLayerPresentation: forceApplyLayerVisibilityAndFilters,
+  focusTargetActions: {
+    workLot: (id) => zoomToWorkLot(id),
+    siteBoundary: (id) => zoomToSiteBoundary(id),
+    partOfSites: (id) => zoomToPartOfSite(id),
+    section: (id) => zoomToSection(id),
+  },
 });
-
-const restoreFocusSnapshot = (snapshot) => {
-  if (!snapshot) return;
-  applyLayerFilterState(snapshot);
-  if (typeof snapshot.showWorkLotsBusiness === "boolean") {
-    uiStore.setLayerVisibility("showWorkLotsBusiness", snapshot.showWorkLotsBusiness);
-  }
-  if (typeof snapshot.showWorkLotsDomestic === "boolean") {
-    uiStore.setLayerVisibility("showWorkLotsDomestic", snapshot.showWorkLotsDomestic);
-  }
-  if (typeof snapshot.showWorkLotsGovernment === "boolean") {
-    uiStore.setLayerVisibility("showWorkLotsGovernment", snapshot.showWorkLotsGovernment);
-  }
-  forceApplyLayerVisibilityAndFilters();
-};
-
-let focusStateMutationLock = false;
-const runWithFocusStateLock = (task) => {
-  focusStateMutationLock = true;
-  try {
-    task();
-  } finally {
-    focusStateMutationLock = false;
-  }
-};
-
-const clearActiveMapFocus = ({ restoreSnapshot = false } = {}) => {
-  if (!activeMapFocus.value) return;
-  const snapshot = activeMapFocus.value.snapshot || null;
-  activeMapFocus.value = null;
-  if (restoreSnapshot && snapshot) {
-    runWithFocusStateLock(() => {
-      restoreFocusSnapshot(snapshot);
-    });
-  }
-};
-
-const handleSidePanelClose = () => {
-  if (!activeMapFocus.value) return;
-  clearActiveMapFocus({ restoreSnapshot: true });
-};
-
-const resetFocusOnMapFilters = () => {
-  uiStore.setLayerVisibility("showIntLand", false);
-  uiStore.setLayerVisibility("showWorkLots", false);
-  uiStore.setLayerVisibility("showSiteBoundary", false);
-  uiStore.setLayerVisibility("showPartOfSites", false);
-  uiStore.setLayerVisibility("showSections", false);
-  uiStore.setMapFilterMode("workLot", "all");
-  uiStore.setMapFilterMode("siteBoundary", "all");
-  uiStore.setMapFilterMode("partOfSites", "all");
-  uiStore.setMapFilterMode("section", "all");
-};
-
-const applyFocusOnMapTarget = (group, targetId) => {
-  const normalizedTargetId = String(targetId || "").trim();
-  if (!normalizedTargetId) return;
-  runWithFocusStateLock(() => {
-    resetFocusOnMapFilters();
-    if (group === "workLot") {
-      uiStore.setLayerVisibility("showWorkLots", true);
-      uiStore.setMapSelectedIds("workLot", [normalizedTargetId]);
-    }
-    if (group === "siteBoundary") {
-      uiStore.setLayerVisibility("showSiteBoundary", true);
-      uiStore.setMapSelectedIds("siteBoundary", [normalizedTargetId]);
-    }
-    if (group === "partOfSites") {
-      uiStore.setLayerVisibility("showPartOfSites", true);
-      uiStore.setMapSelectedIds("partOfSites", [normalizedTargetId]);
-    }
-    if (group === "section") {
-      uiStore.setLayerVisibility("showSections", true);
-      uiStore.setMapSelectedIds("section", [normalizedTargetId]);
-    }
-    forceApplyLayerVisibilityAndFilters();
-  });
-  if (group === "workLot") zoomToWorkLot(normalizedTargetId);
-  if (group === "siteBoundary") zoomToSiteBoundary(normalizedTargetId);
-  if (group === "partOfSites") zoomToPartOfSite(normalizedTargetId);
-  if (group === "section") zoomToSection(normalizedTargetId);
-};
-
-const toggleFocusOnMapTarget = (group, targetId) => {
-  const normalizedTargetId = String(targetId || "").trim();
-  if (!normalizedTargetId) return;
-  const currentGroup = activeMapFocus.value?.group || "";
-  const currentId = normalizeFocusToken(activeMapFocus.value?.id);
-  if (currentGroup === group && currentId === normalizeFocusToken(normalizedTargetId)) {
-    clearActiveMapFocus({ restoreSnapshot: true });
-    return;
-  }
-  const snapshot = activeMapFocus.value?.snapshot || captureFocusSnapshot();
-  activeMapFocus.value = {
-    group,
-    id: normalizedTargetId,
-    snapshot,
-  };
-  applyFocusOnMapTarget(group, normalizedTargetId);
-};
 
 const focusOnMapWorkLot = (id) => {
   const lot = workLotStore.workLots.find((item) => String(item.id) === String(id || "").trim());
@@ -2286,99 +1569,6 @@ const focusOnMapSection = (id) => {
   const selectedId = String(meta.sectionId || "").trim();
   if (!selectedId) return;
   toggleFocusOnMapTarget("section", selectedId);
-};
-
-const isSingleFocusSelection = (mode, ids, targetId) => {
-  if (mode !== "custom") return false;
-  const normalizedSelected = normalizeIdList(ids).map((item) => normalizeFocusToken(item));
-  if (normalizedSelected.length !== 1) return false;
-  return normalizedSelected[0] === normalizeFocusToken(targetId);
-};
-
-const isActiveFocusStateValid = () => {
-  if (!activeMapFocus.value) return true;
-  const { group, id } = activeMapFocus.value;
-  const othersHidden =
-    !uiStore.showIntLand &&
-    (group === "workLot" ? true : !uiStore.showWorkLots) &&
-    (group === "siteBoundary" ? true : !uiStore.showSiteBoundary) &&
-    (group === "partOfSites" ? true : !uiStore.showPartOfSites) &&
-    (group === "section" ? true : !uiStore.showSections);
-  if (!othersHidden) return false;
-
-  if (group === "workLot") {
-    if (!uiStore.showWorkLots) return false;
-    if (!isSingleFocusSelection(uiStore.workLotFilterMode, uiStore.workLotSelectedIds, id)) {
-      return false;
-    }
-    const lot = workLotStore.workLots.find(
-      (item) => normalizeFocusToken(item.id) === normalizeFocusToken(id)
-    );
-    if (!lot) return false;
-    const contractPackage = resolveContractPackageValue([
-      lot.contractPackage,
-      lot.contract_package,
-      lot.phase,
-      lot.package,
-      lot.contractNo,
-    ]);
-    if (
-      (contractPackage === CONTRACT_PACKAGE.C1 && !uiStore.showWorkLotsC1) ||
-      (contractPackage === CONTRACT_PACKAGE.C2 && !uiStore.showWorkLotsC2)
-    ) {
-      return false;
-    }
-    const category = normalizeWorkLotCategory(lot.category ?? lot.type);
-    if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) return false;
-    if (category === WORK_LOT_CATEGORY.HH && !uiStore.showWorkLotsDomestic) return false;
-    if (category === WORK_LOT_CATEGORY.GL && !uiStore.showWorkLotsGovernment) return false;
-    return true;
-  }
-  if (group === "siteBoundary") {
-    if (!uiStore.showSiteBoundary) return false;
-    if (
-      !isSingleFocusSelection(uiStore.siteBoundaryFilterMode, uiStore.siteBoundarySelectedIds, id)
-    ) {
-      return false;
-    }
-    const feature = findSiteBoundaryFeatureById(id);
-    if (!feature) return false;
-    const contractPackage = resolveContractPackageValue([
-      feature.get("contractPackage"),
-      feature.get("contract_package"),
-      feature.get("phase"),
-      feature.get("package"),
-      feature.get("contractNo"),
-      feature.get("layer"),
-    ]);
-    if (contractPackage === CONTRACT_PACKAGE.C1) return uiStore.showSiteBoundaryC1;
-    return uiStore.showSiteBoundaryC2;
-  }
-  if (group === "partOfSites") {
-    if (!uiStore.showPartOfSites) return false;
-    if (
-      !isSingleFocusSelection(uiStore.partOfSitesFilterMode, uiStore.partOfSitesSelectedIds, id)
-    ) {
-      return false;
-    }
-    const feature = findPartOfSitesFeatureById(id);
-    if (!feature) return false;
-    const meta = resolvePartOfSiteMeta(feature);
-    if (meta.contractPackage === CONTRACT_PACKAGE.C1) return uiStore.showPartOfSitesC1;
-    return uiStore.showPartOfSitesC2;
-  }
-  if (group === "section") {
-    if (!uiStore.showSections) return false;
-    if (!isSingleFocusSelection(uiStore.sectionFilterMode, uiStore.sectionSelectedIds, id)) {
-      return false;
-    }
-    const feature = findSectionFeatureById(id);
-    if (!feature) return false;
-    const meta = resolveSectionMeta(feature);
-    if (meta.contractPackage === CONTRACT_PACKAGE.C1) return uiStore.showSectionsC1;
-    return uiStore.showSectionsC2;
-  }
-  return false;
 };
 
 const zoomToWorkLot = (id) => {
@@ -2797,7 +1987,7 @@ watch(
   ],
   () => {
     if (!activeMapFocus.value) return;
-    if (focusStateMutationLock) return;
+    if (isFocusStateLocked()) return;
     if (!isActiveFocusStateValid()) {
       clearActiveMapFocus({ restoreSnapshot: false });
     }

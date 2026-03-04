@@ -20,33 +20,21 @@ import {
 } from "../../../shared/utils/siteBoundary";
 import { generateLandId } from "../../../shared/utils/id";
 import {
-  buildPartOfSitesGeojson,
-  downloadPartOfSitesGeojson,
-} from "../../../shared/utils/partOfSitesGeojson";
-import {
-  buildSectionsGeojson,
-  downloadSectionsGeojson,
-} from "../../../shared/utils/sectionsGeojson";
-import {
   CONTRACT_PACKAGE,
-  normalizeContractPackage,
-  resolveContractPackage,
-  toContractPhaseScopedId,
 } from "../../../shared/utils/contractPackage";
 import {
-  INT_LAND_GEOJSON_URL,
-  PART_OF_SITES_CACHE_TTL_MS,
-  PART_OF_SITES_FILE_CONCURRENCY,
-  PART_OF_SITES_INDEX_CONCURRENCY,
-  PART_OF_SITES_GEOJSON_INDEX_URL,
-  SECTIONS_GEOJSON_INDEX_URL,
-  SITE_BOUNDARY_GEOJSON_URL,
-  STATIC_JSON_FETCH_CACHE_MODE,
-} from "../../../shared/config/mapApi";
-import {
-  fetchJsonWithCache,
-  mapWithConcurrency,
-} from "../../../shared/utils/asyncDataLoader";
+  featureKey,
+  getPartOfSitesLotId,
+  getSectionLotId,
+  isFeatureSelectedInFilter,
+  isPolygonalFeature,
+  normalizeFeatureId,
+  normalizePartOfSitesId,
+  normalizeSectionId,
+} from "../utils/layerFeatureHelpers";
+import { useMapFeatureNormalization } from "./useMapFeatureNormalization";
+import { useMapLayerVisibility } from "./useMapLayerVisibility";
+import { useMapLayerDataIO } from "./useMapLayerDataIO";
 
 export const useMapLayers = ({
   workLotStore,
@@ -56,150 +44,6 @@ export const useMapLayers = ({
   partOfSitesStore,
   sectionsStore,
 }) => {
-  const featureKey = (value) => String(value || "").trim().toLowerCase();
-  const normalizeFeatureId = (value) => {
-    if (value === null || value === undefined) return null;
-    const normalized = String(value).trim();
-    return normalized.length ? normalized : null;
-  };
-  const normalizePartOfSitesId = (value) => {
-    const normalized = normalizeFeatureId(value);
-    if (!normalized) return null;
-    if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
-    return normalized;
-  };
-  const normalizeSectionId = (value) => {
-    const normalized = normalizeFeatureId(value);
-    if (!normalized) return null;
-    if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
-    return normalized;
-  };
-  const normalizeDateValue = (value) => {
-    const normalized = normalizeFeatureId(value);
-    if (!normalized) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
-    const parsed = new Date(normalized);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toISOString().slice(0, 10);
-  };
-  const normalizePositiveNumber = (value) => {
-    if (value === null || value === undefined || value === "") return null;
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed <= 0) return null;
-    return parsed;
-  };
-  const normalizeIdList = (value) => {
-    const list = Array.isArray(value)
-      ? value
-      : typeof value === "string"
-        ? value.split(",")
-        : [value];
-    const dedupe = new Set();
-    list.forEach((item) => {
-      if (item === null || item === undefined) return;
-      const normalized = String(item).trim();
-      if (!normalized) return;
-      dedupe.add(normalized);
-    });
-    return Array.from(dedupe);
-  };
-  const normalizeContractPackageValue = (value, fallback = CONTRACT_PACKAGE.C2) =>
-    normalizeContractPackage(value, { fallback });
-  const resolveContractPackageValue = (values = [], fallback = CONTRACT_PACKAGE.C2) =>
-    resolveContractPackage(values, { fallback });
-  const isContractPackageVisible = (
-    contractPackage,
-    {
-      showC1 = true,
-      showC2 = true,
-    } = {}
-  ) => {
-    const normalized = normalizeContractPackageValue(contractPackage, CONTRACT_PACKAGE.C2);
-    if (normalized === CONTRACT_PACKAGE.C1) return !!showC1;
-    return !!showC2;
-  };
-  const buildPartOfSitesSystemId = ({
-    groupLabel = "",
-    partId = "",
-    featureIndex = 0,
-  } = {}) => {
-    const groupToken =
-      normalizeFeatureId(groupLabel)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "PART";
-    const partToken =
-      normalizePartOfSitesId(partId)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "UNK";
-    const seq = String(Math.max(0, Number(featureIndex) || 0) + 1).padStart(3, "0");
-    return `POS-${groupToken}-${partToken}-${seq}`;
-  };
-  const buildSectionSystemId = ({
-    groupLabel = "",
-    sectionId = "",
-    featureIndex = 0,
-  } = {}) => {
-    const groupToken =
-      normalizeFeatureId(groupLabel)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "SEC";
-    const sectionToken =
-      normalizeSectionId(sectionId)?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "UNK";
-    const seq = String(Math.max(0, Number(featureIndex) || 0) + 1).padStart(3, "0");
-    return `SOW-${groupToken}-${sectionToken}-${seq}`;
-  };
-  const isFeatureSelectedInFilter = (mode, selectedIds = [], id) => {
-    if (mode !== "custom") return true;
-    const normalized = normalizeFeatureId(id);
-    if (!normalized) return false;
-    const normalizedLower = normalized.toLowerCase();
-    return selectedIds.some(
-      (item) => String(item || "").trim().toLowerCase() === normalizedLower
-    );
-  };
-  const getPartOfSitesLotId = (feature, index = 0) =>
-    normalizePartOfSitesId(feature?.get("partId")) ||
-    normalizePartOfSitesId(feature?.get("part_id")) ||
-    normalizePartOfSitesId(feature?.get("partOfSitesLotId")) ||
-    normalizeFeatureId(feature?.get("refId")) ||
-    normalizeFeatureId(feature?.getId?.()) ||
-    normalizeFeatureId(feature?.get("id")) ||
-    normalizeFeatureId(feature?.get("handle")) ||
-    `part_of_site_${String(index + 1).padStart(5, "0")}`;
-  const getSectionLotId = (feature, index = 0) =>
-    normalizeSectionId(feature?.get("sectionId")) ||
-    normalizeSectionId(feature?.get("section_id")) ||
-    normalizeSectionId(feature?.get("sectionLotId")) ||
-    normalizeSectionId(feature?.get("refId")) ||
-    normalizeSectionId(feature?.getId?.()) ||
-    normalizeSectionId(feature?.get("id")) ||
-    normalizeSectionId(feature?.get("handle")) ||
-    `section_${String(index + 1).padStart(5, "0")}`;
-  const isPolygonalFeature = (feature) => {
-    const geometryType = feature?.getGeometry?.()?.getType?.();
-    return geometryType === "Polygon" || geometryType === "MultiPolygon";
-  };
-  const getPartAttributeOverride = (partId, contractPackage = "") => {
-    const normalizedPartId = normalizePartOfSitesId(partId);
-    if (!normalizedPartId || !partOfSitesStore) return null;
-    if (typeof partOfSitesStore.attributeByPartId === "function") {
-      return partOfSitesStore.attributeByPartId(normalizedPartId, contractPackage);
-    }
-    const scopedKey = toContractPhaseScopedId(contractPackage, normalizedPartId).toLowerCase();
-    return (
-      partOfSitesStore.attributeOverrides?.[scopedKey] ||
-      partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] ||
-      null
-    );
-  };
-  const getSectionAttributeOverride = (sectionId, contractPackage = "") => {
-    const normalizedSectionId = normalizeSectionId(sectionId);
-    if (!normalizedSectionId || !sectionsStore) return null;
-    if (typeof sectionsStore.attributeBySectionId === "function") {
-      return sectionsStore.attributeBySectionId(normalizedSectionId, contractPackage);
-    }
-    const scopedKey = toContractPhaseScopedId(contractPackage, normalizedSectionId).toLowerCase();
-    return (
-      sectionsStore.attributeOverrides?.[scopedKey] ||
-      sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] ||
-      null
-    );
-  };
-
   const format = new GeoJSON();
 
   const workBusinessSource = new VectorSource();
@@ -209,178 +53,16 @@ export const useMapLayers = ({
   const partOfSitesSource = new VectorSource();
   const sectionsSource = new VectorSource();
   const siteBoundarySource = new VectorSource();
-  const normalizePartOfSitesFeature = (
-    feature,
-    {
-      groupLabelHint = "",
-      partIdHint = "",
-      partLabelHint = "",
-      featureIndex = 0,
-    } = {}
-  ) => {
-    const lotId =
-      normalizePartOfSitesId(feature?.get("partId")) ||
-      normalizePartOfSitesId(feature?.get("part_id")) ||
-      normalizePartOfSitesId(feature?.get("partOfSitesLotId")) ||
-      normalizePartOfSitesId(partIdHint) ||
-      getPartOfSitesLotId(feature, featureIndex);
-    const groupLabel =
-      normalizeFeatureId(feature?.get("partOfSitesGroup")) ||
-      normalizeFeatureId(feature?.get("partGroup")) ||
-      normalizeFeatureId(groupLabelHint) ||
-      "Manual Draw";
-    const lotLabel =
-      normalizeFeatureId(feature?.get("partOfSitesLotLabel")) ||
-      normalizeFeatureId(feature?.get("partId")) ||
-      normalizeFeatureId(partLabelHint) ||
-      lotId;
-    const systemId =
-      normalizeFeatureId(feature?.get("partOfSitesSystemId")) ||
-      normalizeFeatureId(feature?.get("systemId")) ||
-      normalizeFeatureId(feature?.getId?.()) ||
-      buildPartOfSitesSystemId({
-        groupLabel,
-        partId: lotId,
-        featureIndex,
-      });
-    const contractPackage = resolveContractPackageValue(
-      [
-        feature?.get("contractPackage"),
-        feature?.get("contract_package"),
-        feature?.get("phase"),
-        feature?.get("package"),
-        feature?.get("partOfSitesGroup"),
-        feature?.get("partGroup"),
-        groupLabelHint,
-        feature?.get("sourceDxf"),
-        feature?.get("sourceDxfs"),
-      ],
-      CONTRACT_PACKAGE.C2
-    );
-
-    const baseAccessDate = normalizeDateValue(feature.get("accessDate") || feature.get("access_date"));
-    const baseArea = normalizePositiveNumber(feature.get("area"));
-    const override = getPartAttributeOverride(lotId, contractPackage);
-    const overrideAccessDate = normalizeDateValue(override?.accessDate);
-    const overrideArea = normalizePositiveNumber(override?.area);
-    const resolvedAccessDate = overrideAccessDate || baseAccessDate;
-    const resolvedArea = overrideArea ?? baseArea;
-
-    feature.setId(systemId);
-    feature.set("partId", lotId);
-    feature.set("partGroup", groupLabel);
-    feature.set("partOfSitesLotId", lotId);
-    feature.set("partOfSitesLotLabel", lotLabel);
-    feature.set("partOfSitesSystemId", systemId);
-    feature.set("partOfSitesGroup", groupLabel);
-    feature.set("contractPackage", contractPackage);
-    feature.unset("name", true);
-    feature.set("accessDate", resolvedAccessDate);
-    if (resolvedArea !== null) {
-      feature.set("area", resolvedArea);
-    } else {
-      feature.unset("area", true);
-    }
-    if (override?.updatedAt) {
-      feature.set("updatedAt", normalizeFeatureId(override.updatedAt) || "");
-    }
-    if (override?.updatedBy) {
-      feature.set("updatedBy", normalizeFeatureId(override.updatedBy) || "");
-    }
-    feature.set("layerType", "partOfSites");
-    feature.set("refId", lotId);
-    return feature;
-  };
-  const normalizeSectionFeature = (
-    feature,
-    {
-      groupLabelHint = "",
-      sectionIdHint = "",
-      sectionLabelHint = "",
-      featureIndex = 0,
-    } = {}
-  ) => {
-    const sectionId =
-      normalizeSectionId(feature?.get("sectionId")) ||
-      normalizeSectionId(feature?.get("section_id")) ||
-      normalizeSectionId(feature?.get("sectionLotId")) ||
-      normalizeSectionId(sectionIdHint) ||
-      getSectionLotId(feature, featureIndex);
-    const groupLabel =
-      normalizeFeatureId(feature?.get("sectionGroup")) ||
-      normalizeFeatureId(feature?.get("section_group")) ||
-      normalizeFeatureId(groupLabelHint) ||
-      "Manual Draw";
-    const sectionLabel =
-      normalizeFeatureId(feature?.get("sectionLotLabel")) ||
-      normalizeFeatureId(feature?.get("sectionLabel")) ||
-      normalizeFeatureId(sectionLabelHint) ||
-      sectionId;
-    const systemId =
-      normalizeFeatureId(feature?.get("sectionSystemId")) ||
-      normalizeFeatureId(feature?.get("systemId")) ||
-      normalizeFeatureId(feature?.getId?.()) ||
-      buildSectionSystemId({
-        groupLabel,
-        sectionId,
-        featureIndex,
-      });
-    const contractPackage = resolveContractPackageValue(
-      [
-        feature?.get("contractPackage"),
-        feature?.get("contract_package"),
-        feature?.get("phase"),
-        feature?.get("package"),
-        feature?.get("sectionGroup"),
-        feature?.get("section_group"),
-        groupLabelHint,
-        feature?.get("sourceDxf"),
-        feature?.get("sourceDxfs"),
-        feature?.get("description"),
-      ],
-      CONTRACT_PACKAGE.C2
-    );
-
-    const explicitRelatedPartIds = normalizeIdList(
-      feature?.get("relatedPartIds") ||
-        feature?.get("relatedPartLotIds") ||
-        feature?.get("partIds")
-    );
-    const baseCompletionDate = normalizeDateValue(
-      feature.get("completionDate") || feature.get("completion_date")
-    );
-    const baseArea = normalizePositiveNumber(feature.get("area"));
-    const override = getSectionAttributeOverride(sectionId, contractPackage);
-    const overrideCompletionDate = normalizeDateValue(override?.completionDate);
-    const overrideArea = normalizePositiveNumber(override?.area);
-    const resolvedCompletionDate = overrideCompletionDate || baseCompletionDate;
-    const resolvedArea = overrideArea ?? baseArea;
-
-    feature.setId(systemId);
-    feature.set("sectionId", sectionId);
-    feature.set("sectionGroup", groupLabel);
-    feature.set("sectionLotId", sectionId);
-    feature.set("sectionLotLabel", sectionLabel);
-    feature.set("sectionSystemId", systemId);
-    feature.set("contractPackage", contractPackage);
-    feature.set("completionDate", resolvedCompletionDate);
-    if (resolvedArea !== null) {
-      feature.set("area", resolvedArea);
-    } else {
-      feature.unset("area", true);
-    }
-    if (override?.updatedAt) {
-      feature.set("updatedAt", normalizeFeatureId(override.updatedAt) || "");
-    }
-    if (override?.updatedBy) {
-      feature.set("updatedBy", normalizeFeatureId(override.updatedBy) || "");
-    }
-    feature.set("relatedPartIds", explicitRelatedPartIds);
-    feature.set("partCount", explicitRelatedPartIds.length);
-    feature.set("layerType", "section");
-    feature.set("refId", sectionId);
-    return feature;
-  };
+  const {
+    normalizeContractPackageValue,
+    resolveContractPackageValue,
+    isContractPackageVisible,
+    normalizePartOfSitesFeature,
+    normalizeSectionFeature,
+  } = useMapFeatureNormalization({
+    partOfSitesStore,
+    sectionsStore,
+  });
 
   const applyPartOfSitesFeaturesToSource = (features = []) => {
     partOfSitesSource.clear(true);
@@ -396,143 +78,27 @@ export const useMapLayers = ({
     }
     refreshLayerFilters();
   };
-
-  const buildPartOfSitesSnapshot = ({ source = "map-edit" } = {}) => {
-    const snapshotFeatureCollection = format.writeFeaturesObject(
-      partOfSitesSource.getFeatures(),
-      {
-        dataProjection: EPSG_2326,
-        featureProjection: EPSG_2326,
-      }
-    );
-    return buildPartOfSitesGeojson(snapshotFeatureCollection?.features || [], {
-      source,
-      savedBy: authStore?.roleName || "",
-    });
-  };
-
-  const persistPartOfSitesSnapshot = ({ source = "map-edit" } = {}) => {
-    if (!partOfSitesStore) return null;
-    const snapshot = buildPartOfSitesSnapshot({ source });
-    partOfSitesStore.saveSnapshotGeojson(snapshot);
-    return snapshot;
-  };
-
-  const exportPartOfSitesSnapshot = (filename = "part-of-sites-map.geojson") =>
-    downloadPartOfSitesGeojson(buildPartOfSitesSnapshot({ source: "map-export" }), filename);
-  const buildSectionsSnapshot = ({ source = "map-edit" } = {}) => {
-    const snapshotFeatureCollection = format.writeFeaturesObject(
-      sectionsSource.getFeatures(),
-      {
-        dataProjection: EPSG_2326,
-        featureProjection: EPSG_2326,
-      }
-    );
-    return buildSectionsGeojson(snapshotFeatureCollection?.features || [], {
-      source,
-      savedBy: authStore?.roleName || "",
-    });
-  };
-
-  const persistSectionsSnapshot = ({ source = "map-edit" } = {}) => {
-    if (!sectionsStore) return null;
-    const snapshot = buildSectionsSnapshot({ source });
-    sectionsStore.saveSnapshotGeojson(snapshot);
-    return snapshot;
-  };
-
-  const exportSectionsSnapshot = (filename = "sections-map.geojson") =>
-    downloadSectionsGeojson(buildSectionsSnapshot({ source: "map-export" }), filename);
-
-  const isWorkFeatureVisible = (feature) => {
-    if (!uiStore.showWorkLots) return false;
-    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
-    if (
-      !isContractPackageVisible(contractPackage, {
-        showC1: uiStore.showWorkLotsC1,
-        showC2: uiStore.showWorkLotsC2,
-      })
-    ) {
-      return false;
-    }
-    const category = normalizeWorkLotCategory(
-      feature?.get("workCategory") || feature?.get("category")
-    );
-    if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) return false;
-    if (category === WORK_LOT_CATEGORY.HH && !uiStore.showWorkLotsDomestic) return false;
-    if (category === WORK_LOT_CATEGORY.GL && !uiStore.showWorkLotsGovernment) return false;
-    const workLotId = feature?.get("refId") || feature?.getId();
-    return isFeatureSelectedInFilter(
-      uiStore.workLotFilterMode,
-      uiStore.workLotSelectedIds,
-      workLotId
-    );
-  };
-
-  const isSiteBoundaryFeatureVisible = (feature) => {
-    if (!uiStore.showSiteBoundary) return false;
-    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
-    if (
-      !isContractPackageVisible(contractPackage, {
-        showC1: uiStore.showSiteBoundaryC1,
-        showC2: uiStore.showSiteBoundaryC2,
-      })
-    ) {
-      return false;
-    }
-    const boundaryId = feature?.get("refId") || feature?.getId();
-    return isFeatureSelectedInFilter(
-      uiStore.siteBoundaryFilterMode,
-      uiStore.siteBoundarySelectedIds,
-      boundaryId
-    );
-  };
-
-  const isPartOfSitesFeatureVisible = (feature, index = 0) => {
-    if (!uiStore.showPartOfSites) return false;
-    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
-    if (
-      !isContractPackageVisible(contractPackage, {
-        showC1: uiStore.showPartOfSitesC1,
-        showC2: uiStore.showPartOfSitesC2,
-      })
-    ) {
-      return false;
-    }
-    const lotId = getPartOfSitesLotId(feature, index);
-    return isFeatureSelectedInFilter(
-      uiStore.partOfSitesFilterMode,
-      uiStore.partOfSitesSelectedIds,
-      lotId
-    );
-  };
-  const isSectionFeatureVisible = (feature, index = 0) => {
-    if (!uiStore.showSections) return false;
-    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
-    if (
-      !isContractPackageVisible(contractPackage, {
-        showC1: uiStore.showSectionsC1,
-        showC2: uiStore.showSectionsC2,
-      })
-    ) {
-      return false;
-    }
-    const sectionId = getSectionLotId(feature, index);
-    return isFeatureSelectedInFilter(
-      uiStore.sectionFilterMode,
-      uiStore.sectionSelectedIds,
-      sectionId
-    );
-  };
-
-  const workLayerStyle = (feature) =>
-    isWorkFeatureVisible(feature) ? baseWorkLotStyle(feature) : null;
-  const siteBoundaryLayerStyle = (feature) =>
-    isSiteBoundaryFeatureVisible(feature) ? baseSiteBoundaryStyle(feature) : null;
-  const partOfSitesLayerStyle = (feature) =>
-    isPartOfSitesFeatureVisible(feature) ? basePartOfSitesStyle(feature) : null;
-  const sectionsLayerStyle = (feature) =>
-    isSectionFeatureVisible(feature) ? baseSectionStyle(feature) : null;
+  const {
+    workLayerStyle,
+    siteBoundaryLayerStyle,
+    partOfSitesLayerStyle,
+    sectionsLayerStyle,
+    updateLayerVisibilityForLayers,
+    refreshLayerFiltersForLayers,
+  } = useMapLayerVisibility({
+    uiStore,
+    normalizeContractPackageValue,
+    isContractPackageVisible,
+    normalizeWorkLotCategory,
+    workLotCategory: WORK_LOT_CATEGORY,
+    isFeatureSelectedInFilter,
+    getPartOfSitesLotId,
+    getSectionLotId,
+    baseWorkLotStyle,
+    baseSiteBoundaryStyle,
+    basePartOfSitesStyle,
+    baseSectionStyle,
+  });
 
   const workBusinessLayer = new VectorLayer({
     source: workBusinessSource,
@@ -587,25 +153,28 @@ export const useMapLayers = ({
   };
 
   const updateLayerVisibility = (basemapLayer, labelLayer) => {
-    if (basemapLayer) basemapLayer.setVisible(uiStore.showBasemap);
-    if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
-    intLandLayer.setVisible(uiStore.showIntLand);
-    partOfSitesLayer.setVisible(uiStore.showPartOfSites);
-    sectionsLayer.setVisible(uiStore.showSections);
-    siteBoundaryLayer.setVisible(uiStore.showSiteBoundary);
-    const showGroup = uiStore.showWorkLots;
-    workBusinessLayer.setVisible(showGroup && uiStore.showWorkLotsBusiness);
-    workHouseholdLayer.setVisible(showGroup && uiStore.showWorkLotsDomestic);
-    workGovernmentLayer.setVisible(showGroup && uiStore.showWorkLotsGovernment);
+    updateLayerVisibilityForLayers({
+      basemapLayer,
+      labelLayer,
+      intLandLayer,
+      partOfSitesLayer,
+      sectionsLayer,
+      siteBoundaryLayer,
+      workBusinessLayer,
+      workHouseholdLayer,
+      workGovernmentLayer,
+    });
   };
 
   const refreshLayerFilters = () => {
-    workBusinessLayer.changed();
-    workHouseholdLayer.changed();
-    workGovernmentLayer.changed();
-    siteBoundaryLayer.changed();
-    partOfSitesLayer.changed();
-    sectionsLayer.changed();
+    refreshLayerFiltersForLayers({
+      workBusinessLayer,
+      workHouseholdLayer,
+      workGovernmentLayer,
+      siteBoundaryLayer,
+      partOfSitesLayer,
+      sectionsLayer,
+    });
   };
 
   const createWorkFeature = (lot) => {
@@ -1068,207 +637,40 @@ export const useMapLayers = ({
     );
   };
 
-  const loadIntLandGeojson = async () => {
-    try {
-      const response = await fetch(INT_LAND_GEOJSON_URL, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load Drawing Layer GeoJSON: ${response.status}`);
-      }
-      const data = await response.json();
-      const features = format.readFeatures(data, {
-        dataProjection: EPSG_2326,
-        featureProjection: EPSG_2326,
-      });
-      intLandSource.clear(true);
-      intLandSource.addFeatures(features);
-    } catch (error) {
-      console.warn("[map] Drawing Layer load failed", error);
-    }
+  const setCachedSiteBoundaryFeatures = (features = []) => {
+    cachedSiteBoundaryFeatures = Array.isArray(features) ? features : [];
   };
 
-  const loadSiteBoundaryGeojson = async () => {
-    try {
-      const response = await fetch(SITE_BOUNDARY_GEOJSON_URL, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load Site Boundary GeoJSON: ${response.status}`);
-      }
-      const data = await response.json();
-      cachedSiteBoundaryFeatures = format.readFeatures(data, {
-        dataProjection: EPSG_2326,
-        featureProjection: EPSG_2326,
-      });
-      refreshSiteBoundarySource();
-    } catch (error) {
-      console.warn("[map] Site Boundary load failed", error);
-    }
-  };
-
-  const loadPartOfSitesGeojson = async () => {
-    const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
-      try {
-        return await fetchJsonWithCache(url, {
-          ttlMs: PART_OF_SITES_CACHE_TTL_MS,
-          forceRefresh,
-          requestCache: STATIC_JSON_FETCH_CACHE_MODE,
-        });
-      } catch (error) {
-        const status = Number(error?.status);
-        const detail = Number.isFinite(status) ? status : error?.message || "unknown";
-        throw new Error(`Failed to load ${label}: ${detail}`);
-      }
-    };
-
-    // Always prefer the bundled GeoJSON dataset for part-of-sites.
-    // Historical local snapshots can contain stale topology and re-introduce
-    // overlap/highlight regressions after algorithm updates.
-    if (partOfSitesStore?.hasSnapshot) {
-      partOfSitesStore.clearSnapshotGeojson();
-    }
-
-    try {
-      const rootIndex = await fetchJsonOrThrow(
-        PART_OF_SITES_GEOJSON_INDEX_URL,
-        "Part of Sites index"
-      );
-      const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
-      const groupRecords = await mapWithConcurrency(
-        groups,
-        async (groupMeta, groupIndex) => {
-          const normalizedGroupMeta = groupMeta || {};
-          const groupLabel =
-            normalizeFeatureId(normalizedGroupMeta.id) ||
-            `PART ${String(groupIndex + 1)}`;
-          const groupIndexUrl = normalizeFeatureId(normalizedGroupMeta.index);
-          if (!groupIndexUrl) return [];
-          const groupIndexData = await fetchJsonOrThrow(
-            groupIndexUrl,
-            `Part of Sites group index (${groupLabel})`
-          );
-          const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
-          return items.map((item, itemIndex) => ({
-            item: item || {},
-            itemIndex,
-            groupLabel,
-          }));
-        },
-        { concurrency: PART_OF_SITES_INDEX_CONCURRENCY }
-      );
-
-      const fileTasks = groupRecords.flat().filter((record) => {
-        const fileUrl = normalizeFeatureId(record?.item?.file);
-        return Boolean(fileUrl);
-      });
-
-      const featureGroups = await mapWithConcurrency(
-        fileTasks,
-        async (record) => {
-          const item = record.item || {};
-          const fileUrl = normalizeFeatureId(item.file);
-          if (!fileUrl) return [];
-          const partIdFromIndex =
-            normalizePartOfSitesId(item.id) ||
-            `PART_${String(record.itemIndex + 1).padStart(3, "0")}`;
-          const partLabelFromIndex = normalizeFeatureId(item.label) || partIdFromIndex;
-          const fileData = await fetchJsonOrThrow(
-            fileUrl,
-            `Part of Sites GeoJSON (${partIdFromIndex})`
-          );
-          const features = format.readFeatures(fileData, {
-            dataProjection: EPSG_2326,
-            featureProjection: EPSG_2326,
-          });
-          const polygonFeatures = features.filter(isPolygonalFeature);
-          polygonFeatures.forEach((feature, featureIndex) => {
-            normalizePartOfSitesFeature(feature, {
-              groupLabelHint: record.groupLabel,
-              partIdHint: partIdFromIndex,
-              partLabelHint: partLabelFromIndex,
-              featureIndex,
-            });
-          });
-          return polygonFeatures;
-        },
-        { concurrency: PART_OF_SITES_FILE_CONCURRENCY }
-      );
-      const collectedFeatures = featureGroups.flat();
-
-      applyPartOfSitesFeaturesToSource(collectedFeatures);
-    } catch (error) {
-      console.warn("[map] Part of Sites layer load failed", error);
-    }
-  };
-  const loadSectionsGeojson = async () => {
-    const fetchJsonOrThrow = async (url, label) => {
-      const response = await fetch(url, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load ${label}: ${response.status}`);
-      }
-      return response.json();
-    };
-
-    // Always prefer bundled section dataset. Historical snapshots can keep
-    // stale section-part bindings and geometry topology from old logic.
-    if (sectionsStore?.hasSnapshot) {
-      sectionsStore.clearSnapshotGeojson();
-    }
-
-    try {
-      const rootIndex = await fetchJsonOrThrow(
-        SECTIONS_GEOJSON_INDEX_URL,
-        "Sections index"
-      );
-      const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
-      const collectedFeatures = [];
-
-      for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
-        const groupMeta = groups[groupIndex] || {};
-        const groupLabel =
-          normalizeFeatureId(groupMeta.id) || `SECTION ${String(groupIndex + 1)}`;
-        const groupIndexUrl = normalizeFeatureId(groupMeta.index);
-        if (!groupIndexUrl) continue;
-
-        const groupIndexData = await fetchJsonOrThrow(
-          groupIndexUrl,
-          `Section group index (${groupLabel})`
-        );
-        const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
-
-        for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
-          const item = items[itemIndex] || {};
-          const fileUrl = normalizeFeatureId(item.file);
-          if (!fileUrl) continue;
-
-          const sectionIdFromIndex =
-            normalizeSectionId(item.id) || `SEC_${String(itemIndex + 1).padStart(3, "0")}`;
-          const sectionLabelFromIndex =
-            normalizeFeatureId(item.label) || sectionIdFromIndex;
-          const fileData = await fetchJsonOrThrow(
-            fileUrl,
-            `Section GeoJSON (${sectionIdFromIndex})`
-          );
-          const features = format.readFeatures(fileData, {
-            dataProjection: EPSG_2326,
-            featureProjection: EPSG_2326,
-          });
-          const polygonFeatures = features.filter(isPolygonalFeature);
-
-          polygonFeatures.forEach((feature, featureIndex) => {
-            normalizeSectionFeature(feature, {
-              groupLabelHint: groupLabel,
-              sectionIdHint: sectionIdFromIndex,
-              sectionLabelHint: sectionLabelFromIndex,
-              featureIndex,
-            });
-          });
-          collectedFeatures.push(...polygonFeatures);
-        }
-      }
-
-      applySectionsFeaturesToSource(collectedFeatures);
-    } catch (error) {
-      console.warn("[map] Sections layer load failed", error);
-    }
-  };
+  const {
+    buildPartOfSitesSnapshot,
+    persistPartOfSitesSnapshot,
+    exportPartOfSitesSnapshot,
+    buildSectionsSnapshot,
+    persistSectionsSnapshot,
+    exportSectionsSnapshot,
+    loadIntLandGeojson,
+    loadSiteBoundaryGeojson,
+    loadPartOfSitesGeojson,
+    loadSectionsGeojson,
+  } = useMapLayerDataIO({
+    format,
+    intLandSource,
+    partOfSitesSource,
+    sectionsSource,
+    authStore,
+    partOfSitesStore,
+    sectionsStore,
+    setCachedSiteBoundaryFeatures,
+    refreshSiteBoundarySource,
+    applyPartOfSitesFeaturesToSource,
+    applySectionsFeaturesToSource,
+    normalizeFeatureId,
+    normalizePartOfSitesId,
+    normalizeSectionId,
+    normalizePartOfSitesFeature,
+    normalizeSectionFeature,
+    isPolygonalFeature,
+  });
 
   return {
     format,
