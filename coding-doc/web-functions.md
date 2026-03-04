@@ -89,6 +89,7 @@
 - Part/Section 去重疊規則：優先保留被包含（或覆蓋率極高）的較小幾何；其餘重疊優先保留面積較小者，面積近似相同時以 ID 自然序做穩定決策
 - Part/Section 點擊判定使用「點位命中 + 去重疊後有效幾何 + 最小有效面積優先」，避免大範圍外層面誤選（例如點內層區塊卻選到外層）
 - Part of Sites map 資料載入採「group index + part 檔案」有限併發下載（避免多檔串行等待），並使用前端記憶體 TTL 快取與失敗時 stale fallback 降低重載延遲
+- Part of Sites map 載入時僅渲染 `Polygon/MultiPolygon`，非面幾何（例如 `LineString`）會在前端過濾，避免線段殘留干擾邊界顯示
 - Section 與 Part of Sites 已預留 `section (1) -> part (n)` 關聯欄位，支援由 geometry 與顯式欄位同步關聯；geometry fallback 使用「part 去重疊後有效幾何」做面積交集判斷
 - 搜尋與定位：
 - 側欄 Part of Sites 搜尋

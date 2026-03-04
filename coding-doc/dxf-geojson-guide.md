@@ -164,6 +164,12 @@ python scripts/build_part_of_sites_geojson.py
 - `--variant-merge-unit-strategy`：多 DXF 合併時的單位策略，預設 `keep-values`
 - `--variant-force-suspicious-scaling`：只在 `scale-values` 需要強制縮放時使用
 
+PART 10（10B）特例口徑（2026-03-04 更新）：
+
+- `10b(12).dxf` 不參與 `10B` 多檔合併來源（直接排除）。
+- `10b(12).dxf` 不作為 void-cutout 來源。
+- 10B 的 line-based void heuristic 維持啟用，仍可由其他線資料推導內部 cutout。
+
 多檔合併規則（Part of Sites）：
 
 1. 腳本會遞迴掃描 `PART *` 內所有 `*.dxf`。

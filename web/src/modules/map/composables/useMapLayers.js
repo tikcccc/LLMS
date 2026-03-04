@@ -134,6 +134,10 @@ export const useMapLayers = ({
     normalizeSectionId(feature?.get("id")) ||
     normalizeSectionId(feature?.get("handle")) ||
     `section_${String(index + 1).padStart(5, "0")}`;
+  const isPolygonalFeature = (feature) => {
+    const geometryType = feature?.getGeometry?.()?.getType?.();
+    return geometryType === "Polygon" || geometryType === "MultiPolygon";
+  };
 
   const format = new GeoJSON();
 
@@ -940,7 +944,8 @@ export const useMapLayers = ({
             dataProjection: EPSG_2326,
             featureProjection: EPSG_2326,
           });
-          features.forEach((feature, featureIndex) => {
+          const polygonFeatures = features.filter(isPolygonalFeature);
+          polygonFeatures.forEach((feature, featureIndex) => {
             normalizePartOfSitesFeature(feature, {
               groupLabelHint: record.groupLabel,
               partIdHint: partIdFromIndex,
@@ -948,7 +953,7 @@ export const useMapLayers = ({
               featureIndex,
             });
           });
-          return features;
+          return polygonFeatures;
         },
         { concurrency: PART_OF_SITES_FILE_CONCURRENCY }
       );

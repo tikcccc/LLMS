@@ -36,7 +36,9 @@ MERGE_SCRIPT_PATH = Path(__file__).with_name("merge_part_of_sites_dxf.py")
 PART10_DUPLICATE_OVERLAP_THRESHOLD = 0.95
 PART10_LINE_CLOSE_TOLERANCE = 3.0
 PART10_MIN_AREA = 1.0
-PART10_10B_VOID_DXF_FILENAMES = {"10b(12).dxf"}
+PART10_10B_VOID_DXF_FILENAMES: set[str] = set()
+PART10_ENABLE_LINE_VOID_CUTOUT = True
+PART10_10B_EXCLUDED_DXF_FILENAMES = {"10b(12).dxf"}
 PART10_10B_LINE_VOID_MIN_AREA = 1000.0
 DEFAULT_TOPOLOGY_CLEAN_GRID = 0.001
 DEFAULT_TOPOLOGY_CLEAN_MIN_AREA = 0.0
@@ -358,6 +360,8 @@ def discover_part_dxf_map(group_dir: Path) -> Dict[str, List[Path]]:
     for dxf_file in dxf_files:
         stem_base = normalize_part_base_name(dxf_file.stem)
         part_id = normalize_part_id(stem_base or dxf_file.stem)
+        if part_id == "10B" and dxf_file.name.lower() in PART10_10B_EXCLUDED_DXF_FILENAMES:
+            continue
         by_part.setdefault(part_id, []).append(dxf_file)
     return by_part
 
@@ -1155,19 +1159,20 @@ def convert_group(
             item["featureCount"] = feature_count
             item["geometryTypes"] = geometry_types
 
-    line_void_cutout_message = apply_part10_10b_line_void_cutout(
-        group_label=group_label,
-        group_output_dir=group_output_dir,
-    )
-    if line_void_cutout_message:
-        print(line_void_cutout_message)
-        for item in items:
-            if item.get("id") != "10B":
-                continue
-            part_geojson = group_output_dir / "10B.geojson"
-            feature_count, geometry_types = summarize_geojson(part_geojson)
-            item["featureCount"] = feature_count
-            item["geometryTypes"] = geometry_types
+    if PART10_ENABLE_LINE_VOID_CUTOUT:
+        line_void_cutout_message = apply_part10_10b_line_void_cutout(
+            group_label=group_label,
+            group_output_dir=group_output_dir,
+        )
+        if line_void_cutout_message:
+            print(line_void_cutout_message)
+            for item in items:
+                if item.get("id") != "10B":
+                    continue
+                part_geojson = group_output_dir / "10B.geojson"
+                feature_count, geometry_types = summarize_geojson(part_geojson)
+                item["featureCount"] = feature_count
+                item["geometryTypes"] = geometry_types
 
     return group_label, group_slug, items
 
