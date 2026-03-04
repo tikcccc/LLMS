@@ -174,6 +174,12 @@ import { useSectionsStore } from "../../stores/useSectionsStore";
 import { nowIso, todayHongKong } from "../../shared/utils/time";
 import { fuzzyMatchAny } from "../../shared/utils/search";
 import {
+  CONTRACT_PACKAGE,
+  normalizeContractPackage,
+  resolveContractPackage,
+  toContractPhaseScopedId,
+} from "../../shared/utils/contractPackage";
+import {
   normalizeWorkLotCategory,
   WORK_LOT_CATEGORY,
   WORK_LOT_STATUS,
@@ -430,9 +436,11 @@ const editingSiteBoundaryId = ref("");
 const showPartOfSiteDialog = ref(false);
 const partOfSiteDialogMode = ref("create");
 const editingPartOfSiteId = ref("");
+const editingPartOfSiteContractPackage = ref(CONTRACT_PACKAGE.C2);
 const showSectionDialog = ref(false);
 const sectionDialogMode = ref("create");
 const editingSectionId = ref("");
+const editingSectionContractPackage = ref(CONTRACT_PACKAGE.C2);
 
 const workForm = ref({
   operatorName: "",
@@ -559,10 +567,12 @@ const resetSiteBoundaryDialogEditState = () => {
 const resetPartOfSiteDialogEditState = () => {
   partOfSiteDialogMode.value = "create";
   editingPartOfSiteId.value = "";
+  editingPartOfSiteContractPackage.value = CONTRACT_PACKAGE.C2;
 };
 const resetSectionDialogEditState = () => {
   sectionDialogMode.value = "create";
   editingSectionId.value = "";
+  editingSectionContractPackage.value = CONTRACT_PACKAGE.C2;
 };
 
 const leftTab = ref("layers");
@@ -594,6 +604,32 @@ const normalizeIdList = (values = []) => {
     dedupe.add(normalized);
   });
   return Array.from(dedupe);
+};
+const normalizeContractPackageValue = (value) => normalizeContractPackage(value);
+const resolveContractPackageValue = (values = []) =>
+  resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
+const toContractPackageVisibilityKey = (group, contractPackage) => {
+  const normalized = normalizeContractPackageValue(contractPackage);
+  if (group === "workLot") {
+    return normalized === CONTRACT_PACKAGE.C1 ? "showWorkLotsC1" : "showWorkLotsC2";
+  }
+  if (group === "siteBoundary") {
+    return normalized === CONTRACT_PACKAGE.C1
+      ? "showSiteBoundaryC1"
+      : "showSiteBoundaryC2";
+  }
+  if (group === "partOfSites") {
+    return normalized === CONTRACT_PACKAGE.C1
+      ? "showPartOfSitesC1"
+      : "showPartOfSitesC2";
+  }
+  return normalized === CONTRACT_PACKAGE.C1 ? "showSectionsC1" : "showSectionsC2";
+};
+const ensureContractPackageVisible = (group, contractPackage) => {
+  const key = toContractPackageVisibilityKey(group, contractPackage);
+  if (key && !uiStore[key]) {
+    uiStore.setLayerVisibility(key, true);
+  }
 };
 
 const normalizePartValue = (value) => String(value || "").trim();
@@ -636,22 +672,28 @@ const normalizeIdCollection = (value) => {
   }
   return [];
 };
-const getPartAreaOverride = (partId) => {
+const getPartAreaOverride = (partId, contractPackage = "") => {
   const normalizedPartId = normalizePartValue(partId);
   if (!normalizedPartId || !partOfSitesStore) return null;
+  const normalizedPackage = normalizeContractPackageValue(contractPackage);
   const override =
     typeof partOfSitesStore.attributeByPartId === "function"
-      ? partOfSitesStore.attributeByPartId(normalizedPartId)
-      : partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
+      ? partOfSitesStore.attributeByPartId(normalizedPartId, normalizedPackage)
+      : partOfSitesStore.attributeOverrides?.[
+            toContractPhaseScopedId(normalizedPackage, normalizedPartId).toLowerCase()
+          ] || partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
   return normalizePositiveNumber(override?.area);
 };
-const getSectionAreaOverride = (sectionId) => {
+const getSectionAreaOverride = (sectionId, contractPackage = "") => {
   const normalizedSectionId = normalizeSectionValue(sectionId);
   if (!normalizedSectionId || !sectionsStore) return null;
+  const normalizedPackage = normalizeContractPackageValue(contractPackage);
   const override =
     typeof sectionsStore.attributeBySectionId === "function"
-      ? sectionsStore.attributeBySectionId(normalizedSectionId)
-      : sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
+      ? sectionsStore.attributeBySectionId(normalizedSectionId, normalizedPackage)
+      : sectionsStore.attributeOverrides?.[
+            toContractPhaseScopedId(normalizedPackage, normalizedSectionId).toLowerCase()
+          ] || sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
   return normalizePositiveNumber(override?.area);
 };
 
@@ -678,6 +720,16 @@ const resolvePartOfSiteMeta = (feature, index = 0) => {
   const accessDate =
     normalizePartValue(feature?.get("accessDate")) ||
     normalizePartValue(feature?.get("access_date"));
+  const contractPackage = resolveContractPackageValue([
+    feature?.get("contractPackage"),
+    feature?.get("contract_package"),
+    feature?.get("phase"),
+    feature?.get("package"),
+    feature?.get("partOfSitesGroup"),
+    feature?.get("partGroup"),
+    feature?.get("sourceDxf"),
+    feature?.get("sourceDxfs"),
+  ]);
   const sectionIds = normalizeIdCollection(
     feature?.get("sectionIds") || feature?.get("relatedSectionIds")
   );
@@ -693,6 +745,7 @@ const resolvePartOfSiteMeta = (feature, index = 0) => {
     group,
     systemId,
     accessDate,
+    contractPackage,
     sectionId,
     sectionIds: sectionId ? Array.from(new Set([sectionId, ...sectionIds])) : sectionIds,
   };
@@ -720,6 +773,17 @@ const resolveSectionMeta = (feature, index = 0) => {
   const completionDate =
     normalizeSectionValue(feature?.get("completionDate")) ||
     normalizeSectionValue(feature?.get("completion_date"));
+  const contractPackage = resolveContractPackageValue([
+    feature?.get("contractPackage"),
+    feature?.get("contract_package"),
+    feature?.get("phase"),
+    feature?.get("package"),
+    feature?.get("sectionGroup"),
+    feature?.get("section_group"),
+    feature?.get("sourceDxf"),
+    feature?.get("sourceDxfs"),
+    feature?.get("description"),
+  ]);
   const relatedPartIds = normalizeIdCollection(
     feature?.get("relatedPartIds") ||
       feature?.get("relatedPartLotIds") ||
@@ -730,6 +794,7 @@ const resolveSectionMeta = (feature, index = 0) => {
     title,
     group,
     systemId,
+    contractPackage,
     completionDate,
     relatedPartIds,
   };
@@ -749,14 +814,38 @@ const applyLayerFilterState = (nextState = {}) => {
   if (typeof nextState.showPartOfSites === "boolean") {
     uiStore.setLayerVisibility("showPartOfSites", nextState.showPartOfSites);
   }
+  if (typeof nextState.showPartOfSitesC1 === "boolean") {
+    uiStore.setLayerVisibility("showPartOfSitesC1", nextState.showPartOfSitesC1);
+  }
+  if (typeof nextState.showPartOfSitesC2 === "boolean") {
+    uiStore.setLayerVisibility("showPartOfSitesC2", nextState.showPartOfSitesC2);
+  }
   if (typeof nextState.showSections === "boolean") {
     uiStore.setLayerVisibility("showSections", nextState.showSections);
+  }
+  if (typeof nextState.showSectionsC1 === "boolean") {
+    uiStore.setLayerVisibility("showSectionsC1", nextState.showSectionsC1);
+  }
+  if (typeof nextState.showSectionsC2 === "boolean") {
+    uiStore.setLayerVisibility("showSectionsC2", nextState.showSectionsC2);
   }
   if (typeof nextState.showSiteBoundary === "boolean") {
     uiStore.setLayerVisibility("showSiteBoundary", nextState.showSiteBoundary);
   }
+  if (typeof nextState.showSiteBoundaryC1 === "boolean") {
+    uiStore.setLayerVisibility("showSiteBoundaryC1", nextState.showSiteBoundaryC1);
+  }
+  if (typeof nextState.showSiteBoundaryC2 === "boolean") {
+    uiStore.setLayerVisibility("showSiteBoundaryC2", nextState.showSiteBoundaryC2);
+  }
   if (typeof nextState.showWorkLots === "boolean") {
     uiStore.setLayerVisibility("showWorkLots", nextState.showWorkLots);
+  }
+  if (typeof nextState.showWorkLotsC1 === "boolean") {
+    uiStore.setLayerVisibility("showWorkLotsC1", nextState.showWorkLotsC1);
+  }
+  if (typeof nextState.showWorkLotsC2 === "boolean") {
+    uiStore.setLayerVisibility("showWorkLotsC2", nextState.showWorkLotsC2);
   }
 
   if (Object.prototype.hasOwnProperty.call(nextState, "workLotFilterMode")) {
@@ -812,9 +901,17 @@ const layerFilterState = computed({
     showLabels: uiStore.showLabels,
     showIntLand: uiStore.showIntLand,
     showPartOfSites: uiStore.showPartOfSites,
+    showPartOfSitesC1: uiStore.showPartOfSitesC1,
+    showPartOfSitesC2: uiStore.showPartOfSitesC2,
     showSections: uiStore.showSections,
+    showSectionsC1: uiStore.showSectionsC1,
+    showSectionsC2: uiStore.showSectionsC2,
     showSiteBoundary: uiStore.showSiteBoundary,
+    showSiteBoundaryC1: uiStore.showSiteBoundaryC1,
+    showSiteBoundaryC2: uiStore.showSiteBoundaryC2,
     showWorkLots: uiStore.showWorkLots,
+    showWorkLotsC1: uiStore.showWorkLotsC1,
+    showWorkLotsC2: uiStore.showWorkLotsC2,
     workLotFilterMode: uiStore.workLotFilterMode,
     workLotSelectedIds: [...uiStore.workLotSelectedIds],
     siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,
@@ -842,6 +939,13 @@ const layerFilterOptions = computed(() => {
             : "GL";
       return {
         id: String(lot.id),
+        contractPackage: resolveContractPackageValue([
+          lot.contractPackage,
+          lot.contract_package,
+          lot.phase,
+          lot.package,
+          lot.contractNo,
+        ]),
         label: lot.operatorName || "Work Lot",
         category: normalizedCategory,
         categoryLabel: workCategoryLabel(normalizedCategory),
@@ -864,6 +968,14 @@ const layerFilterOptions = computed(() => {
           );
           return {
             id,
+            contractPackage: resolveContractPackageValue([
+              feature.get("contractPackage"),
+              feature.get("contract_package"),
+              feature.get("phase"),
+              feature.get("package"),
+              feature.get("contractNo"),
+              feature.get("layer"),
+            ]),
             label: feature.get("name") || "Site Boundary",
             boundaryStatus: feature.get("boundaryStatus") || "Pending Clearance",
             boundaryStatusKey: feature.get("boundaryStatusKey") || "PENDING_CLEARANCE",
@@ -883,6 +995,7 @@ const layerFilterOptions = computed(() => {
       if (partById.has(meta.partId)) return;
       partById.set(meta.partId, {
         id: meta.partId,
+        contractPackage: meta.contractPackage,
         label: meta.label,
         group: meta.group,
         systemId: meta.systemId,
@@ -901,6 +1014,7 @@ const layerFilterOptions = computed(() => {
       if (sectionById.has(meta.sectionId)) return;
       sectionById.set(meta.sectionId, {
         id: meta.sectionId,
+        contractPackage: meta.contractPackage,
         label: meta.title,
         group: meta.group,
         systemId: meta.systemId,
@@ -1136,6 +1250,7 @@ const editSelectedPartOfSite = () => {
   const part = selectedPartOfSite.value;
   partOfSiteDialogMode.value = "edit";
   editingPartOfSiteId.value = String(part.partId || "");
+  editingPartOfSiteContractPackage.value = normalizeContractPackageValue(part.contractPackage);
   partOfSiteForm.value = createPartOfSiteEditForm(part);
   showPartOfSiteDialog.value = true;
 };
@@ -1145,15 +1260,27 @@ const editSelectedSection = () => {
   const section = selectedSection.value;
   sectionDialogMode.value = "edit";
   editingSectionId.value = String(section.sectionId || "");
+  editingSectionContractPackage.value = normalizeContractPackageValue(section.contractPackage);
   sectionForm.value = createSectionEditForm(section);
   showSectionDialog.value = true;
 };
 
-const applyPartOfSiteAttributeUpdate = (partId, payload = {}) => {
+const applyPartOfSiteAttributeUpdate = (
+  partId,
+  payload = {},
+  { contractPackage = "" } = {}
+) => {
   const normalizedPartId = normalizePartValue(partId);
   if (!normalizedPartId) return false;
-  const feature = findPartOfSitesFeatureById(normalizedPartId);
+  const feature = findPartOfSitesFeatureById(normalizedPartId, contractPackage);
   if (!feature) return false;
+  const resolvedPackage = resolveContractPackageValue([
+    contractPackage,
+    feature?.get("contractPackage"),
+    feature?.get("contract_package"),
+    feature?.get("phase"),
+    feature?.get("package"),
+  ]);
 
   const accessDate = String(payload.accessDate || "").trim();
   const area = normalizePositiveNumber(payload.area);
@@ -1169,17 +1296,29 @@ const applyPartOfSiteAttributeUpdate = (partId, payload = {}) => {
   if (typeof partOfSitesStore.setAttributeOverride === "function") {
     partOfSitesStore.setAttributeOverride(normalizedPartId, {
       partId: normalizedPartId,
+      contractPackage: resolvedPackage,
       ...payload,
-    });
+    }, resolvedPackage);
   }
   return true;
 };
 
-const applySectionAttributeUpdate = (sectionId, payload = {}) => {
+const applySectionAttributeUpdate = (
+  sectionId,
+  payload = {},
+  { contractPackage = "" } = {}
+) => {
   const normalizedSectionId = normalizeSectionValue(sectionId);
   if (!normalizedSectionId) return false;
-  const feature = findSectionFeatureById(normalizedSectionId);
+  const feature = findSectionFeatureById(normalizedSectionId, contractPackage);
   if (!feature) return false;
+  const resolvedPackage = resolveContractPackageValue([
+    contractPackage,
+    feature?.get("contractPackage"),
+    feature?.get("contract_package"),
+    feature?.get("phase"),
+    feature?.get("package"),
+  ]);
 
   const completionDate = String(payload.completionDate || "").trim();
   const area = normalizePositiveNumber(payload.area);
@@ -1195,8 +1334,9 @@ const applySectionAttributeUpdate = (sectionId, payload = {}) => {
   if (typeof sectionsStore.setAttributeOverride === "function") {
     sectionsStore.setAttributeOverride(normalizedSectionId, {
       sectionId: normalizedSectionId,
+      contractPackage: resolvedPackage,
       ...payload,
-    });
+    }, resolvedPackage);
   }
   return true;
 };
@@ -1354,13 +1494,13 @@ const findSiteBoundaryFeatureById = (id) => {
   return getSiteBoundaryFeatureById(id);
 };
 
-const findPartOfSitesFeatureById = (id) => {
+const findPartOfSitesFeatureById = (id, contractPackage = "") => {
   if (!id) return null;
-  return getPartOfSitesFeatureById(id);
+  return getPartOfSitesFeatureById(id, contractPackage);
 };
-const findSectionFeatureById = (id) => {
+const findSectionFeatureById = (id, contractPackage = "") => {
   if (!id) return null;
-  return getSectionFeatureById(id);
+  return getSectionFeatureById(id, contractPackage);
 };
 const syncSectionPartRelations = () => {
   if (!sectionsSource || !partOfSitesSource) {
@@ -1566,7 +1706,7 @@ const selectedPartOfSite = computed(() => {
     Number.isFinite(partGeometryStat?.overlapArea) && partGeometryStat.overlapArea >= 0
       ? partGeometryStat.overlapArea
       : Math.max(0, storedRawArea - effectiveArea);
-  const overrideArea = getPartAreaOverride(meta.partId);
+  const overrideArea = getPartAreaOverride(meta.partId, meta.contractPackage);
   const featureArea = normalizePositiveNumber(feature.get("area"));
   const areaValue = overrideArea ?? featureArea ?? effectiveArea;
 
@@ -1574,6 +1714,7 @@ const selectedPartOfSite = computed(() => {
     partId: meta.partId,
     id: meta.systemId,
     title: meta.label,
+    contractPackage: meta.contractPackage,
     accessDate: meta.accessDate,
     sectionId: meta.sectionId,
     sectionIds: meta.sectionIds,
@@ -1606,7 +1747,7 @@ const selectedSection = computed(() => {
     Number.isFinite(sectionGeometryStat?.overlapArea) && sectionGeometryStat.overlapArea >= 0
       ? sectionGeometryStat.overlapArea
       : Math.max(0, storedRawArea - effectiveArea);
-  const overrideArea = getSectionAreaOverride(meta.sectionId);
+  const overrideArea = getSectionAreaOverride(meta.sectionId, meta.contractPackage);
   const featureArea = normalizePositiveNumber(feature.get("area"));
   const areaValue = overrideArea ?? featureArea ?? effectiveArea;
   return {
@@ -1614,6 +1755,7 @@ const selectedSection = computed(() => {
     sectionId: meta.sectionId,
     title: meta.title,
     group: meta.group,
+    contractPackage: meta.contractPackage,
     completionDate: meta.completionDate,
     partCount:
       Number.isFinite(partCount) && partCount >= 0 ? partCount : meta.relatedPartIds.length,
@@ -1990,12 +2132,20 @@ const forceApplyLayerVisibilityAndFilters = () => {
 const captureFocusSnapshot = () => ({
   showIntLand: uiStore.showIntLand,
   showWorkLots: uiStore.showWorkLots,
+  showWorkLotsC1: uiStore.showWorkLotsC1,
+  showWorkLotsC2: uiStore.showWorkLotsC2,
   showWorkLotsBusiness: uiStore.showWorkLotsBusiness,
   showWorkLotsDomestic: uiStore.showWorkLotsDomestic,
   showWorkLotsGovernment: uiStore.showWorkLotsGovernment,
   showSiteBoundary: uiStore.showSiteBoundary,
+  showSiteBoundaryC1: uiStore.showSiteBoundaryC1,
+  showSiteBoundaryC2: uiStore.showSiteBoundaryC2,
   showPartOfSites: uiStore.showPartOfSites,
+  showPartOfSitesC1: uiStore.showPartOfSitesC1,
+  showPartOfSitesC2: uiStore.showPartOfSitesC2,
   showSections: uiStore.showSections,
+  showSectionsC1: uiStore.showSectionsC1,
+  showSectionsC2: uiStore.showSectionsC2,
   workLotFilterMode: uiStore.workLotFilterMode,
   workLotSelectedIds: [...uiStore.workLotSelectedIds],
   siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,
@@ -2165,6 +2315,19 @@ const isActiveFocusStateValid = () => {
       (item) => normalizeFocusToken(item.id) === normalizeFocusToken(id)
     );
     if (!lot) return false;
+    const contractPackage = resolveContractPackageValue([
+      lot.contractPackage,
+      lot.contract_package,
+      lot.phase,
+      lot.package,
+      lot.contractNo,
+    ]);
+    if (
+      (contractPackage === CONTRACT_PACKAGE.C1 && !uiStore.showWorkLotsC1) ||
+      (contractPackage === CONTRACT_PACKAGE.C2 && !uiStore.showWorkLotsC2)
+    ) {
+      return false;
+    }
     const category = normalizeWorkLotCategory(lot.category ?? lot.type);
     if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) return false;
     if (category === WORK_LOT_CATEGORY.HH && !uiStore.showWorkLotsDomestic) return false;
@@ -2172,22 +2335,48 @@ const isActiveFocusStateValid = () => {
     return true;
   }
   if (group === "siteBoundary") {
-    return (
-      uiStore.showSiteBoundary &&
-      isSingleFocusSelection(uiStore.siteBoundaryFilterMode, uiStore.siteBoundarySelectedIds, id)
-    );
+    if (!uiStore.showSiteBoundary) return false;
+    if (
+      !isSingleFocusSelection(uiStore.siteBoundaryFilterMode, uiStore.siteBoundarySelectedIds, id)
+    ) {
+      return false;
+    }
+    const feature = findSiteBoundaryFeatureById(id);
+    if (!feature) return false;
+    const contractPackage = resolveContractPackageValue([
+      feature.get("contractPackage"),
+      feature.get("contract_package"),
+      feature.get("phase"),
+      feature.get("package"),
+      feature.get("contractNo"),
+      feature.get("layer"),
+    ]);
+    if (contractPackage === CONTRACT_PACKAGE.C1) return uiStore.showSiteBoundaryC1;
+    return uiStore.showSiteBoundaryC2;
   }
   if (group === "partOfSites") {
-    return (
-      uiStore.showPartOfSites &&
-      isSingleFocusSelection(uiStore.partOfSitesFilterMode, uiStore.partOfSitesSelectedIds, id)
-    );
+    if (!uiStore.showPartOfSites) return false;
+    if (
+      !isSingleFocusSelection(uiStore.partOfSitesFilterMode, uiStore.partOfSitesSelectedIds, id)
+    ) {
+      return false;
+    }
+    const feature = findPartOfSitesFeatureById(id);
+    if (!feature) return false;
+    const meta = resolvePartOfSiteMeta(feature);
+    if (meta.contractPackage === CONTRACT_PACKAGE.C1) return uiStore.showPartOfSitesC1;
+    return uiStore.showPartOfSitesC2;
   }
   if (group === "section") {
-    return (
-      uiStore.showSections &&
-      isSingleFocusSelection(uiStore.sectionFilterMode, uiStore.sectionSelectedIds, id)
-    );
+    if (!uiStore.showSections) return false;
+    if (!isSingleFocusSelection(uiStore.sectionFilterMode, uiStore.sectionSelectedIds, id)) {
+      return false;
+    }
+    const feature = findSectionFeatureById(id);
+    if (!feature) return false;
+    const meta = resolveSectionMeta(feature);
+    if (meta.contractPackage === CONTRACT_PACKAGE.C1) return uiStore.showSectionsC1;
+    return uiStore.showSectionsC2;
   }
   return false;
 };
@@ -2196,10 +2385,18 @@ const zoomToWorkLot = (id) => {
   if (!mapRef.value) return;
   const lot = workLotStore.workLots.find((item) => String(item.id) === String(id));
   if (lot) {
+    const contractPackage = resolveContractPackageValue([
+      lot.contractPackage,
+      lot.contract_package,
+      lot.phase,
+      lot.package,
+      lot.contractNo,
+    ]);
     const category = normalizeWorkLotCategory(lot.category ?? lot.type);
     if (!uiStore.showWorkLots) {
       uiStore.setLayerVisibility("showWorkLots", true);
     }
+    ensureContractPackageVisible("workLot", contractPackage);
     if (category === WORK_LOT_CATEGORY.BU && !uiStore.showWorkLotsBusiness) {
       uiStore.setLayerVisibility("showWorkLotsBusiness", true);
     }
@@ -2232,6 +2429,17 @@ const zoomToSiteBoundary = (id) => {
   const view = mapRef.value.getView();
   const feature = findSiteBoundaryFeatureById(id);
   if (!feature) return;
+  ensureContractPackageVisible(
+    "siteBoundary",
+    resolveContractPackageValue([
+      feature.get("contractPackage"),
+      feature.get("contract_package"),
+      feature.get("phase"),
+      feature.get("package"),
+      feature.get("contractNo"),
+      feature.get("layer"),
+    ])
+  );
   const selectedId = String(feature.getId() ?? id);
   if (
     uiStore.siteBoundaryFilterMode === "custom" &&
@@ -2253,6 +2461,7 @@ const zoomToPartOfSite = (id) => {
   const feature = findPartOfSitesFeatureById(id);
   if (!feature) return;
   const meta = resolvePartOfSiteMeta(feature);
+  ensureContractPackageVisible("partOfSites", meta.contractPackage);
   if (
     uiStore.partOfSitesFilterMode === "custom" &&
     !isIdSelected(uiStore.partOfSitesSelectedIds, meta.partId)
@@ -2278,6 +2487,7 @@ const zoomToSection = (id) => {
   const feature = findSectionFeatureById(id);
   if (!feature) return;
   const meta = resolveSectionMeta(feature);
+  ensureContractPackageVisible("section", meta.contractPackage);
   if (
     uiStore.sectionFilterMode === "custom" &&
     !isIdSelected(uiStore.sectionSelectedIds, meta.sectionId)
@@ -2408,7 +2618,9 @@ const confirmPartOfSite = () => {
     updatedBy: authStore.roleName,
     updatedAt: nowIso(),
   });
-  const updated = applyPartOfSiteAttributeUpdate(editingPartOfSiteId.value, payload);
+  const updated = applyPartOfSiteAttributeUpdate(editingPartOfSiteId.value, payload, {
+    contractPackage: editingPartOfSiteContractPackage.value,
+  });
   if (!updated) {
     ElMessage.error("Failed to update Part of Site.");
     return;
@@ -2431,7 +2643,9 @@ const confirmSection = () => {
     updatedBy: authStore.roleName,
     updatedAt: nowIso(),
   });
-  const updated = applySectionAttributeUpdate(editingSectionId.value, payload);
+  const updated = applySectionAttributeUpdate(editingSectionId.value, payload, {
+    contractPackage: editingSectionContractPackage.value,
+  });
   if (!updated) {
     ElMessage.error("Failed to update Section.");
     return;
@@ -2505,9 +2719,17 @@ watch(
     uiStore.showLabels,
     uiStore.showIntLand,
     uiStore.showPartOfSites,
+    uiStore.showPartOfSitesC1,
+    uiStore.showPartOfSitesC2,
     uiStore.showSections,
+    uiStore.showSectionsC1,
+    uiStore.showSectionsC2,
     uiStore.showSiteBoundary,
+    uiStore.showSiteBoundaryC1,
+    uiStore.showSiteBoundaryC2,
     uiStore.showWorkLots,
+    uiStore.showWorkLotsC1,
+    uiStore.showWorkLotsC2,
     uiStore.showWorkLotsBusiness,
     uiStore.showWorkLotsDomestic,
     uiStore.showWorkLotsGovernment,
@@ -2550,12 +2772,20 @@ watch(
     activeMapFocus.value?.id || "",
     uiStore.showIntLand,
     uiStore.showWorkLots,
+    uiStore.showWorkLotsC1,
+    uiStore.showWorkLotsC2,
     uiStore.showWorkLotsBusiness,
     uiStore.showWorkLotsDomestic,
     uiStore.showWorkLotsGovernment,
     uiStore.showSiteBoundary,
+    uiStore.showSiteBoundaryC1,
+    uiStore.showSiteBoundaryC2,
     uiStore.showPartOfSites,
+    uiStore.showPartOfSitesC1,
+    uiStore.showPartOfSitesC2,
     uiStore.showSections,
+    uiStore.showSectionsC1,
+    uiStore.showSectionsC2,
     uiStore.workLotFilterMode,
     uiStore.siteBoundaryFilterMode,
     uiStore.partOfSitesFilterMode,

@@ -1,6 +1,6 @@
 # Web Data Contract
 
-最後更新：2026-03-04  
+最後更新：2026-03-05  
 狀態：待填充（依你後續指示再補內容）
 
 ## 1) 文件用途
@@ -52,6 +52,7 @@
 | `sectionId` / `sectionLotId` | string | Yes | section 業務識別碼（UI 以此做篩選與聚焦） |
 | `sectionLotLabel` | string | No | 顯示標題，缺省回退 `sectionId` |
 | `sectionGroup` | string | No | 分組（例如合約/區段分組） |
+| `contractPackage` | enum(`C1`/`C2`) | No | 合約/階段維度；缺值時由來源線索推斷，預設回退 `C2` |
 | `sectionSystemId` | string | Yes | 系統唯一鍵（幾何修改/快照識別） |
 | `completionDate` | string(`YYYY-MM-DD`) | No | section 完工日期（可空） |
 | `area` | number | No | section 面積（m²，可人工覆寫） |
@@ -64,15 +65,25 @@
 | --- | --- | --- | --- |
 | `accessDate` | string(`YYYY-MM-DD`) | No | part 可進場日期（可空） |
 | `area` | number | No | part 面積（m²，可人工覆寫） |
+| `contractPackage` | enum(`C1`/`C2`) | No | 合約/階段維度；缺值時由來源線索推斷，預設回退 `C2` |
 | `sectionId` | string | No | 主要關聯 section id |
 | `sectionIds` | string[] | No | 預留多關聯欄位；目前 UI 以第一個值作為主要顯示 |
+
+### WorkLot / SiteBoundary（增量）
+
+| 實體 | 欄位 | 型別 | 必填 | 說明 |
+| --- | --- | --- | --- | --- |
+| WorkLot | `contractPackage` | enum(`C1`/`C2`) | No | 支援 GeoJSON 匯入匯出與 map 渲染；缺值時正規化回退 `C2` |
+| SiteBoundary | `contractPackage` | enum(`C1`/`C2`) | No | 支援 JSON/GeoJSON 匯入匯出與 map 渲染；缺值時可由 `contractNo`/`layer`/`sourceRef` 推斷，否則回退 `C2` |
 
 ### Part / Section Attribute Overrides（Pinia Persist）
 
 | Store | Key | 欄位 |
 | --- | --- | --- |
-| `usePartOfSitesStore` | `attributeOverrides[partIdLower]` | `partId`、`accessDate`、`area`、`updatedAt`、`updatedBy` |
-| `useSectionsStore` | `attributeOverrides[sectionIdLower]` | `sectionId`、`completionDate`、`area`、`updatedAt`、`updatedBy` |
+| `usePartOfSitesStore` | `attributeOverrides[\"<contractPackage>:<partId>\".toLowerCase()]` | `partId`、`contractPackage`、`accessDate`、`area`、`updatedAt`、`updatedBy` |
+| `useSectionsStore` | `attributeOverrides[\"<contractPackage>:<sectionId>\".toLowerCase()]` | `sectionId`、`contractPackage`、`completionDate`、`area`、`updatedAt`、`updatedBy` |
+
+註：store 讀取支援 legacy key（`partIdLower` / `sectionIdLower`）向後相容；新寫入一律使用 phase-scoped key，避免 C1/C2 同 ID 互相覆蓋。
 
 ### 關聯同步規則（目前前端實作）
 

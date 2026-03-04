@@ -11,6 +11,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 
 import { EPSG_2326 } from "../ol/projection";
 import { nowIso } from "../../../shared/utils/time";
+import { normalizeContractPackage } from "../../../shared/utils/contractPackage";
 import { findSiteBoundaryIdsForGeometry } from "../utils/siteBoundaryMatch";
 
 const scopeSketchStyle = new Style({
@@ -301,6 +302,15 @@ export const useMapInteractions = ({
         "Manual Draw"
     );
     feature.set(
+      "contractPackage",
+      normalizeContractPackage(
+        feature.get("contractPackage") ||
+          feature.get("contract_package") ||
+          feature.get("phase") ||
+          feature.get("package")
+      )
+    );
+    feature.set(
       "accessDate",
       normalizeValue(feature.get("accessDate") || feature.get("access_date"))
     );
@@ -335,6 +345,15 @@ export const useMapInteractions = ({
     feature.set(
       "sectionGroup",
       normalizeValue(feature.get("sectionGroup") || feature.get("section_group")) || "Manual Draw"
+    );
+    feature.set(
+      "contractPackage",
+      normalizeContractPackage(
+        feature.get("contractPackage") ||
+          feature.get("contract_package") ||
+          feature.get("phase") ||
+          feature.get("package")
+      )
     );
     feature.set("sectionSystemId", systemId);
     feature.set(

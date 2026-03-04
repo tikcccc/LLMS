@@ -28,6 +28,12 @@ import {
   downloadSectionsGeojson,
 } from "../../../shared/utils/sectionsGeojson";
 import {
+  CONTRACT_PACKAGE,
+  normalizeContractPackage,
+  resolveContractPackage,
+  toContractPhaseScopedId,
+} from "../../../shared/utils/contractPackage";
+import {
   INT_LAND_GEOJSON_URL,
   PART_OF_SITES_CACHE_TTL_MS,
   PART_OF_SITES_FILE_CONCURRENCY,
@@ -97,6 +103,21 @@ export const useMapLayers = ({
     });
     return Array.from(dedupe);
   };
+  const normalizeContractPackageValue = (value, fallback = CONTRACT_PACKAGE.C2) =>
+    normalizeContractPackage(value, { fallback });
+  const resolveContractPackageValue = (values = [], fallback = CONTRACT_PACKAGE.C2) =>
+    resolveContractPackage(values, { fallback });
+  const isContractPackageVisible = (
+    contractPackage,
+    {
+      showC1 = true,
+      showC2 = true,
+    } = {}
+  ) => {
+    const normalized = normalizeContractPackageValue(contractPackage, CONTRACT_PACKAGE.C2);
+    if (normalized === CONTRACT_PACKAGE.C1) return !!showC1;
+    return !!showC2;
+  };
   const buildPartOfSitesSystemId = ({
     groupLabel = "",
     partId = "",
@@ -152,21 +173,31 @@ export const useMapLayers = ({
     const geometryType = feature?.getGeometry?.()?.getType?.();
     return geometryType === "Polygon" || geometryType === "MultiPolygon";
   };
-  const getPartAttributeOverride = (partId) => {
+  const getPartAttributeOverride = (partId, contractPackage = "") => {
     const normalizedPartId = normalizePartOfSitesId(partId);
     if (!normalizedPartId || !partOfSitesStore) return null;
     if (typeof partOfSitesStore.attributeByPartId === "function") {
-      return partOfSitesStore.attributeByPartId(normalizedPartId);
+      return partOfSitesStore.attributeByPartId(normalizedPartId, contractPackage);
     }
-    return partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
+    const scopedKey = toContractPhaseScopedId(contractPackage, normalizedPartId).toLowerCase();
+    return (
+      partOfSitesStore.attributeOverrides?.[scopedKey] ||
+      partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] ||
+      null
+    );
   };
-  const getSectionAttributeOverride = (sectionId) => {
+  const getSectionAttributeOverride = (sectionId, contractPackage = "") => {
     const normalizedSectionId = normalizeSectionId(sectionId);
     if (!normalizedSectionId || !sectionsStore) return null;
     if (typeof sectionsStore.attributeBySectionId === "function") {
-      return sectionsStore.attributeBySectionId(normalizedSectionId);
+      return sectionsStore.attributeBySectionId(normalizedSectionId, contractPackage);
     }
-    return sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
+    const scopedKey = toContractPhaseScopedId(contractPackage, normalizedSectionId).toLowerCase();
+    return (
+      sectionsStore.attributeOverrides?.[scopedKey] ||
+      sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] ||
+      null
+    );
   };
 
   const format = new GeoJSON();
@@ -212,10 +243,24 @@ export const useMapLayers = ({
         partId: lotId,
         featureIndex,
       });
+    const contractPackage = resolveContractPackageValue(
+      [
+        feature?.get("contractPackage"),
+        feature?.get("contract_package"),
+        feature?.get("phase"),
+        feature?.get("package"),
+        feature?.get("partOfSitesGroup"),
+        feature?.get("partGroup"),
+        groupLabelHint,
+        feature?.get("sourceDxf"),
+        feature?.get("sourceDxfs"),
+      ],
+      CONTRACT_PACKAGE.C2
+    );
 
     const baseAccessDate = normalizeDateValue(feature.get("accessDate") || feature.get("access_date"));
     const baseArea = normalizePositiveNumber(feature.get("area"));
-    const override = getPartAttributeOverride(lotId);
+    const override = getPartAttributeOverride(lotId, contractPackage);
     const overrideAccessDate = normalizeDateValue(override?.accessDate);
     const overrideArea = normalizePositiveNumber(override?.area);
     const resolvedAccessDate = overrideAccessDate || baseAccessDate;
@@ -228,6 +273,7 @@ export const useMapLayers = ({
     feature.set("partOfSitesLotLabel", lotLabel);
     feature.set("partOfSitesSystemId", systemId);
     feature.set("partOfSitesGroup", groupLabel);
+    feature.set("contractPackage", contractPackage);
     feature.unset("name", true);
     feature.set("accessDate", resolvedAccessDate);
     if (resolvedArea !== null) {
@@ -279,6 +325,21 @@ export const useMapLayers = ({
         sectionId,
         featureIndex,
       });
+    const contractPackage = resolveContractPackageValue(
+      [
+        feature?.get("contractPackage"),
+        feature?.get("contract_package"),
+        feature?.get("phase"),
+        feature?.get("package"),
+        feature?.get("sectionGroup"),
+        feature?.get("section_group"),
+        groupLabelHint,
+        feature?.get("sourceDxf"),
+        feature?.get("sourceDxfs"),
+        feature?.get("description"),
+      ],
+      CONTRACT_PACKAGE.C2
+    );
 
     const explicitRelatedPartIds = normalizeIdList(
       feature?.get("relatedPartIds") ||
@@ -289,7 +350,7 @@ export const useMapLayers = ({
       feature.get("completionDate") || feature.get("completion_date")
     );
     const baseArea = normalizePositiveNumber(feature.get("area"));
-    const override = getSectionAttributeOverride(sectionId);
+    const override = getSectionAttributeOverride(sectionId, contractPackage);
     const overrideCompletionDate = normalizeDateValue(override?.completionDate);
     const overrideArea = normalizePositiveNumber(override?.area);
     const resolvedCompletionDate = overrideCompletionDate || baseCompletionDate;
@@ -301,6 +362,7 @@ export const useMapLayers = ({
     feature.set("sectionLotId", sectionId);
     feature.set("sectionLotLabel", sectionLabel);
     feature.set("sectionSystemId", systemId);
+    feature.set("contractPackage", contractPackage);
     feature.set("completionDate", resolvedCompletionDate);
     if (resolvedArea !== null) {
       feature.set("area", resolvedArea);
@@ -384,6 +446,15 @@ export const useMapLayers = ({
 
   const isWorkFeatureVisible = (feature) => {
     if (!uiStore.showWorkLots) return false;
+    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
+    if (
+      !isContractPackageVisible(contractPackage, {
+        showC1: uiStore.showWorkLotsC1,
+        showC2: uiStore.showWorkLotsC2,
+      })
+    ) {
+      return false;
+    }
     const category = normalizeWorkLotCategory(
       feature?.get("workCategory") || feature?.get("category")
     );
@@ -400,6 +471,15 @@ export const useMapLayers = ({
 
   const isSiteBoundaryFeatureVisible = (feature) => {
     if (!uiStore.showSiteBoundary) return false;
+    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
+    if (
+      !isContractPackageVisible(contractPackage, {
+        showC1: uiStore.showSiteBoundaryC1,
+        showC2: uiStore.showSiteBoundaryC2,
+      })
+    ) {
+      return false;
+    }
     const boundaryId = feature?.get("refId") || feature?.getId();
     return isFeatureSelectedInFilter(
       uiStore.siteBoundaryFilterMode,
@@ -410,6 +490,15 @@ export const useMapLayers = ({
 
   const isPartOfSitesFeatureVisible = (feature, index = 0) => {
     if (!uiStore.showPartOfSites) return false;
+    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
+    if (
+      !isContractPackageVisible(contractPackage, {
+        showC1: uiStore.showPartOfSitesC1,
+        showC2: uiStore.showPartOfSitesC2,
+      })
+    ) {
+      return false;
+    }
     const lotId = getPartOfSitesLotId(feature, index);
     return isFeatureSelectedInFilter(
       uiStore.partOfSitesFilterMode,
@@ -419,6 +508,15 @@ export const useMapLayers = ({
   };
   const isSectionFeatureVisible = (feature, index = 0) => {
     if (!uiStore.showSections) return false;
+    const contractPackage = normalizeContractPackageValue(feature?.get("contractPackage"));
+    if (
+      !isContractPackageVisible(contractPackage, {
+        showC1: uiStore.showSectionsC1,
+        showC2: uiStore.showSectionsC2,
+      })
+    ) {
+      return false;
+    }
     const sectionId = getSectionLotId(feature, index);
     return isFeatureSelectedInFilter(
       uiStore.sectionFilterMode,
@@ -513,11 +611,22 @@ export const useMapLayers = ({
   const createWorkFeature = (lot) => {
     if (!lot?.geometry) return null;
     const workCategory = normalizeWorkLotCategory(lot.category ?? lot.type);
+    const contractPackage = resolveContractPackageValue(
+      [
+        lot.contractPackage,
+        lot.contract_package,
+        lot.phase,
+        lot.package,
+        lot.contractNo,
+      ],
+      CONTRACT_PACKAGE.C2
+    );
     const feature = format.readFeature(
       {
         type: "Feature",
         geometry: lot.geometry,
         properties: {
+          contractPackage,
           operatorName: lot.operatorName,
           status: lot.status,
           workCategory,
@@ -534,6 +643,7 @@ export const useMapLayers = ({
     feature.set("layerType", "work");
     feature.set("refId", lot.id);
     feature.set("workCategory", workCategory);
+    feature.set("contractPackage", contractPackage);
     return feature;
   };
 
@@ -638,6 +748,22 @@ export const useMapLayers = ({
       meta?.id || normalizeFeatureId(rawFeature.get("landId") || rawFeature.get("land_id")) || ""
     );
     const assignedId = id || generateLandId(existingIds);
+    const contractPackage = resolveContractPackageValue(
+      [
+        meta?.contractPackage,
+        meta?.contract_package,
+        meta?.phase,
+        rawFeature.get("contractPackage"),
+        rawFeature.get("contract_package"),
+        rawFeature.get("phase"),
+        rawFeature.get("package"),
+        meta?.contractNo,
+        rawFeature.get("contractNo"),
+        rawFeature.get("layer"),
+        sourceRef,
+      ],
+      CONTRACT_PACKAGE.C2
+    );
     existingIds.add(featureKey(assignedId));
     const feature = rawFeature.clone();
     feature.setId(assignedId);
@@ -645,6 +771,7 @@ export const useMapLayers = ({
     feature.set("refId", assignedId);
     feature.set("sourceRef", sourceRef);
     feature.set("landId", assignedId);
+    feature.set("contractPackage", contractPackage);
     feature.set("name", meta?.name ?? rawFeature.get("name") ?? "");
     feature.set(
       "plannedHandoverDate",
@@ -692,6 +819,22 @@ export const useMapLayers = ({
     if (!geometry) return null;
 
     const id = normalizeFeatureId(boundary?.id) || generateLandId(existingIds);
+    const contractPackage = resolveContractPackageValue(
+      [
+        boundary?.contractPackage,
+        boundary?.contract_package,
+        boundary?.phase,
+        boundary?.package,
+        fallbackFeature?.get("contractPackage"),
+        fallbackFeature?.get("contract_package"),
+        boundary?.contractNo,
+        fallbackFeature?.get("contractNo"),
+        boundary?.layer,
+        fallbackFeature?.get("layer"),
+        sourceRef,
+      ],
+      CONTRACT_PACKAGE.C2
+    );
     existingIds.add(featureKey(id));
     const feature = format.readFeature(
       {
@@ -709,6 +852,7 @@ export const useMapLayers = ({
     feature.set("refId", id);
     feature.set("sourceRef", sourceRef);
     feature.set("landId", id);
+    feature.set("contractPackage", contractPackage);
     feature.set("name", boundary?.name ?? fallbackFeature?.get("name") ?? "");
     feature.set(
       "layer",
@@ -810,6 +954,22 @@ export const useMapLayers = ({
         },
         workLotsByBoundary.get(id) || []
       );
+      feature.set(
+        "contractPackage",
+        resolveContractPackageValue(
+          [
+            boundaryMeta?.contractPackage,
+            boundaryMeta?.contract_package,
+            feature.get("contractPackage"),
+            feature.get("contract_package"),
+            boundaryMeta?.contractNo,
+            feature.get("contractNo"),
+            feature.get("layer"),
+            feature.get("sourceRef"),
+          ],
+          CONTRACT_PACKAGE.C2
+        )
+      );
       feature.set("name", boundaryMeta?.name ?? feature.get("name") ?? "");
       feature.set(
         "plannedHandoverDate",
@@ -871,29 +1031,39 @@ export const useMapLayers = ({
     );
   };
 
-  const getPartOfSitesFeatureById = (id) => {
+  const getPartOfSitesFeatureById = (id, contractPackage = "") => {
     const normalizedId = normalizeFeatureId(id);
     if (!normalizedId) return null;
     const lookup = normalizedId.toLowerCase();
+    const scopedPackage = normalizeFeatureId(contractPackage)
+      ? normalizeContractPackageValue(contractPackage)
+      : "";
     return (
       partOfSitesSource
         .getFeatures()
         .find((feature, index) => {
           const featureId = String(getPartOfSitesLotId(feature, index)).trim().toLowerCase();
-          return featureId === lookup;
+          if (featureId !== lookup) return false;
+          if (!scopedPackage) return true;
+          return normalizeContractPackageValue(feature?.get("contractPackage")) === scopedPackage;
         }) || null
     );
   };
-  const getSectionFeatureById = (id) => {
+  const getSectionFeatureById = (id, contractPackage = "") => {
     const normalizedId = normalizeFeatureId(id);
     if (!normalizedId) return null;
     const lookup = normalizedId.toLowerCase();
+    const scopedPackage = normalizeFeatureId(contractPackage)
+      ? normalizeContractPackageValue(contractPackage)
+      : "";
     return (
       sectionsSource
         .getFeatures()
         .find((feature, index) => {
           const featureId = String(getSectionLotId(feature, index)).trim().toLowerCase();
-          return featureId === lookup;
+          if (featureId !== lookup) return false;
+          if (!scopedPackage) return true;
+          return normalizeContractPackageValue(feature?.get("contractPackage")) === scopedPackage;
         }) || null
     );
   };

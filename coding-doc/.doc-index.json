@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-03-04T19:07:04",
-  "root": "/home/tikhong/LLMS/coding-doc",
+  "generated_at": "2026-03-05T01:13:35",
+  "root": "/home/dministrator/LLMS/coding-doc",
   "count": 10,
   "files": [
     {
-      "file": "/home/tikhong/LLMS/coding-doc/dxf-geojson-guide.md",
+      "file": "/home/dministrator/LLMS/coding-doc/dxf-geojson-guide.md",
       "title": "DXF to GeoJSON Guide",
       "purpose": "本文件說明如何使用專案中的 Python 腳本，把 DXF 轉成 GeoJSON，供前端地圖（OpenLayers）直接載入。",
       "h2": [
@@ -19,7 +19,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/frontend-component-patterns.md",
+      "file": "/home/dministrator/LLMS/coding-doc/frontend-component-patterns.md",
       "title": "Frontend Component Patterns",
       "purpose": "本文件提供「可複用、可擴充、可保持一致」的前端元件模式，避免後續每頁重新發明版型與交互。",
       "h2": [
@@ -38,7 +38,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/frontend-consistency.md",
+      "file": "/home/dministrator/LLMS/coding-doc/frontend-consistency.md",
       "title": "Frontend Consistency",
       "purpose": "本文件定義一套可持續維護的前端一致性基線，確保後續開發具備：",
       "h2": [
@@ -57,7 +57,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-api-transition-plan.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-api-transition-plan.md",
       "title": "Web API Transition Plan",
       "purpose": "本文件用於規劃目前 local-first 前端（Pinia + localStorage + 靜態 GeoJSON）如何平滑遷移到後端 API 驅動架構。",
       "h2": [
@@ -69,7 +69,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-architecture.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-architecture.md",
       "title": "Web Architecture",
       "purpose": "本文件定義目前前端網站的總體架構，包含：",
       "h2": [
@@ -86,7 +86,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-business-reference.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-business-reference.md",
       "title": "Web Business Reference",
       "purpose": "本文件集中整理客戶業務背景、核心需求、資料口徑與術語，供產品經理與開發在功能設計時對齊業務。",
       "h2": [
@@ -103,7 +103,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-data-contract.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-data-contract.md",
       "title": "Web Data Contract",
       "purpose": "本文件用於定義前端核心資料模型與驗證規則，讓後續開發在欄位、型別、enum、匯入匯出格式上有單一標準。",
       "h2": [
@@ -116,7 +116,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-functions.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-functions.md",
       "title": "Web Functions",
       "purpose": "範圍：依 `web/` 現有程式實作整理的前端 demo 功能目錄",
       "h2": [
@@ -135,7 +135,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-pm-business-alignment.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-pm-business-alignment.md",
       "title": "Web PM Business Alignment",
       "purpose": "本文件從產品經理（PM）角度定義業務理解與功能對齊規則，避免功能開發偏離客戶真實業務需求。",
       "h2": [
@@ -151,7 +151,7 @@
       ]
     },
     {
-      "file": "/home/tikhong/LLMS/coding-doc/web-role-permission-spec.md",
+      "file": "/home/dministrator/LLMS/coding-doc/web-role-permission-spec.md",
       "title": "Web Role Permission Spec",
       "purpose": "本文件用於定義前端產品的「動作級」權限規範，提供：",
       "h2": [

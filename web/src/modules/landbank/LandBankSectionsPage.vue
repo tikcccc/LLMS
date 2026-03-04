@@ -126,6 +126,11 @@ import {
   buildSectionUpdatePayload,
 } from "../../shared/utils/sectionEdit";
 import { featureCollectionAreaSqm } from "../../shared/utils/geojsonArea";
+import {
+  CONTRACT_PACKAGE,
+  resolveContractPackage,
+  toContractPhaseScopedId,
+} from "../../shared/utils/contractPackage";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -138,6 +143,7 @@ const searchQuery = ref("");
 const groupFilter = ref("All");
 const showEditDialog = ref(false);
 const editForm = ref(createSectionEditForm());
+const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -183,21 +189,35 @@ const normalizeAreaNumber = (value) => {
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed;
 };
-const resolveSectionAttributeOverride = (sectionId) => {
+const resolveContractPackageValue = (values = []) =>
+  resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
+const resolveSectionAttributeOverride = (sectionId, contractPackage = "") => {
   const normalizedSectionId = String(sectionId || "").trim();
   if (!normalizedSectionId) return null;
+  const normalizedPackage = resolveContractPackageValue(contractPackage);
   if (typeof sectionsStore.attributeBySectionId === "function") {
-    return sectionsStore.attributeBySectionId(normalizedSectionId);
+    return sectionsStore.attributeBySectionId(normalizedSectionId, normalizedPackage);
   }
-  return sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null;
+  return (
+    sectionsStore.attributeOverrides?.[
+      toContractPhaseScopedId(normalizedPackage, normalizedSectionId).toLowerCase()
+    ] || sectionsStore.attributeOverrides?.[normalizedSectionId.toLowerCase()] || null
+  );
 };
 const applySectionOverridesToRow = (row = {}) => {
-  const override = resolveSectionAttributeOverride(row.sectionId);
+  const contractPackage = resolveContractPackageValue([
+    row.contractPackage,
+    row.groupLabel,
+    row.sourceDxf,
+    row.description,
+  ]);
+  const override = resolveSectionAttributeOverride(row.sectionId, contractPackage);
   const completionDate =
     normalizeDateText(override?.completionDate) || normalizeDateText(row.baseCompletionDate);
   const area = normalizeAreaNumber(override?.area) ?? normalizeAreaNumber(row.baseArea);
   return {
     ...row,
+    contractPackage,
     completionDate,
     area,
     updatedAt: String(override?.updatedAt || ""),
@@ -276,6 +296,15 @@ const loadSections = async () => {
             key: `${groupLabel}:${sectionId}`,
             sectionId,
             groupLabel,
+            contractPackage: resolveContractPackageValue([
+              item?.contractPackage,
+              item?.contract_package,
+              item?.phase,
+              item?.package,
+              item?.sourceDxf,
+              item?.description,
+              groupLabel,
+            ]),
             systemId: buildSectionSystemId(groupLabel, sectionId),
             featureCount:
               Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
@@ -320,6 +349,7 @@ const filteredRows = computed(() =>
         row.systemId,
         row.completionDate,
         row.area,
+        row.contractPackage,
         row.partCount,
         row.sourceDxf,
         row.featureCount,
@@ -336,6 +366,7 @@ const viewOnMap = (sectionId) => {
 
 const openEditDialog = (row) => {
   editForm.value = createSectionEditForm(row);
+  editingContractPackage.value = resolveContractPackageValue(row.contractPackage);
   showEditDialog.value = true;
 };
 
@@ -348,10 +379,12 @@ const saveEditSection = () => {
   });
   sectionsStore.setAttributeOverride(sectionId, {
     sectionId,
+    contractPackage: editingContractPackage.value,
     ...payload,
-  });
+  }, editingContractPackage.value);
   rows.value = rows.value.map((row) =>
-    String(row.sectionId || "").trim().toLowerCase() === sectionId.toLowerCase()
+    String(row.sectionId || "").trim().toLowerCase() === sectionId.toLowerCase() &&
+    resolveContractPackageValue(row.contractPackage) === editingContractPackage.value
       ? applySectionOverridesToRow({
           ...row,
           baseCompletionDate: row.baseCompletionDate || row.completionDate || "",
@@ -360,11 +393,13 @@ const saveEditSection = () => {
       : row
   );
   showEditDialog.value = false;
+  editingContractPackage.value = CONTRACT_PACKAGE.C2;
   ElMessage.success("Section updated.");
 };
 
 const cancelEditSection = () => {
   showEditDialog.value = false;
+  editingContractPackage.value = CONTRACT_PACKAGE.C2;
 };
 
 watch(

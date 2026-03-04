@@ -1,11 +1,18 @@
 import { defineStore } from "pinia";
 import { normalizePartOfSitesGeojson } from "../shared/utils/partOfSitesGeojson";
+import {
+  CONTRACT_PACKAGE,
+  normalizeContractPackage,
+  toContractPhaseScopedId,
+} from "../shared/utils/contractPackage";
 
 const PART_OF_SITES_SNAPSHOT_VERSION = 2;
 const normalizeText = (value) => {
   if (value === null || value === undefined) return "";
   return String(value).trim();
 };
+const normalizeContractPackageValue = (value) =>
+  normalizeContractPackage(value, { fallback: CONTRACT_PACKAGE.C2 });
 const normalizeDateText = (value) => {
   const normalized = normalizeText(value);
   if (!normalized) return "";
@@ -26,10 +33,43 @@ const normalizePartId = (value) => {
   if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
   return normalized;
 };
-const normalizePartAttribute = (value = {}, partId = "") => {
+const parseScopedPartKey = (rawKey) => {
+  const normalized = normalizeText(rawKey);
+  if (!normalized) {
+    return {
+      partId: "",
+      contractPackage: "",
+    };
+  }
+  const [head, ...tail] = normalized.split(":");
+  if (tail.length > 0 && /^c[12]$/i.test(String(head || "").trim())) {
+    return {
+      partId: tail.join(":").trim(),
+      contractPackage: String(head).trim().toUpperCase(),
+    };
+  }
+  return {
+    partId: normalized,
+    contractPackage: "",
+  };
+};
+const buildPartAttributeKey = (partId, contractPackage = CONTRACT_PACKAGE.C2) => {
+  const normalizedPartId = normalizePartId(partId);
+  if (!normalizedPartId) return "";
+  return toContractPhaseScopedId(contractPackage, normalizedPartId).toLowerCase();
+};
+const normalizePartAttribute = (
+  value = {},
+  partId = "",
+  contractPackage = CONTRACT_PACKAGE.C2
+) => {
   const normalizedPartId = normalizePartId(value?.partId || partId);
+  const normalizedPackage = normalizeContractPackageValue(
+    value?.contractPackage ?? value?.contract_package ?? contractPackage
+  );
   return {
     partId: normalizedPartId,
+    contractPackage: normalizedPackage,
     accessDate: normalizeDateText(value?.accessDate),
     area: normalizeNumber(value?.area),
     updatedAt: normalizeText(value?.updatedAt),
@@ -40,12 +80,39 @@ const normalizePartAttributeOverrides = (overrides = {}) => {
   if (!overrides || typeof overrides !== "object") return {};
   const normalized = {};
   Object.entries(overrides).forEach(([rawKey, rawValue]) => {
-    const partId = normalizePartId(rawValue?.partId || rawKey);
+    const scopedKey = parseScopedPartKey(rawKey);
+    const partId = normalizePartId(rawValue?.partId || scopedKey.partId);
     if (!partId) return;
-    const record = normalizePartAttribute(rawValue, partId);
-    normalized[partId.toLowerCase()] = record;
+    const contractPackage = normalizeContractPackageValue(
+      rawValue?.contractPackage ??
+        rawValue?.contract_package ??
+        rawValue?.phase ??
+        rawValue?.package ??
+        scopedKey.contractPackage
+    );
+    const record = normalizePartAttribute(rawValue, partId, contractPackage);
+    const key = buildPartAttributeKey(partId, contractPackage);
+    if (!key) return;
+    normalized[key] = record;
   });
   return normalized;
+};
+const resolvePartAttributeOverride = (overrides = {}, partId, contractPackage = "") => {
+  if (!overrides || typeof overrides !== "object") return null;
+  const normalizedPartId = normalizePartId(partId);
+  if (!normalizedPartId) return null;
+  const normalizedPackage = normalizeText(contractPackage);
+  if (normalizedPackage) {
+    const scopedKey = buildPartAttributeKey(normalizedPartId, normalizedPackage);
+    if (scopedKey && overrides[scopedKey]) return overrides[scopedKey];
+  }
+  const legacyKey = normalizedPartId.toLowerCase();
+  if (legacyKey in overrides) return overrides[legacyKey];
+  const c2Key = buildPartAttributeKey(normalizedPartId, CONTRACT_PACKAGE.C2);
+  if (c2Key && overrides[c2Key]) return overrides[c2Key];
+  const c1Key = buildPartAttributeKey(normalizedPartId, CONTRACT_PACKAGE.C1);
+  if (c1Key && overrides[c1Key]) return overrides[c1Key];
+  return null;
 };
 const hasPartAttributeValue = (record = {}) =>
   !!normalizeText(record?.accessDate) ||
@@ -64,11 +131,8 @@ export const usePartOfSitesStore = defineStore("partOfSites", {
       !!state.snapshotGeojson &&
       state.snapshotGeojson.type === "FeatureCollection" &&
       Array.isArray(state.snapshotGeojson.features),
-    attributeByPartId: (state) => (partId) => {
-      const normalizedPartId = normalizePartId(partId);
-      if (!normalizedPartId) return null;
-      return state.attributeOverrides[normalizedPartId.toLowerCase()] || null;
-    },
+    attributeByPartId: (state) => (partId, contractPackage = "") =>
+      resolvePartAttributeOverride(state.attributeOverrides, partId, contractPackage),
   },
   actions: {
     normalizeLegacyPartOfSites() {
@@ -92,40 +156,73 @@ export const usePartOfSitesStore = defineStore("partOfSites", {
       this.snapshotGeojson = null;
       this.snapshotVersion = PART_OF_SITES_SNAPSHOT_VERSION;
     },
-    setAttributeOverride(partId, payload = {}) {
+    setAttributeOverride(partId, payload = {}, contractPackage = "") {
       const normalizedPartId = normalizePartId(partId);
       if (!normalizedPartId) return null;
-      const key = normalizedPartId.toLowerCase();
-      const current = this.attributeOverrides[key] || {};
+      const normalizedPackage = normalizeContractPackageValue(
+        payload?.contractPackage ??
+          payload?.contract_package ??
+          contractPackage
+      );
+      const key = buildPartAttributeKey(normalizedPartId, normalizedPackage);
+      const legacyKey = normalizedPartId.toLowerCase();
+      const current = this.attributeOverrides[key] || this.attributeOverrides[legacyKey] || {};
       const merged = normalizePartAttribute(
         {
           ...current,
           ...payload,
           partId: normalizedPartId,
+          contractPackage: normalizedPackage,
         },
-        normalizedPartId
+        normalizedPartId,
+        normalizedPackage
       );
       if (!hasPartAttributeValue(merged)) {
-        if (key in this.attributeOverrides) {
+        if (key in this.attributeOverrides || legacyKey in this.attributeOverrides) {
           const next = { ...this.attributeOverrides };
           delete next[key];
+          delete next[legacyKey];
           this.attributeOverrides = next;
         }
         return null;
       }
-      this.attributeOverrides = {
+      const next = {
         ...this.attributeOverrides,
         [key]: merged,
       };
+      if (legacyKey in next) {
+        delete next[legacyKey];
+      }
+      this.attributeOverrides = next;
       return merged;
     },
-    removeAttributeOverride(partId) {
+    removeAttributeOverride(partId, contractPackage = "") {
       const normalizedPartId = normalizePartId(partId);
       if (!normalizedPartId) return;
-      const key = normalizedPartId.toLowerCase();
-      if (!(key in this.attributeOverrides)) return;
+      const legacyKey = normalizedPartId.toLowerCase();
       const next = { ...this.attributeOverrides };
-      delete next[key];
+      let changed = false;
+      if (legacyKey in next) {
+        delete next[legacyKey];
+        changed = true;
+      }
+      const normalizedPackage = normalizeText(contractPackage);
+      if (normalizedPackage) {
+        const scopedKey = buildPartAttributeKey(normalizedPartId, normalizedPackage);
+        if (scopedKey && scopedKey in next) {
+          delete next[scopedKey];
+          changed = true;
+        }
+      } else {
+        [CONTRACT_PACKAGE.C1, CONTRACT_PACKAGE.C2].forEach((packageCode) => {
+          const scopedKey = buildPartAttributeKey(normalizedPartId, packageCode);
+          if (scopedKey && scopedKey in next) {
+            delete next[scopedKey];
+            changed = true;
+          }
+        });
+      }
+      if (!changed) return;
       this.attributeOverrides = next;
     },
   },

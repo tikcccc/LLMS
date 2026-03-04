@@ -131,6 +131,11 @@ import {
   buildPartOfSiteUpdatePayload,
 } from "../../shared/utils/partOfSiteEdit";
 import { featureCollectionAreaSqm } from "../../shared/utils/geojsonArea";
+import {
+  CONTRACT_PACKAGE,
+  resolveContractPackage,
+  toContractPhaseScopedId,
+} from "../../shared/utils/contractPackage";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -143,6 +148,7 @@ const searchQuery = ref("");
 const groupFilter = ref("All");
 const showEditDialog = ref(false);
 const editForm = ref(createPartOfSiteEditForm());
+const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -188,21 +194,34 @@ const normalizeAreaNumber = (value) => {
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed;
 };
-const resolvePartAttributeOverride = (partId) => {
+const resolveContractPackageValue = (values = []) =>
+  resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
+const resolvePartAttributeOverride = (partId, contractPackage = "") => {
   const normalizedPartId = String(partId || "").trim();
   if (!normalizedPartId) return null;
+  const normalizedPackage = resolveContractPackageValue(contractPackage);
   if (typeof partOfSitesStore.attributeByPartId === "function") {
-    return partOfSitesStore.attributeByPartId(normalizedPartId);
+    return partOfSitesStore.attributeByPartId(normalizedPartId, normalizedPackage);
   }
-  return partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null;
+  return (
+    partOfSitesStore.attributeOverrides?.[
+      toContractPhaseScopedId(normalizedPackage, normalizedPartId).toLowerCase()
+    ] || partOfSitesStore.attributeOverrides?.[normalizedPartId.toLowerCase()] || null
+  );
 };
 const applyPartOverridesToRow = (row = {}) => {
-  const override = resolvePartAttributeOverride(row.partId);
+  const contractPackage = resolveContractPackageValue([
+    row.contractPackage,
+    row.groupLabel,
+    row.sourceDxf,
+  ]);
+  const override = resolvePartAttributeOverride(row.partId, contractPackage);
   const accessDate =
     normalizeDateText(override?.accessDate) || normalizeDateText(row.baseAccessDate);
   const area = normalizeAreaNumber(override?.area) ?? normalizeAreaNumber(row.baseArea);
   return {
     ...row,
+    contractPackage,
     accessDate,
     area,
     updatedAt: String(override?.updatedAt || ""),
@@ -288,10 +307,19 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
               }
             }
 
+            const contractPackage = resolveContractPackageValue([
+              item?.contractPackage,
+              item?.contract_package,
+              item?.phase,
+              item?.package,
+              item?.sourceDxf,
+              groupLabel,
+            ]);
             return applyPartOverridesToRow({
               key: `${groupLabel}:${partId}`,
               partId,
               groupLabel,
+              contractPackage,
               systemId: buildPartOfSitesSystemId(groupLabel, partId),
               featureCount:
                 Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
@@ -341,6 +369,7 @@ const filteredRows = computed(() =>
         row.systemId,
         row.accessDate,
         row.area,
+        row.contractPackage,
         row.sourceDxf,
         row.featureCount,
         geometryTypeText(row.geometryTypes),
@@ -356,6 +385,7 @@ const viewOnMap = (partOfSiteId) => {
 
 const openEditDialog = (row) => {
   editForm.value = createPartOfSiteEditForm(row);
+  editingContractPackage.value = resolveContractPackageValue(row.contractPackage);
   showEditDialog.value = true;
 };
 
@@ -368,10 +398,12 @@ const saveEditPartOfSite = () => {
   });
   partOfSitesStore.setAttributeOverride(partId, {
     partId,
+    contractPackage: editingContractPackage.value,
     ...payload,
-  });
+  }, editingContractPackage.value);
   rows.value = rows.value.map((row) =>
-    String(row.partId || "").trim().toLowerCase() === partId.toLowerCase()
+    String(row.partId || "").trim().toLowerCase() === partId.toLowerCase() &&
+    resolveContractPackageValue(row.contractPackage) === editingContractPackage.value
       ? applyPartOverridesToRow({
           ...row,
           baseAccessDate: row.baseAccessDate || row.accessDate || "",
@@ -380,11 +412,13 @@ const saveEditPartOfSite = () => {
       : row
   );
   showEditDialog.value = false;
+  editingContractPackage.value = CONTRACT_PACKAGE.C2;
   ElMessage.success("Part of Site updated.");
 };
 
 const cancelEditPartOfSite = () => {
   showEditDialog.value = false;
+  editingContractPackage.value = CONTRACT_PACKAGE.C2;
 };
 
 watch(

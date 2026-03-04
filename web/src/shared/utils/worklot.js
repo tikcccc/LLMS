@@ -1,4 +1,5 @@
 import { todayHongKong } from "./time";
+import { normalizeContractPackage } from "./contractPackage";
 
 export const WORK_LOT_CATEGORY = {
   BU: "BU_BUSINESS_UNDERTAKING",
@@ -207,8 +208,16 @@ export const normalizeWorkLot = (lot = {}) => {
       : area !== null
         ? area
         : 0;
+  const contractPackage = normalizeContractPackage(
+    lot.contractPackage ??
+      lot.contract_package ??
+      lot.package ??
+      lot.phase ??
+      lot.contractNo
+  );
   return {
     ...lot,
+    contractPackage,
     category: normalizedCategory,
     siteBoundaryId,
     relatedSiteBoundaryIds,

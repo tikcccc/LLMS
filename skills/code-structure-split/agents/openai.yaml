@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Structure Split"
+  short_description: "Split bloated files into maintainable modules"
+  default_prompt: "Detect bloated code files and perform structural splitting with clear naming and placement."

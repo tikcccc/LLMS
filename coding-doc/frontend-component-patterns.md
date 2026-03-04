@@ -1,6 +1,6 @@
 # Frontend Component Patterns
 
-最後更新：2026-03-04  
+最後更新：2026-03-05  
 範圍：`web/` 現有 Vue + Element Plus 專案可直接落地的元件模式
 
 ## 1) 目的
@@ -109,8 +109,11 @@
 - 桌機允許寬度調整（resize handle），高度跟隨地圖工作區
 - 與 map overlay 的 z-index 關係需固定管理（mobile sheet > 地圖內容）
 - Layers 分頁採資料驅動：`layerFilterState` + `layerFilterOptions`
+- `update:layerFilterState` 事件應只回傳「增量 patch」欄位，避免主開關與 C1/C2 子開關在同次更新互相覆蓋
 - 大量 lot 清單區塊需支援區段收合/展開，降低側欄資訊壓力。
 - `Work Lot`、`Site Boundary` 採 lot 級 checkbox 白名單，`Part of Sites` 採 part 級 checkbox 白名單，`Sections` 採 section 級 checkbox 白名單
+- `Work Lot`、`Site Boundary`、`Part of Sites`、`Sections` 每個圖層區塊都需提供 C1/C2 phase 子開關，且與主開關保持父子聯動
+- 若提供跨圖層 phase 總控（Global C1/C2），其操作需一次輸出多鍵 patch（四組圖層的 C1/C2），避免逐鍵事件被中途重算覆蓋
 - `Drawing Layer` 保持整層單一開關，不展開 lot 級項目
 - lot 勾選只影響地圖顯示，不影響側欄清單與 scope 結果資料集
 - Scope Results 建議維持「Section -> Part of Sites -> Site Boundary -> Work Lot」的呈現順序，方便先看 section 範圍再下鑽

@@ -1,3 +1,5 @@
+import { normalizeContractPackage } from "./contractPackage";
+
 const WORK_LOT_GEOJSON_SCHEMA = "llms.worklots.geojson.v1";
 const WORK_LOT_GEOJSON_CRS = "EPSG:2326";
 const DEFAULT_FILENAME = "work-lots.geojson";
@@ -57,6 +59,9 @@ const isPolygonGeometry = (geometry) =>
 
 const buildFeatureProperties = (lot = {}) => ({
   id: normalizeText(lot.id),
+  contractPackage: normalizeContractPackage(
+    lot.contractPackage ?? lot.contract_package ?? lot.phase ?? lot.package
+  ),
   operatorName: normalizeText(lot.operatorName),
   category: normalizeText(lot.category),
   status: normalizeText(lot.status),
@@ -102,6 +107,12 @@ const featureToWorkLot = (feature = {}, index = 0) => {
 
   return {
     id: normalizeText(properties.id ?? feature.id),
+    contractPackage: normalizeContractPackage(
+      properties.contractPackage ??
+        properties.contract_package ??
+        properties.phase ??
+        properties.package
+    ),
     operatorName: normalizeText(properties.operatorName ?? properties.name),
     category: normalizeText(properties.category ?? properties.type),
     status: normalizeText(properties.status),

@@ -76,6 +76,39 @@
           <section class="layer-block">
             <div class="layer-block-head">
               <div class="layer-title-wrap">
+                <div class="layer-title">Phase (Global)</div>
+                <div class="layer-subtitle">Apply C1/C2 to all layer groups</div>
+              </div>
+              <div class="layer-actions">
+                <el-checkbox v-model="showGlobalC1Proxy" size="small" class="phase-toggle">
+                  C1
+                </el-checkbox>
+                <el-checkbox v-model="showGlobalC2Proxy" size="small" class="phase-toggle">
+                  C2
+                </el-checkbox>
+                <button
+                  type="button"
+                  class="inline-action"
+                  :class="{ active: isGlobalOnlyC1 }"
+                  @click="applyGlobalC1Only"
+                >
+                  Only C1
+                </button>
+                <button
+                  type="button"
+                  class="inline-action"
+                  :class="{ active: isGlobalOnlyC2 }"
+                  @click="applyGlobalC2Only"
+                >
+                  Only C2
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="layer-block">
+            <div class="layer-block-head">
+              <div class="layer-title-wrap">
                 <div class="layer-title">Drawing Layer</div>
                 <div class="layer-subtitle">Single full-layer toggle</div>
               </div>
@@ -93,6 +126,12 @@
               </div>
               <div class="layer-actions">
                 <el-switch v-model="showPartOfSitesProxy" size="small" />
+                <el-checkbox v-model="showPartOfSitesC1Proxy" size="small" class="phase-toggle">
+                  C1
+                </el-checkbox>
+                <el-checkbox v-model="showPartOfSitesC2Proxy" size="small" class="phase-toggle">
+                  C2
+                </el-checkbox>
                 <button
                   type="button"
                   class="inline-action"
@@ -175,6 +214,12 @@
               </div>
               <div class="layer-actions">
                 <el-switch v-model="showSectionsProxy" size="small" />
+                <el-checkbox v-model="showSectionsC1Proxy" size="small" class="phase-toggle">
+                  C1
+                </el-checkbox>
+                <el-checkbox v-model="showSectionsC2Proxy" size="small" class="phase-toggle">
+                  C2
+                </el-checkbox>
                 <button
                   type="button"
                   class="inline-action"
@@ -257,6 +302,12 @@
               </div>
               <div class="layer-actions">
                 <el-switch v-model="showSiteBoundaryProxy" size="small" />
+                <el-checkbox v-model="showSiteBoundaryC1Proxy" size="small" class="phase-toggle">
+                  C1
+                </el-checkbox>
+                <el-checkbox v-model="showSiteBoundaryC2Proxy" size="small" class="phase-toggle">
+                  C2
+                </el-checkbox>
                 <button
                   type="button"
                   class="inline-action"
@@ -349,6 +400,12 @@
               </div>
               <div class="layer-actions">
                 <el-switch v-model="showWorkLotsProxy" size="small" />
+                <el-checkbox v-model="showWorkLotsC1Proxy" size="small" class="phase-toggle">
+                  C1
+                </el-checkbox>
+                <el-checkbox v-model="showWorkLotsC2Proxy" size="small" class="phase-toggle">
+                  C2
+                </el-checkbox>
                 <button
                   type="button"
                   class="inline-action"
@@ -409,6 +466,7 @@
                       <span class="check-label">{{ item.label }}</span>
                       <span class="check-meta-row">
                         <span class="check-meta">{{ item.categoryCode || "BU" }}</span>
+                        <span class="check-separator" aria-hidden="true">|</span>
                         <span
                           class="check-status-text"
                           :style="workStatusColor(item.status, item.dueDate)"
@@ -786,10 +844,8 @@ const normalizeIdList = (value) => {
 };
 
 const patchLayerFilterState = (patch) => {
-  emit("update:layerFilterState", {
-    ...(props.layerFilterState || {}),
-    ...patch,
-  });
+  if (!patch || typeof patch !== "object") return;
+  emit("update:layerFilterState", patch);
 };
 
 const createBooleanFilterProxy = (key, fallback = false) =>
@@ -805,9 +861,60 @@ const showBasemapProxy = createBooleanFilterProxy("showBasemap", true);
 const showLabelsProxy = createBooleanFilterProxy("showLabels", true);
 const showIntLandProxy = createBooleanFilterProxy("showIntLand", false);
 const showPartOfSitesProxy = createBooleanFilterProxy("showPartOfSites", false);
+const showPartOfSitesC1Proxy = createBooleanFilterProxy("showPartOfSitesC1", true);
+const showPartOfSitesC2Proxy = createBooleanFilterProxy("showPartOfSitesC2", true);
 const showSectionsProxy = createBooleanFilterProxy("showSections", false);
+const showSectionsC1Proxy = createBooleanFilterProxy("showSectionsC1", true);
+const showSectionsC2Proxy = createBooleanFilterProxy("showSectionsC2", true);
 const showSiteBoundaryProxy = createBooleanFilterProxy("showSiteBoundary", true);
+const showSiteBoundaryC1Proxy = createBooleanFilterProxy("showSiteBoundaryC1", true);
+const showSiteBoundaryC2Proxy = createBooleanFilterProxy("showSiteBoundaryC2", true);
 const showWorkLotsProxy = createBooleanFilterProxy("showWorkLots", true);
+const showWorkLotsC1Proxy = createBooleanFilterProxy("showWorkLotsC1", true);
+const showWorkLotsC2Proxy = createBooleanFilterProxy("showWorkLotsC2", true);
+
+const PHASE_GROUP_KEY_PAIRS = [
+  ["showPartOfSitesC1", "showPartOfSitesC2"],
+  ["showSectionsC1", "showSectionsC2"],
+  ["showSiteBoundaryC1", "showSiteBoundaryC2"],
+  ["showWorkLotsC1", "showWorkLotsC2"],
+];
+
+const getLayerBoolean = (key) => !!props.layerFilterState?.[key];
+
+const buildGlobalPhasePatch = ({ c1, c2 } = {}) => {
+  const patch = {};
+  PHASE_GROUP_KEY_PAIRS.forEach(([c1Key, c2Key]) => {
+    if (typeof c1 === "boolean") patch[c1Key] = c1;
+    if (typeof c2 === "boolean") patch[c2Key] = c2;
+  });
+  return patch;
+};
+
+const showGlobalC1Proxy = computed({
+  get: () => PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => getLayerBoolean(c1Key)),
+  set: (value) => patchLayerFilterState(buildGlobalPhasePatch({ c1: !!value })),
+});
+
+const showGlobalC2Proxy = computed({
+  get: () => PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => getLayerBoolean(c2Key)),
+  set: (value) => patchLayerFilterState(buildGlobalPhasePatch({ c2: !!value })),
+});
+
+const isGlobalOnlyC1 = computed(
+  () =>
+    PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => getLayerBoolean(c1Key)) &&
+    PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => !getLayerBoolean(c2Key))
+);
+
+const isGlobalOnlyC2 = computed(
+  () =>
+    PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => !getLayerBoolean(c1Key)) &&
+    PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => getLayerBoolean(c2Key))
+);
+
+const applyGlobalC1Only = () => patchLayerFilterState(buildGlobalPhasePatch({ c1: true, c2: false }));
+const applyGlobalC2Only = () => patchLayerFilterState(buildGlobalPhasePatch({ c1: false, c2: true }));
 
 const getFilterMode = (modeKey) =>
   props.layerFilterState?.[modeKey] === "custom" ? "custom" : "all";
@@ -825,29 +932,25 @@ const filterLayerOptions = (items = []) => {
   const keyword = normalizeText(layerFilterKeyword.value);
   if (!keyword) return items;
   return items.filter((item) => {
-    const candidates = [item.id, item.label, item.layer, item.handle, item.categoryLabel];
+    const candidates = [
+      item.id,
+      item.label,
+      item.layer,
+      item.handle,
+      item.categoryLabel,
+      item.contractPackage,
+    ];
     return candidates.some((candidate) => normalizeText(candidate).includes(keyword));
   });
 };
 
-const normalizeStatusText = (value) => String(value || "").trim().toLowerCase();
 const compactBoundaryStatus = (value) => {
-  const normalized = normalizeStatusText(value);
-  if (!normalized) return "Pending";
-  if (normalized === "pending clearance") return "Pending";
-  if (normalized === "in progress") return "In Progress";
-  if (normalized === "critical / risk" || normalized === "critical/risk") return "Risk";
-  if (normalized === "handed over") return "Handed Over";
-  return String(value || "").trim();
+  const normalized = String(value || "").trim();
+  return normalized || "Pending Clearance";
 };
 const compactWorkStatus = (value) => {
-  const normalized = normalizeStatusText(value);
-  if (!normalized) return "Assessment";
-  if (normalized === "waiting for assessment") return "Assessment";
-  if (normalized === "ega approved") return "EGA Approved";
-  if (normalized === "waiting for clearance") return "Clearance";
-  if (normalized === "completed") return "Completed";
-  return String(value || "").trim();
+  const normalized = String(value || "").trim();
+  return normalized || "Waiting for Assessment";
 };
 const siteBoundaryStatusColor = (statusKey, overdue = false) => ({
   color: siteBoundaryStatusStyle(statusKey, overdue)?.color || "#475569",
@@ -1403,6 +1506,16 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
+.phase-toggle {
+  margin-right: 0;
+}
+
+.phase-toggle :deep(.el-checkbox__label) {
+  padding-left: 3px;
+  font-size: 11px;
+  color: #334155;
+}
+
 .inline-action {
   border: 1px solid rgba(148, 163, 184, 0.5);
   background: #fff;
@@ -1418,6 +1531,12 @@ onBeforeUnmount(() => {
 .inline-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.inline-action.active {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(219, 234, 254, 0.9);
+  color: #1d4ed8;
 }
 
 .section-toggle-btn {
@@ -1514,6 +1633,13 @@ onBeforeUnmount(() => {
   gap: 4px;
   flex-wrap: nowrap;
   min-width: 0;
+}
+
+.check-separator {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  line-height: 1;
 }
 
 .check-status-text {

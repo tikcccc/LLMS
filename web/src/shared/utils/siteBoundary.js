@@ -1,6 +1,7 @@
 import { todayHongKong } from "./time";
 import { WORK_LOT_STATUS, workLotCategoryCode } from "./worklot";
 import { generateLandId, isLandId, LAND_ID_PREFIX } from "./id";
+import { normalizeContractPackage } from "./contractPackage";
 
 const normalizeText = (value) => {
   if (value === null || value === undefined) return "";
@@ -135,9 +136,19 @@ export const normalizeSiteBoundary = (boundary = {}, index = 0, options = {}) =>
   const areaFromPayload = Number.isFinite(boundary.area) ? boundary.area : null;
   const area = areaFromPayload !== null ? areaFromPayload : geometryAreaSqm(geometry);
   const hectare = area > 0 ? area / 10000 : 0;
+  const contractPackage = normalizeContractPackage(
+    boundary.contractPackage ??
+      boundary.contract_package ??
+      boundary.phase ??
+      boundary.package ??
+      boundary.contractNo ??
+      boundary.sourceRef ??
+      boundary.layer
+  );
   return {
     id,
     sourceRef: buildSiteBoundarySourceRef(boundary, index),
+    contractPackage,
     name: normalizeText(boundary.name),
     layer: normalizeText(boundary.layer) || "—",
     entity: normalizeText(boundary.entity) || "Polygon",
@@ -186,6 +197,11 @@ export const parseSiteBoundaryGeojson = (geojson = {}) => {
         layer: properties.layer,
         entity: properties.entity,
         area,
+        contractPackage:
+          properties.contractPackage ??
+          properties.contract_package ??
+          properties.phase ??
+          properties.package,
         contractNo: properties.contractNo ?? properties.contract_no,
         futureUse: properties.futureUse ?? properties.future_use,
         assessDate: properties.assessDate ?? properties.assess_date,

@@ -29,6 +29,7 @@ const isPolygonGeometry = (geometry) =>
 const toExportBoundary = (boundary = {}) => ({
   id: normalizeText(boundary.id),
   sourceRef: normalizeText(boundary.sourceRef),
+  contractPackage: normalizeText(boundary.contractPackage || boundary.contract_package),
   name: normalizeText(boundary.name),
   layer: normalizeText(boundary.layer),
   entity: normalizeText(boundary.entity),

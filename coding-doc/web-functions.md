@@ -1,6 +1,6 @@
 # Web Functions
 
-最後更新：2026-03-04  
+最後更新：2026-03-05  
 範圍：依 `web/` 現有程式實作整理的前端 demo 功能目錄
 
 ## 1) 產品功能總覽
@@ -49,6 +49,8 @@
 - Sections（section 級多選白名單）
 - Site Boundary（lot 級多選白名單）
 - Work Lots（lot 級多選白名單）
+- `Part of Sites / Sections / Site Boundary / Work Lots` 均支援 C1/C2 phase 子開關（可分開顯示或同時疊加）
+- Layers 區提供「Phase (Global)」總控，可一鍵套用全圖層 C1/C2（含 `Only C1` / `Only C2`）
 - 跨圖層可同時勾選多個 lot，僅影響地圖可見性
 - 瀏覽工具：
 - Pan/select
@@ -216,6 +218,7 @@
 - 類別/狀態 alias 正規化
 - 日期/文字/布林/數字正規化
 - 幾何與面積正規化
+- `contractPackage`（C1/C2）正規化（缺值時依來源線索推斷，預設回退 C2）
 - 時程欄位（現況）：
 - Work Lot：`assessDate`、`dueDate`、`completionDate`、`floatMonths`
 - Site Boundary：`assessDate`、`plannedHandoverDate`、`completionDate`
@@ -249,8 +252,10 @@
 - 尚無跨實體完整契約的 `partOfSite`/`sectionOfWorks` 時程模型（目前已支援 map feature 層級欄位與 `section -> parts` 關聯）
 - 無「`access date` 到期提醒」專屬規則（目前逾期語意基於 `dueDate`/`plannedHandoverDate`）
 - 尚無通知渠道策略配置（目前僅 Web in-app 通知中心，未接 email）
+- 已支援 map C1/C2 phase 子開關與四類實體 `contractPackage` 欄位（Work Lot / Site Boundary / Part / Section）
+- 已支援 phase-scoped 覆寫鍵（`C1/C2 + 業務 ID`）；同一業務 ID 可在不同 phase 分開編修，不互相覆蓋
 
-## 8) 近期業務需求對照（2026-03-02）
+## 8) 近期業務需求對照（2026-03-02 ~ 2026-03-05）
 
 依據 `reference-doc/emails/email` 與 `reference-doc/2026-3-2 Project-timeline information/*`：
 
@@ -261,6 +266,7 @@
 | `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
 | Topbar 鈴鐺通知中心（in-app） | 已支援 | 提供 `All / Alert / Task / System` 分類、已讀管理、`View on Map` / `Open List` 快速跳轉；目前未接 email |
 | `section of works` 對應 `sectional completion date` | 部分支援 | 已新增 Section layer、`completionDate` 欄位與 `section -> part` 關聯；合約 offset 規則仍待補 |
+| `site/work lot/part/section` 需拆 C1/C2 兩層 | 已支援（前端層） | Map Layers 已新增 C1/C2 子開關、四類實體 `contractPackage` 欄位，以及 Part/Section 的 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存） |
 | 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |
 
 ## 9) 建議補充的功能文件
