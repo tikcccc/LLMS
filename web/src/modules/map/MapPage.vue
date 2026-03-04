@@ -170,7 +170,7 @@ import { useSiteBoundaryStore } from "../../stores/useSiteBoundaryStore";
 import { useUiStore } from "../../stores/useUiStore";
 import { usePartOfSitesStore } from "../../stores/usePartOfSitesStore";
 import { useSectionsStore } from "../../stores/useSectionsStore";
-import { nowIso, todayHongKong } from "../../shared/utils/time";
+import { todayHongKong } from "../../shared/utils/time";
 import {
   CONTRACT_PACKAGE,
   normalizeContractPackage,
@@ -184,41 +184,31 @@ import {
   workLotCategoryLabel,
 } from "../../shared/utils/worklot";
 import {
-  createWorkLotEditForm,
-  buildWorkLotUpdatePayload,
-} from "../../shared/utils/workLotEdit";
-import {
   createSiteBoundaryEditForm,
-  buildSiteBoundaryUpdatePayload,
 } from "../../shared/utils/siteBoundaryEdit";
 import {
   createPartOfSiteEditForm,
-  buildPartOfSiteUpdatePayload,
 } from "../../shared/utils/partOfSiteEdit";
 import {
   createSectionEditForm,
-  buildSectionUpdatePayload,
 } from "../../shared/utils/sectionEdit";
 import { useMapCore } from "./composables/useMapCore";
-import { useMapCoordinateSelection } from "./composables/useMapCoordinateSelection";
 import { useMapContractPackageHelpers } from "./composables/useMapContractPackageHelpers";
-import { useMapDialogActions } from "./composables/useMapDialogActions";
 import { useMapDialogForms } from "./composables/useMapDialogForms";
 import { useMapEditLayerType } from "./composables/useMapEditLayerType";
 import { useMapAreaOverrides } from "./composables/useMapAreaOverrides";
-import { useMapFeatureRelations } from "./composables/useMapFeatureRelations";
 import { useMapFocusTargetActions } from "./composables/useMapFocusTargetActions";
 import { useMapFocusState } from "./composables/useMapFocusState";
-import { useMapHighlights } from "./composables/useMapHighlights";
 import { useMapKeyboardShortcuts } from "./composables/useMapKeyboardShortcuts";
 import { useMapLayers } from "./composables/useMapLayers";
 import { useMapInteractions } from "./composables/useMapInteractions";
 import { useMapLayerFilterPanelState } from "./composables/useMapLayerFilterPanelState";
 import { useMapPageLifecycle } from "./composables/useMapPageLifecycle";
 import { useMapPagePanelState } from "./composables/useMapPagePanelState";
+import { useMapPageDialogActionsSetup } from "./composables/useMapPageDialogActionsSetup";
+import { useMapPageSpatialSetup } from "./composables/useMapPageSpatialSetup";
 import { useMapPageUiActions } from "./composables/useMapPageUiActions";
 import { useMapPageWatchers } from "./composables/useMapPageWatchers";
-import { useMapSectionPartRelations } from "./composables/useMapSectionPartRelations";
 import { useMapZoomRouteActions } from "./composables/useMapZoomRouteActions";
 import { useMapScopeResults } from "./composables/useMapScopeResults";
 import { useMapScopeState } from "./composables/useMapScopeState";
@@ -226,8 +216,6 @@ import { useMapSelectionDetails } from "./composables/useMapSelectionDetails";
 import { useMapSourceDataActions } from "./composables/useMapSourceDataActions";
 import { EPSG_2326 } from "./ol/projection";
 import {
-  createPartOfSiteMetaResolver,
-  createSectionMetaResolver,
   normalizeIdCollection,
   normalizePartValue,
   normalizePositiveNumber,
@@ -409,53 +397,20 @@ const {
   normalizeContractPackage,
   resolveContractPackage,
 });
-const resolvePartOfSiteMeta = createPartOfSiteMetaResolver({
-  resolveContractPackageValue,
-});
-const resolveSectionMeta = createSectionMetaResolver({
-  resolveContractPackageValue,
-});
 const {
-  getPartGeometryStatById,
-  getSectionGeometryStatById,
-  resolvePartHighlightGeometry,
-  resolveSectionHighlightGeometry,
-  syncSectionPartRelations,
-} = useMapSectionPartRelations({
-  sectionsSource,
-  partOfSitesSource,
   resolvePartOfSiteMeta,
   resolveSectionMeta,
-  normalizeIdCollection,
-  minOverlapArea: 1.0,
-});
-const { resolvePartSelectionByCoordinate, resolveSectionSelectionByCoordinate } =
-  useMapCoordinateSelection({
-    partOfSitesSource,
-    sectionsSource,
-    resolvePartOfSiteMeta,
-    resolveSectionMeta,
-    getPartGeometryStatById,
-    getSectionGeometryStatById,
-  });
-const {
+  getPartGeometryStatById,
+  getSectionGeometryStatById,
+  syncSectionPartRelations,
+  resolvePartSelectionByCoordinate,
+  resolveSectionSelectionByCoordinate,
   resolveRelatedSiteBoundaryIdsByGeometryObject,
   syncWorkLotBoundaryLinks,
   withRelatedIdFallback,
   findSiteBoundaryFeatureById,
   findPartOfSitesFeatureById,
   findSectionFeatureById,
-} = useMapFeatureRelations({
-  format,
-  projectionCode: EPSG_2326,
-  siteBoundarySource,
-  siteBoundaryStore,
-  workLotStore,
-  getSiteBoundaryFeatureById,
-  getPartOfSitesFeatureById,
-  getSectionFeatureById,
-});
-const {
   workHighlightSource,
   workHighlightLayer,
   partOfSitesHighlightSource,
@@ -468,15 +423,23 @@ const {
   setHighlightFeature,
   clearHighlightOverride,
   updateHighlightVisibility,
-} = useMapHighlights({
-  createWorkFeature,
-  selectedWorkLot,
+} = useMapPageSpatialSetup({
+  format,
+  projectionCode: EPSG_2326,
   uiStore,
+  selectedWorkLot,
   partOfSitesSource,
   sectionsSource,
   siteBoundarySource,
-  resolvePartOfSitesHighlightGeometry: resolvePartHighlightGeometry,
-  resolveSectionHighlightGeometry,
+  createWorkFeature,
+  siteBoundaryStore,
+  workLotStore,
+  getSiteBoundaryFeatureById,
+  getPartOfSitesFeatureById,
+  getSectionFeatureById,
+  resolveContractPackageValue,
+  normalizeIdCollection,
+  minOverlapArea: 1.0,
 });
 
 const { getPartAreaOverride, getSectionAreaOverride } = useMapAreaOverrides({
@@ -659,69 +622,81 @@ const {
   cancelPartOfSite,
   confirmSection,
   cancelSection,
-} = useMapDialogActions({
-  canEditWork,
-  selectedWorkLot,
-  selectedSiteBoundary,
-  selectedPartOfSite,
-  selectedSection,
-  workLotStore,
-  siteBoundaryStore,
-  partOfSitesStore,
-  sectionsStore,
-  uiStore,
-  authStore,
-  workForm,
-  siteBoundaryForm,
-  partOfSiteForm,
-  sectionForm,
-  showWorkDialog,
-  workDialogMode,
-  editingWorkLotId,
-  showSiteBoundaryDialog,
-  siteBoundaryDialogMode,
-  editingSiteBoundaryId,
-  showPartOfSiteDialog,
-  partOfSiteDialogMode,
-  editingPartOfSiteId,
-  editingPartOfSiteContractPackage,
-  showSectionDialog,
-  sectionDialogMode,
-  editingSectionId,
-  editingSectionContractPackage,
-  resetWorkForm,
-  resetWorkDialogEditState,
-  resetSiteBoundaryForm,
-  resetSiteBoundaryDialogEditState,
-  resetPartOfSiteDialogEditState,
-  resetSectionDialogEditState,
-  createWorkLotEditForm,
-  createSiteBoundaryEditForm,
-  createPartOfSiteEditForm,
-  createSectionEditForm,
-  buildWorkLotUpdatePayload,
-  buildSiteBoundaryUpdatePayload,
-  buildPartOfSiteUpdatePayload,
-  buildSectionUpdatePayload,
-  resolveRelatedSiteBoundaryIdsByGeometryObject,
-  withRelatedIdFallback,
-  pendingGeometry,
-  clearDraft,
-  cancelDraft,
-  nowIso,
-  todayHongKong,
-  normalizeContractPackageValue,
-  resolveContractPackageValue,
-  normalizePartValue,
-  normalizeSectionValue,
-  normalizePositiveNumber,
-  findPartOfSitesFeatureById,
-  findSectionFeatureById,
-  refreshHighlights,
-  clearHighlightOverride,
-  onPartOfSitesChanged: handlePartOfSitesSourceChange,
-  onSectionsChanged: handleSectionsSourceChange,
-  notify: ElMessage,
+} = useMapPageDialogActionsSetup({
+  selection: {
+    canEditWork,
+    selectedWorkLot,
+    selectedSiteBoundary,
+    selectedPartOfSite,
+    selectedSection,
+  },
+  stores: {
+    workLotStore,
+    siteBoundaryStore,
+    partOfSitesStore,
+    sectionsStore,
+    uiStore,
+    authStore,
+  },
+  forms: {
+    workForm,
+    siteBoundaryForm,
+    partOfSiteForm,
+    sectionForm,
+  },
+  dialogs: {
+    showWorkDialog,
+    showSiteBoundaryDialog,
+    showPartOfSiteDialog,
+    showSectionDialog,
+  },
+  editing: {
+    workDialogMode,
+    editingWorkLotId,
+    siteBoundaryDialogMode,
+    editingSiteBoundaryId,
+    partOfSiteDialogMode,
+    editingPartOfSiteId,
+    editingPartOfSiteContractPackage,
+    sectionDialogMode,
+    editingSectionId,
+    editingSectionContractPackage,
+  },
+  resets: {
+    resetWorkForm,
+    resetWorkDialogEditState,
+    resetSiteBoundaryForm,
+    resetSiteBoundaryDialogEditState,
+    resetPartOfSiteDialogEditState,
+    resetSectionDialogEditState,
+  },
+  relations: {
+    resolveRelatedSiteBoundaryIdsByGeometryObject,
+    withRelatedIdFallback,
+  },
+  geometry: {
+    pendingGeometry,
+    clearDraft,
+    cancelDraft,
+  },
+  contract: {
+    normalizeContractPackageValue,
+    resolveContractPackageValue,
+    normalizePartValue,
+    normalizeSectionValue,
+    normalizePositiveNumber,
+  },
+  featureLookup: {
+    findPartOfSitesFeatureById,
+    findSectionFeatureById,
+  },
+  callbacks: {
+    refreshHighlights,
+    clearHighlightOverride,
+    onPartOfSitesChanged: handlePartOfSitesSourceChange,
+    onSectionsChanged: handleSectionsSourceChange,
+    notify: ElMessage,
+  },
 });
 
 let clearAllHighlights = () => {};
