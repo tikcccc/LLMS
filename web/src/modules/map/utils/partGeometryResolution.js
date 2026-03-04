@@ -330,12 +330,16 @@ export const getResolvedPartGeometryStat = (statsByKey, partId) => {
 };
 
 export const geometriesOverlapByArea = (leftGeometry, rightGeometry) => {
-  if (!leftGeometry || !rightGeometry) return false;
+  return getGeometriesIntersectionArea(leftGeometry, rightGeometry) > EPSILON;
+};
+
+export const getGeometriesIntersectionArea = (leftGeometry, rightGeometry) => {
+  if (!leftGeometry || !rightGeometry) return 0;
   const leftExtent = leftGeometry.getExtent?.();
   const rightExtent = rightGeometry.getExtent?.();
-  if (!intersectsRecordExtent(leftExtent, rightExtent)) return false;
+  if (!intersectsRecordExtent(leftExtent, rightExtent)) return 0;
   const leftCoordinates = geometryToMultiPolygon(leftGeometry);
   const rightCoordinates = geometryToMultiPolygon(rightGeometry);
-  if (!leftCoordinates.length || !rightCoordinates.length) return false;
-  return hasPolygonIntersectionArea(leftCoordinates, rightCoordinates);
+  if (!leftCoordinates.length || !rightCoordinates.length) return 0;
+  return getIntersectionArea(leftCoordinates, rightCoordinates);
 };

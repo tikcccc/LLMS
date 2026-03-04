@@ -22,6 +22,8 @@ from typing import Iterable, List, Optional
 DEFAULT_PART_ROOT = "web/public/data/geojson/part-of-sites"
 DEFAULT_OUTPUT_ROOT = "web/public/data/geojson/sections"
 DEFAULT_CRS = "EPSG:2326"
+DEFAULT_MIN_AREA = 1.0
+DEFAULT_SIMPLIFY_TOLERANCE = 0.05
 
 CONTRACT_SECTION_DEFINITIONS = [
     {
@@ -180,8 +182,20 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--min-area",
         type=float,
-        default=0.0,
-        help="Drop polygon parts smaller than this area (square meters).",
+        default=DEFAULT_MIN_AREA,
+        help=(
+            "Drop polygon parts smaller than this area (square meters). "
+            f"(default: {DEFAULT_MIN_AREA})"
+        ),
+    )
+    parser.add_argument(
+        "--simplify-tolerance",
+        type=float,
+        default=DEFAULT_SIMPLIFY_TOLERANCE,
+        help=(
+            "Simplify section polygon boundaries with topology preserved. "
+            f"0 disables. (default: {DEFAULT_SIMPLIFY_TOLERANCE})"
+        ),
     )
     parser.add_argument(
         "--no-allow-empty-sections",
@@ -365,6 +379,7 @@ def build_section_geometry(
     geometries: Iterable[object],
     keep_holes: bool,
     min_area: float,
+    simplify_tolerance: float,
 ) -> tuple[dict, int, int, float]:
     MultiPolygon, Polygon, mapping, _, unary_union, make_valid = _require_shapely()
 
@@ -419,6 +434,39 @@ def build_section_geometry(
         ]
         if not multi_parts:
             raise ValueError("No polygon geometry after final shell-only dissolve.")
+
+    if simplify_tolerance > 0:
+        simplified_parts: List[object] = []
+        for part in multi_parts:
+            simplified = make_valid(
+                part.simplify(simplify_tolerance, preserve_topology=True)
+            )
+            for simplified_part in _extract_polygon_parts(simplified):
+                area = float(simplified_part.area)
+                if area <= 0:
+                    continue
+                if min_area > 0 and area < min_area:
+                    continue
+                if not keep_holes:
+                    shell_only = make_valid(Polygon(simplified_part.exterior))
+                    for shell_part in _extract_polygon_parts(shell_only):
+                        shell_area = float(shell_part.area)
+                        if shell_area <= 0:
+                            continue
+                        if min_area > 0 and shell_area < min_area:
+                            continue
+                        simplified_parts.append(shell_part)
+                    continue
+                simplified_parts.append(simplified_part)
+
+        if not simplified_parts:
+            raise ValueError("No polygon geometry after simplify cleanup.")
+        simplified_union = make_valid(unary_union(simplified_parts))
+        multi_parts = [
+            part for part in _extract_polygon_parts(simplified_union) if float(part.area) > 0
+        ]
+        if not multi_parts:
+            raise ValueError("No polygon geometry after simplify dissolve.")
 
     normalized = MultiPolygon(multi_parts)
     total_holes = sum(len(part.interiors) for part in multi_parts)
@@ -476,6 +524,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     selected_sections = parse_section_filter(args.sections)
     keep_holes = bool(args.keep_holes)
     min_area = max(0.0, float(args.min_area))
+    simplify_tolerance = max(0.0, float(args.simplify_tolerance))
     allow_empty_sections = not args.no_allow_empty_sections
     generated_at = date.today().isoformat()
 
@@ -535,6 +584,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     geometries=geometries,
                     keep_holes=keep_holes,
                     min_area=min_area,
+                    simplify_tolerance=simplify_tolerance,
                 )
             except Exception as exc:
                 print(f"[ERROR] {section_id} geometry build failed: {exc}", file=sys.stderr)

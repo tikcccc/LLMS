@@ -162,6 +162,7 @@ import { EPSG_2326 } from "./ol/projection";
 import { findSiteBoundaryIdsForGeometry } from "./utils/siteBoundaryMatch";
 import {
   buildResolvedPartGeometryStats,
+  getGeometriesIntersectionArea,
   geometriesOverlapByArea,
   getResolvedPartGeometryStat,
 } from "./utils/partGeometryResolution";
@@ -186,14 +187,24 @@ const selectedWorkLot = computed(
   () => workLotStore.workLots.find((lot) => lot.id === uiStore.selectedWorkLotId) || null
 );
 const partGeometryStatsById = ref(new Map());
+const sectionGeometryStatsById = ref(new Map());
+const SECTION_PART_RELATION_MIN_OVERLAP_AREA = 1.0;
 
 const getPartGeometryStatById = (partId) =>
   getResolvedPartGeometryStat(partGeometryStatsById.value, partId);
+const getSectionGeometryStatById = (sectionId) =>
+  getResolvedPartGeometryStat(sectionGeometryStatsById.value, sectionId);
 
 const resolvePartHighlightGeometry = (partId) => {
   const partGeometryStat = getPartGeometryStatById(partId);
   if (!partGeometryStat) return undefined;
   const geometry = partGeometryStat.geometry;
+  return geometry ? geometry.clone() : null;
+};
+const resolveSectionHighlightGeometry = (sectionId) => {
+  const sectionGeometryStat = getSectionGeometryStatById(sectionId);
+  if (!sectionGeometryStat) return undefined;
+  const geometry = sectionGeometryStat.geometry;
   return geometry ? geometry.clone() : null;
 };
 
@@ -321,6 +332,7 @@ const {
   sectionsSource,
   siteBoundarySource,
   resolvePartOfSitesHighlightGeometry: resolvePartHighlightGeometry,
+  resolveSectionHighlightGeometry,
 });
 
 const hasDraft = ref(false);
@@ -1111,6 +1123,7 @@ const findSectionFeatureById = (id) => {
 const syncSectionPartRelations = () => {
   if (!sectionsSource || !partOfSitesSource) {
     partGeometryStatsById.value = new Map();
+    sectionGeometryStatsById.value = new Map();
     return;
   }
   const sectionFeatures = sectionsSource.getFeatures();
@@ -1123,6 +1136,14 @@ const syncSectionPartRelations = () => {
         })
       : new Map();
   partGeometryStatsById.value = nextPartGeometryStats;
+  const nextSectionGeometryStats =
+    sectionFeatures.length > 0
+      ? buildResolvedPartGeometryStats({
+          features: sectionFeatures,
+          resolvePartId: (feature, index) => resolveSectionMeta(feature, index).sectionId,
+        })
+      : new Map();
+  sectionGeometryStatsById.value = nextSectionGeometryStats;
   if (!sectionFeatures.length || !partFeatures.length) {
     sectionFeatures.forEach((sectionFeature) => {
       sectionFeature.set("relatedPartIds", []);
@@ -1137,6 +1158,7 @@ const syncSectionPartRelations = () => {
 
   const sectionById = new Map();
   const sectionToPartIds = new Map();
+  const fallbackSectionIds = new Set();
   const partToSectionIds = new Map();
   const ensureSectionBinding = (sectionId, partId) => {
     const normalizedSectionId = String(sectionId || "").trim();
@@ -1160,9 +1182,30 @@ const syncSectionPartRelations = () => {
       feature,
     });
     sectionToPartIds.set(sectionMeta.sectionId, new Set(sectionMeta.relatedPartIds));
+    if (sectionMeta.relatedPartIds.length === 0) {
+      fallbackSectionIds.add(sectionMeta.sectionId.toLowerCase());
+    }
+  });
+
+  // Seed reverse mapping from explicit section -> part relationships.
+  sectionToPartIds.forEach((partIds, sectionId) => {
+    if (!(partIds instanceof Set) || partIds.size === 0) return;
+    partIds.forEach((partId) => {
+      const normalizedPartId = String(partId || "").trim();
+      if (!normalizedPartId) return;
+      if (!partToSectionIds.has(normalizedPartId)) {
+        partToSectionIds.set(normalizedPartId, new Set());
+      }
+      partToSectionIds.get(normalizedPartId).add(sectionId);
+    });
   });
 
   partFeatures.forEach((feature, index) => {
+    const bindingSource = String(feature.get("sectionBindingSource") || "")
+      .trim()
+      .toLowerCase();
+    // Ignore previous auto-generated bindings as explicit input.
+    if (bindingSource === "auto") return;
     const partMeta = resolvePartOfSiteMeta(feature, index);
     const explicitSectionIds = normalizeIdCollection(
       feature.get("sectionIds") || feature.get("relatedSectionIds")
@@ -1184,9 +1227,14 @@ const syncSectionPartRelations = () => {
     if (!partGeometry) return;
     sectionFeatures.forEach((sectionFeature, sectionIndex) => {
       const sectionMeta = resolveSectionMeta(sectionFeature, sectionIndex);
-      const sectionGeometry = sectionFeature.getGeometry();
+      if (!fallbackSectionIds.has(sectionMeta.sectionId.toLowerCase())) return;
+      const sectionGeometry =
+        getSectionGeometryStatById(sectionMeta.sectionId)?.geometry ||
+        sectionFeature.getGeometry();
       if (!sectionGeometry) return;
       if (!geometriesOverlapByArea(partGeometry, sectionGeometry)) return;
+      const overlapArea = getGeometriesIntersectionArea(partGeometry, sectionGeometry);
+      if (overlapArea < SECTION_PART_RELATION_MIN_OVERLAP_AREA) return;
       ensureSectionBinding(sectionMeta.sectionId, normalizedPartId);
     });
   });
@@ -1207,6 +1255,7 @@ const syncSectionPartRelations = () => {
     ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     feature.set("sectionIds", sectionIds);
     feature.set("sectionId", sectionIds[0] || "");
+    feature.set("sectionBindingSource", "auto");
   });
 };
 
@@ -1295,6 +1344,22 @@ const selectedSection = computed(() => {
   if (!feature) return null;
   const meta = resolveSectionMeta(feature);
   const partCount = Number(feature.get("partCount"));
+  const geometry = feature.getGeometry();
+  const rawArea =
+    geometry && typeof geometry.getArea === "function" ? Math.abs(geometry.getArea()) : 0;
+  const sectionGeometryStat = getSectionGeometryStatById(meta.sectionId);
+  const effectiveArea =
+    Number.isFinite(sectionGeometryStat?.area) && sectionGeometryStat.area >= 0
+      ? sectionGeometryStat.area
+      : rawArea;
+  const storedRawArea =
+    Number.isFinite(sectionGeometryStat?.rawArea) && sectionGeometryStat.rawArea >= 0
+      ? sectionGeometryStat.rawArea
+      : rawArea;
+  const overlapArea =
+    Number.isFinite(sectionGeometryStat?.overlapArea) && sectionGeometryStat.overlapArea >= 0
+      ? sectionGeometryStat.overlapArea
+      : Math.max(0, storedRawArea - effectiveArea);
   return {
     id: meta.systemId,
     sectionId: meta.sectionId,
@@ -1304,6 +1369,10 @@ const selectedSection = computed(() => {
     partCount:
       Number.isFinite(partCount) && partCount >= 0 ? partCount : meta.relatedPartIds.length,
     relatedPartIds: meta.relatedPartIds,
+    area: effectiveArea,
+    rawArea: storedRawArea,
+    overlapArea,
+    areaAdjusted: !!sectionGeometryStat?.wasAdjusted,
   };
 });
 
@@ -1368,21 +1437,50 @@ const selectedSectionRelatedPartOfSites = computed(() => {
   const sectionId = selectedSection.value?.sectionId;
   if (!sectionId) return [];
   partOfSitesSourceVersion.value;
+  const explicitRelatedIds = normalizeIdCollection(selectedSection.value?.relatedPartIds);
 
-  const normalizedSectionId = sectionId.toLowerCase();
-  const related = [];
-  partOfSitesSource?.getFeatures().forEach((feature, index) => {
-    const meta = resolvePartOfSiteMeta(feature, index);
-    const sectionIds = meta.sectionIds.map((value) => String(value).toLowerCase());
-    if (!sectionIds.includes(normalizedSectionId)) return;
-    related.push({
-      id: meta.partId,
-      title: meta.label,
-      group: meta.group,
-      systemId: meta.systemId,
+  const relatedById = new Map();
+  if (explicitRelatedIds.length > 0) {
+    explicitRelatedIds.forEach((partId) => {
+      const normalizedPartId = String(partId || "").trim();
+      if (!normalizedPartId) return;
+      const key = normalizedPartId.toLowerCase();
+      if (relatedById.has(key)) return;
+      const feature = findPartOfSitesFeatureById(normalizedPartId);
+      if (feature) {
+        const meta = resolvePartOfSiteMeta(feature);
+        relatedById.set(key, {
+          id: meta.partId,
+          title: meta.label,
+          group: meta.group,
+          systemId: meta.systemId,
+        });
+        return;
+      }
+      relatedById.set(key, {
+        id: normalizedPartId,
+        title: normalizedPartId,
+        group: "",
+        systemId: "",
+      });
     });
-  });
-  return related.sort(
+  } else {
+    const normalizedSectionId = sectionId.toLowerCase();
+    partOfSitesSource?.getFeatures().forEach((feature, index) => {
+      const meta = resolvePartOfSiteMeta(feature, index);
+      const sectionIds = meta.sectionIds.map((value) => String(value).toLowerCase());
+      if (!sectionIds.includes(normalizedSectionId)) return;
+      const key = String(meta.partId || "").toLowerCase();
+      if (!key || relatedById.has(key)) return;
+      relatedById.set(key, {
+        id: meta.partId,
+        title: meta.label,
+        group: meta.group,
+        systemId: meta.systemId,
+      });
+    });
+  }
+  return Array.from(relatedById.values()).sort(
     (a, b) =>
       a.title.localeCompare(b.title, undefined, { numeric: true }) ||
       a.id.localeCompare(b.id, undefined, { numeric: true })

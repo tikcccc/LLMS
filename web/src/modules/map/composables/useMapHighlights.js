@@ -19,6 +19,7 @@ export const useMapHighlights = ({
   sectionsSource,
   siteBoundarySource,
   resolvePartOfSitesHighlightGeometry = null,
+  resolveSectionHighlightGeometry = null,
 }) => {
   const workHighlightSource = new VectorSource();
   const partOfSitesHighlightSource = new VectorSource();
@@ -225,10 +226,22 @@ export const useMapHighlights = ({
     const sectionFeatures = canShowSelectedSection()
       ? resolveSectionHighlightTargets(sectionHighlightOverride, sectionId)
       : [];
-    sectionFeatures
-      .map((feature) => cloneFeature(feature))
-      .filter(Boolean)
-      .forEach((feature) => sectionHighlightSource.addFeature(feature));
+    const resolvedSectionGeometryResult =
+      typeof resolveSectionHighlightGeometry === "function"
+        ? resolveSectionHighlightGeometry(sectionId, sectionFeatures)
+        : undefined;
+    if (resolvedSectionGeometryResult && sectionFeatures.length > 0) {
+      const sectionHighlight = cloneFeature(sectionFeatures[0]);
+      if (sectionHighlight) {
+        sectionHighlight.setGeometry(resolvedSectionGeometryResult.clone());
+        sectionHighlightSource.addFeature(sectionHighlight);
+      }
+    } else if (resolvedSectionGeometryResult === undefined) {
+      sectionFeatures
+        .map((feature) => cloneFeature(feature))
+        .filter(Boolean)
+        .forEach((feature) => sectionHighlightSource.addFeature(feature));
+    }
   };
 
   const setHighlightFeature = (layerType, feature) => {

@@ -26,7 +26,6 @@ import {
 import {
   buildSectionsGeojson,
   downloadSectionsGeojson,
-  normalizeSectionsGeojson,
 } from "../../../shared/utils/sectionsGeojson";
 import {
   INT_LAND_GEOJSON_URL,
@@ -969,22 +968,10 @@ export const useMapLayers = ({
       return response.json();
     };
 
-    const restoreFromSnapshot = () => {
-      const snapshot = normalizeSectionsGeojson(sectionsStore?.snapshotGeojson);
-      if (!snapshot) return false;
-      const features = format.readFeatures(snapshot, {
-        dataProjection: EPSG_2326,
-        featureProjection: EPSG_2326,
-      });
-      const normalizedFeatures = features.map((feature, index) =>
-        normalizeSectionFeature(feature, { featureIndex: index })
-      );
-      applySectionsFeaturesToSource(normalizedFeatures);
-      return true;
-    };
-
-    if (restoreFromSnapshot()) {
-      return;
+    // Always prefer bundled section dataset. Historical snapshots can keep
+    // stale section-part bindings and geometry topology from old logic.
+    if (sectionsStore?.hasSnapshot) {
+      sectionsStore.clearSnapshotGeojson();
     }
 
     try {

@@ -67,9 +67,11 @@
 ### 關聯同步規則（目前前端實作）
 
 1. 先使用 feature 顯式欄位（`sectionId` / `sectionIds` / `relatedPartIds`）建立關聯。  
-2. 顯式欄位不足時，先對 `part geometry` 做「跨 part 去重疊差集」得到有效幾何；差集優先權以 feature 級面積判斷（較小 polygon 保留重疊區，較大 polygon 扣除），再以 `section geometry` 與有效幾何的交集面積（`> 0`）補齊關聯。  
-3. Part UI 面積顯示採有效幾何面積；若存在重疊，需同時可回溯 raw area 與 overlap area。  
-4. 同步寫回：
+2. 顯式欄位不足時，先對 `part geometry` 做「跨 part 去重疊差集」得到有效幾何；差集優先權以 feature 級面積判斷（較小 polygon 保留重疊區，較大 polygon 扣除），再以 `section geometry` 與有效幾何的交集面積（`>= 1.0 m²`）補齊關聯（避免拓撲微小噪音誤判）。  
+3. 若某個 section 已有顯式 `relatedPartIds`，則該 section 的關聯集合以顯式映射為準，不再用 geometry fallback 擴張。  
+4. Part UI 面積顯示採有效幾何面積；若存在重疊，需同時可回溯 raw area 與 overlap area。  
+5. Section 幾何在高亮與 fallback 關聯判斷時，使用「section 去重疊後有效幾何」，避免 section 間重疊造成誤高亮與重複面積計算。  
+6. 同步寫回：
 - Section：`relatedPartIds`、`partCount`
 - PartOfSite：`sectionId`、`sectionIds`
 
