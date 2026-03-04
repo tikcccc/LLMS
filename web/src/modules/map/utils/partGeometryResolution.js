@@ -5,6 +5,7 @@ import polygonClipping from "polygon-clipping";
 
 const EPSILON = 1e-7;
 const AREA_RESOLUTION_EPSILON = 0.01;
+const CONTAINMENT_COVERAGE_THRESHOLD = 0.995;
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -194,6 +195,12 @@ const buildPairKey = (leftKey, rightKey) => {
   return left < right ? `${left}::${right}` : `${right}::${left}`;
 };
 
+const getAreaCoverage = (intersectionArea, rawArea) => {
+  const base = Math.abs(Number(rawArea) || 0);
+  if (!(intersectionArea > EPSILON) || !(base > EPSILON)) return 0;
+  return intersectionArea / base;
+};
+
 const resolvePairWinner = (leftRecord, rightRecord) => {
   if (!leftRecord || !rightRecord) return null;
   if (!intersectsRecordExtent(leftRecord.extent, rightRecord.extent)) return null;
@@ -206,13 +213,27 @@ const resolvePairWinner = (leftRecord, rightRecord) => {
   const rightInsideLeft =
     intersectionArea > AREA_RESOLUTION_EPSILON &&
     areAreasNearlyEqual(intersectionArea, rightRecord.rawArea);
+  const leftCoverage = getAreaCoverage(intersectionArea, leftRecord.rawArea);
+  const rightCoverage = getAreaCoverage(intersectionArea, rightRecord.rawArea);
+  const leftMostlyCovered = leftCoverage >= CONTAINMENT_COVERAGE_THRESHOLD;
+  const rightMostlyCovered = rightCoverage >= CONTAINMENT_COVERAGE_THRESHOLD;
 
   // Contained part always keeps the overlap footprint.
-  if (leftInsideRight && !rightInsideLeft) return leftRecord.key;
-  if (rightInsideLeft && !leftInsideRight) return rightRecord.key;
+  if ((leftInsideRight || leftMostlyCovered) && !(rightInsideLeft || rightMostlyCovered)) {
+    return leftRecord.key;
+  }
+  if ((rightInsideLeft || rightMostlyCovered) && !(leftInsideRight || leftMostlyCovered)) {
+    return rightRecord.key;
+  }
 
-  // Fallback: deterministic id ordering, larger id keeps overlap.
-  return compareNatural(leftRecord.partId, rightRecord.partId) >= 0
+  // Fallback: keep overlap on the smaller geometry (more specific footprint).
+  const areaDelta = Math.abs(leftRecord.rawArea) - Math.abs(rightRecord.rawArea);
+  if (Math.abs(areaDelta) > AREA_RESOLUTION_EPSILON) {
+    return areaDelta <= 0 ? leftRecord.key : rightRecord.key;
+  }
+
+  // Final tie-breaker keeps deterministic result across runs.
+  return compareNatural(leftRecord.partId, rightRecord.partId) <= 0
     ? leftRecord.key
     : rightRecord.key;
 };

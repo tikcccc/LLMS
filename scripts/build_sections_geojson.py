@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 
 DEFAULT_PART_ROOT = "web/public/data/geojson/part-of-sites"
@@ -24,6 +25,12 @@ DEFAULT_OUTPUT_ROOT = "web/public/data/geojson/sections"
 DEFAULT_CRS = "EPSG:2326"
 DEFAULT_MIN_AREA = 1.0
 DEFAULT_SIMPLIFY_TOLERANCE = 0.05
+DEFAULT_RING_DEDUP_TOLERANCE = 0.05
+DEFAULT_RING_BACKTRACK_TOLERANCE = 0.2
+DEFAULT_MIN_EDGE_LENGTH = 0.5
+DEFAULT_COLLINEAR_ANGLE_TOLERANCE = 1.0
+DEFAULT_COLLINEAR_DISTANCE_TOLERANCE = 0.05
+DEFAULT_SPIKE_ANGLE_TOLERANCE = 1.0
 
 CONTRACT_SECTION_DEFINITIONS = [
     {
@@ -266,6 +273,133 @@ def _extract_polygon_parts(geom) -> List[object]:
     return []
 
 
+def _xy_tuple(coord: Sequence[float]) -> Tuple[float, float]:
+    return float(coord[0]), float(coord[1])
+
+
+def _distance_xy(a: Tuple[float, float], b: Tuple[float, float]) -> float:
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _angle_deg(
+    prev_pt: Tuple[float, float],
+    curr_pt: Tuple[float, float],
+    next_pt: Tuple[float, float],
+) -> Optional[float]:
+    v1 = (prev_pt[0] - curr_pt[0], prev_pt[1] - curr_pt[1])
+    v2 = (next_pt[0] - curr_pt[0], next_pt[1] - curr_pt[1])
+    l1 = math.hypot(v1[0], v1[1])
+    l2 = math.hypot(v2[0], v2[1])
+    if l1 <= 0 or l2 <= 0:
+        return None
+    dot = (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2)
+    dot = max(-1.0, min(1.0, dot))
+    return math.degrees(math.acos(dot))
+
+
+def _point_to_segment_distance(
+    point: Tuple[float, float],
+    seg_start: Tuple[float, float],
+    seg_end: Tuple[float, float],
+) -> float:
+    dx = seg_end[0] - seg_start[0]
+    dy = seg_end[1] - seg_start[1]
+    den = dx * dx + dy * dy
+    if den <= 0:
+        return _distance_xy(point, seg_start)
+    t = ((point[0] - seg_start[0]) * dx + (point[1] - seg_start[1]) * dy) / den
+    t = max(0.0, min(1.0, t))
+    proj = (seg_start[0] + t * dx, seg_start[1] + t * dy)
+    return _distance_xy(point, proj)
+
+
+def _clean_ring_points(
+    ring_coords: Sequence[Sequence[float]],
+    dedup_tolerance: float = DEFAULT_RING_DEDUP_TOLERANCE,
+    backtrack_tolerance: float = DEFAULT_RING_BACKTRACK_TOLERANCE,
+    min_edge_length: float = DEFAULT_MIN_EDGE_LENGTH,
+    collinear_angle_tolerance: float = DEFAULT_COLLINEAR_ANGLE_TOLERANCE,
+    collinear_distance_tolerance: float = DEFAULT_COLLINEAR_DISTANCE_TOLERANCE,
+    spike_angle_tolerance: float = DEFAULT_SPIKE_ANGLE_TOLERANCE,
+) -> List[Tuple[float, float]]:
+    if len(ring_coords) < 4:
+        return []
+
+    raw_points = [_xy_tuple(coord) for coord in ring_coords]
+    points = raw_points[:-1]
+    if len(points) < 3:
+        return []
+
+    max_iter = 32
+    for _ in range(max_iter):
+        changed = False
+        i = 0
+        while i < len(points):
+            if len(points) < 3:
+                break
+            prev_pt = points[(i - 1) % len(points)]
+            curr_pt = points[i]
+            next_pt = points[(i + 1) % len(points)]
+
+            if _distance_xy(prev_pt, curr_pt) <= dedup_tolerance:
+                points.pop(i)
+                changed = True
+                continue
+
+            if _distance_xy(prev_pt, next_pt) <= backtrack_tolerance:
+                # Remove center of a near A->B->A spike.
+                points.pop(i)
+                changed = True
+                continue
+
+            angle = _angle_deg(prev_pt, curr_pt, next_pt)
+            if angle is not None and angle <= spike_angle_tolerance:
+                # Remove near-reverse cusp even when the return leg is slightly offset.
+                points.pop(i)
+                changed = True
+                continue
+
+            prev_len = _distance_xy(prev_pt, curr_pt)
+            next_len = _distance_xy(curr_pt, next_pt)
+            if prev_len < min_edge_length and next_len < min_edge_length:
+                points.pop(i)
+                changed = True
+                continue
+
+            if angle is not None and abs(180.0 - angle) <= collinear_angle_tolerance:
+                dist_to_segment = _point_to_segment_distance(curr_pt, prev_pt, next_pt)
+                if dist_to_segment <= collinear_distance_tolerance:
+                    points.pop(i)
+                    changed = True
+                    continue
+
+            i += 1
+
+        if not changed:
+            break
+
+    if len(points) < 3:
+        return []
+    return points + [points[0]]
+
+
+def _normalize_polygon_shells(polygons: Iterable[object]) -> List[object]:
+    _, Polygon, _, _, _, make_valid = _require_shapely()
+    normalized: List[object] = []
+
+    for polygon in polygons:
+        cleaned_shell = _clean_ring_points(getattr(polygon, "exterior").coords)
+        if not cleaned_shell:
+            continue
+        cleaned_poly = make_valid(Polygon(cleaned_shell))
+        for part in _extract_polygon_parts(cleaned_poly):
+            if part.is_empty or float(part.area) <= 0:
+                continue
+            normalized.append(part)
+
+    return normalized
+
+
 def resolve_item_file_to_path(part_root: Path, item_file: str) -> Path:
     token = normalize_space(item_file)
     if not token:
@@ -467,6 +601,38 @@ def build_section_geometry(
         ]
         if not multi_parts:
             raise ValueError("No polygon geometry after simplify dissolve.")
+
+    if not keep_holes:
+        shell_normalized = _normalize_polygon_shells(multi_parts)
+        if not shell_normalized:
+            raise ValueError("No polygon geometry after shell spike cleanup.")
+        shell_union = make_valid(unary_union(shell_normalized))
+        multi_parts = [part for part in _extract_polygon_parts(shell_union) if float(part.area) > 0]
+        if not multi_parts:
+            raise ValueError("No polygon geometry after shell spike dissolve.")
+
+    final_parts: List[object] = []
+    for part in multi_parts:
+        candidate = part if keep_holes else make_valid(Polygon(part.exterior))
+        for candidate_part in _extract_polygon_parts(make_valid(candidate)):
+            area = float(candidate_part.area)
+            if area <= 0:
+                continue
+            if min_area > 0 and area < min_area:
+                continue
+            final_parts.append(candidate_part)
+
+    if not final_parts:
+        raise ValueError("No polygon geometry after final min-area cleanup.")
+
+    final_union = make_valid(unary_union(final_parts))
+    multi_parts = [
+        part
+        for part in _extract_polygon_parts(final_union)
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not multi_parts:
+        raise ValueError("No polygon geometry after final dissolve.")
 
     normalized = MultiPolygon(multi_parts)
     total_holes = sum(len(part.interiors) for part in multi_parts)

@@ -24,6 +24,7 @@
         @focus-site-boundary="zoomToSiteBoundary"
         @focus-part-of-site="zoomToPartOfSite"
         @focus-section="zoomToSection"
+        @panel-close="handleSidePanelClose"
       />
 
       <section class="map-stage">
@@ -250,6 +251,49 @@ const resolvePartSelectionByCoordinate = (coordinate) => {
     });
   });
   return candidates[0].partId;
+};
+const resolveSectionSelectionByCoordinate = (coordinate) => {
+  if (!Array.isArray(coordinate) || coordinate.length < 2 || !sectionsSource) return "";
+  const x = Number(coordinate[0]);
+  const y = Number(coordinate[1]);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return "";
+
+  const dedupe = new Set();
+  const candidates = [];
+  const clickPoint = [x, y];
+  sectionsSource.getFeatures().forEach((feature, index) => {
+    const meta = resolveSectionMeta(feature, index);
+    const sectionId = String(meta.sectionId || "").trim();
+    if (!sectionId) return;
+    const key = sectionId.toLowerCase();
+    if (dedupe.has(key)) return;
+
+    const stat = getSectionGeometryStatById(sectionId);
+    const geometry = stat?.geometry || feature.getGeometry();
+    if (!geometry || typeof geometry.intersectsCoordinate !== "function") return;
+    if (!geometry.intersectsCoordinate(clickPoint)) return;
+
+    const areaValue =
+      Number.isFinite(stat?.area) && stat.area > 0
+        ? stat.area
+        : Math.abs(geometry.getArea?.() || 0);
+    dedupe.add(key);
+    candidates.push({
+      sectionId,
+      area: Number.isFinite(areaValue) ? areaValue : 0,
+    });
+  });
+
+  if (!candidates.length) return "";
+  candidates.sort((left, right) => {
+    const areaDelta = left.area - right.area;
+    if (Math.abs(areaDelta) > 1e-7) return areaDelta;
+    return left.sectionId.localeCompare(right.sectionId, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+  return candidates[0].sectionId;
 };
 
 const drawerWorkLot = computed(() =>
@@ -1062,6 +1106,7 @@ const {
   onPartOfSitesSourceChange: handlePartOfSitesSourceChange,
   onSectionsSourceChange: handleSectionsSourceChange,
   resolvePartOfSitesIdAtCoordinate: resolvePartSelectionByCoordinate,
+  resolveSectionIdAtCoordinate: resolveSectionSelectionByCoordinate,
 });
 
 const resolveRelatedSiteBoundaryIdsByGeometryObject = (geometryObject) => {
@@ -1738,6 +1783,11 @@ const clearActiveMapFocus = ({ restoreSnapshot = false } = {}) => {
       restoreFocusSnapshot(snapshot);
     });
   }
+};
+
+const handleSidePanelClose = () => {
+  if (!activeMapFocus.value) return;
+  clearActiveMapFocus({ restoreSnapshot: true });
 };
 
 const resetFocusOnMapFilters = () => {

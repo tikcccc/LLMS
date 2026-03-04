@@ -700,6 +700,7 @@ const emit = defineEmits([
   "focus-site-boundary",
   "focus-part-of-site",
   "focus-section",
+  "panel-close",
 ]);
 
 const leftTabProxy = computed({
@@ -1054,11 +1055,17 @@ const applyMobileMode = (mobile) => {
 const toggleMobilePanel = () => {
   if (!isMobile.value) return;
   mobilePanelOpen.value = !mobilePanelOpen.value;
+  if (!mobilePanelOpen.value) {
+    emit("panel-close");
+  }
 };
 
 const toggleDesktopCollapsed = () => {
   if (isMobile.value) return;
   isDesktopCollapsed.value = !isDesktopCollapsed.value;
+  if (isDesktopCollapsed.value) {
+    emit("panel-close");
+  }
   stopResize();
   persistPanelCollapsed();
 };
@@ -1080,7 +1087,9 @@ const toggleWorkLotsExpanded = () => {
 
 const closeMobilePanel = () => {
   if (!isMobile.value) return;
+  if (!mobilePanelOpen.value) return;
   mobilePanelOpen.value = false;
+  emit("panel-close");
 };
 
 const handleMobileMediaChange = (event) => {

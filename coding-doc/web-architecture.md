@@ -88,9 +88,9 @@
 
 - `useMapCore.js`：地圖實例、底圖/標籤圖層初始化
 - `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入（Drawing/Part of Sites/Sections/Site Boundary/Work Lot）與 lot 級白名單渲染控制
-- `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select；scope 結果涵蓋 Sections / Part of Sites / Site Boundary / Work Lot）
+- `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select；scope 結果涵蓋 Sections / Part of Sites / Site Boundary / Work Lot），並支援 Part/Section 點擊時以座標命中有效幾何做二次判定，降低重疊區誤選
 - `useMapHighlights.js`：選中要素高亮圖層（Work Lot / Part of Sites / Sections / Site Boundary）
-- `modules/map/utils/partGeometryResolution.js`：Part of Sites 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）
+- `modules/map/utils/partGeometryResolution.js`：Part of Sites/Sections 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）；重疊優先序為「內含或高覆蓋率的小幾何優先，其餘重疊由較小面積優先，最後用 ID 自然序穩定化」
 - Part of Sites 載入策略：`index.json -> group index -> part 檔案`，其中 group 與 part 檔案以有限併發下載，並對 JSON 請求套用記憶體 TTL 快取
 
 Map UI 元件分工：

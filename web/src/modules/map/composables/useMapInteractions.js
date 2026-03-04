@@ -121,6 +121,7 @@ export const useMapInteractions = ({
   onPartOfSitesSourceChange,
   onSectionsSourceChange,
   resolvePartOfSitesIdAtCoordinate = null,
+  resolveSectionIdAtCoordinate = null,
 }) => {
   let drawInteraction = null;
   let modifyInteraction = null;
@@ -691,7 +692,12 @@ export const useMapInteractions = ({
           : "";
       uiStore.selectPartOfSite(resolvedPartId || getPartOfSitesIdFromFeature(selected) || refId);
     } else if (layerType === "section") {
-      uiStore.selectSection(refId);
+      const clickedCoordinate = event.mapBrowserEvent?.coordinate;
+      const resolvedSectionId =
+        typeof resolveSectionIdAtCoordinate === "function"
+          ? normalizeSectionId(resolveSectionIdAtCoordinate(clickedCoordinate))
+          : "";
+      uiStore.selectSection(resolvedSectionId || getSectionIdFromFeature(selected) || refId);
     } else {
       return;
     }

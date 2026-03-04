@@ -187,6 +187,9 @@ python scripts/build_part_of_sites_geojson.py
 3. 預設清理：
 - 移除非面（point/line）碎片
 - 移除 polygon interior holes（僅保留外圍面）
+- `--min-area` 預設 `1.0`，先後兩輪剔除小碎片（union 後與最終輸出前）
+- `--simplify-tolerance` 預設 `0.05`，保拓撲簡化外框
+- 針對外框做去尖刺（A→B→A 回折）與短邊/共線點清理，避免多餘線段與點殘留
 
 執行命令：
 
@@ -201,6 +204,7 @@ python scripts/build_sections_geojson.py
 - `--sections`：只生成指定 section（例如 `SECTION-1,SECTION-2`）
 - `--keep-holes`：保留 interior holes（預設關閉）
 - `--min-area`：剔除小於此面積的碎片 polygon（單位 m²）
+- `--simplify-tolerance`：外框簡化容差（單位 m，`0` 代表關閉簡化）
 - `--no-allow-empty-sections`：若 section 無可用幾何則直接報錯（預設允許空 placeholder）
 
 輸出檔案結構：
@@ -228,6 +232,12 @@ Section feature（有幾何時）properties 固定包含：
 - `sectionSystemId`
 - `relatedPartIds`
 - `partCount`
+
+Map 端重疊處理（`/map`）：
+
+- Part of Sites 與 Sections 載入後會在前端執行「去重疊後有效幾何」計算，供高亮、面積與點擊判定使用。
+- 優先序：內含/高覆蓋率小幾何優先；其餘重疊由較小面積優先；最後以 ID 自然序穩定化。
+- 因此轉檔輸出的原始幾何可保留真實重疊關係，互斥顯示與互斥點擊由地圖引擎在執行時決定。
 
 預設合約映射：
 
