@@ -79,6 +79,7 @@
 - `src/shared/utils/sectionsGeojson.js`：Sections FeatureCollection 建構、正規化與下載
 - `src/shared/utils/*Geojson.js`、`*Json.js`：匯入匯出格式轉換
 - `src/shared/utils/reportExport.js`：報表資料組裝與 Excel/PDF 匯出流程
+- `src/shared/utils/asyncDataLoader.js`：靜態 JSON 載入共用能力（有限併發、記憶體 TTL 快取、in-flight 去重、stale fallback）
 - `src/shared/utils/time.js`、`role.js`、`id.js`、`search.js`：跨模組通用工具
 
 ### 4.5 Map Engine 層
@@ -90,6 +91,7 @@
 - `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select；scope 結果涵蓋 Sections / Part of Sites / Site Boundary / Work Lot）
 - `useMapHighlights.js`：選中要素高亮圖層（Work Lot / Part of Sites / Sections / Site Boundary）
 - `modules/map/utils/partGeometryResolution.js`：Part of Sites 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）
+- Part of Sites 載入策略：`index.json -> group index -> part 檔案`，其中 group 與 part 檔案以有限併發下載，並對 JSON 請求套用記憶體 TTL 快取
 
 Map UI 元件分工：
 

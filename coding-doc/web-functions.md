@@ -85,6 +85,7 @@
 - Part of Sites 標題顯示對應 `Part ID`；`System ID` 以公式自動分配（不與標題重名）
 - 點選 Part of Sites 可交互高亮，並在側欄/抽屜顯示明細；高亮與面積均使用「去重疊後有效幾何」，確保不同 part 不重疊（含內含情境，例如 `10A` 會扣除內含 `10B`）
 - Part 去重疊規則：優先保留被包含 part 的範圍；其餘重疊以 `Part ID` 自然序較大者保留，確保結果穩定且可重現
+- Part of Sites map 資料載入採「group index + part 檔案」有限併發下載（避免多檔串行等待），並使用前端記憶體 TTL 快取與失敗時 stale fallback 降低重載延遲
 - 點選 Section 可交互高亮，並可在抽屜查看關聯 Part of Sites
 - Section 與 Part of Sites 已預留 `section (1) -> part (n)` 關聯欄位，支援由 geometry 與顯式欄位同步關聯；geometry fallback 使用「part 去重疊後有效幾何」做面積交集判斷
 - 搜尋與定位：
@@ -132,6 +133,7 @@
 ## `/landbank/part-of-sites` Part of Sites 清單
 
 - 從 `/data/geojson/part-of-sites/index.json` + 各 group index 載入 part 清單
+- group index 採有限併發載入，並套用前端記憶體 TTL 快取；`Reload` 會強制刷新（繞過 TTL）以拉取最新索引
 - 搜尋 + group 篩選
 - 表格檢視：
 - Part ID
