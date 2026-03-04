@@ -24,8 +24,8 @@
             <el-button
               class="focus-map-btn"
               type="primary"
-              size="small"
-              @click="emit('focus-work-lot', selectedWorkLot.id)"
+              size="default"
+              @click="emit('focus-map-work-lot', selectedWorkLot.id)"
             >
               Focus on Map
             </el-button>
@@ -72,8 +72,8 @@
             <el-button
               class="focus-map-btn"
               type="primary"
-              size="small"
-              @click="emit('focus-site-boundary', selectedSiteBoundary.id)"
+              size="default"
+              @click="emit('focus-map-site-boundary', selectedSiteBoundary.id)"
             >
               Focus on Map
             </el-button>
@@ -110,8 +110,8 @@
             <el-button
               class="focus-map-btn"
               type="primary"
-              size="small"
-              @click="emit('focus-part-of-site', selectedPartOfSite.partId)"
+              size="default"
+              @click="emit('focus-map-part-of-site', selectedPartOfSite.partId)"
             >
               Focus on Map
             </el-button>
@@ -138,8 +138,8 @@
             <el-button
               class="focus-map-btn"
               type="primary"
-              size="small"
-              @click="emit('focus-section', selectedSection.sectionId)"
+              size="default"
+              @click="emit('focus-map-section', selectedSection.sectionId)"
             >
               Focus on Map
             </el-button>
@@ -544,10 +544,13 @@ const emit = defineEmits([
   "delete-work-lot",
   "edit-work-lot",
   "edit-site-boundary",
+  "focus-map-work-lot",
+  "focus-map-site-boundary",
+  "focus-map-part-of-site",
+  "focus-map-section",
   "focus-work-lot",
   "focus-site-boundary",
   "focus-part-of-site",
-  "focus-section",
 ]);
 
 const isOpen = computed(
@@ -802,8 +805,16 @@ watch(
   --el-button-active-bg-color: var(--accent-strong);
   --el-button-active-border-color: var(--accent-strong);
   --el-button-active-text-color: #ffffff;
-  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.22);
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.28);
   font-weight: 700;
+  letter-spacing: 0.01em;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.focus-map-btn:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.35);
+  outline-offset: 1px;
 }
 
 .drawer-body {

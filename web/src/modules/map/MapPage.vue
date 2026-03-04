@@ -68,10 +68,13 @@
       @edit-work-lot="editSelectedWorkLot"
       @edit-site-boundary="editSelectedSiteBoundary"
       @delete-work-lot="deleteSelectedWorkLot"
+      @focus-map-work-lot="focusOnMapWorkLot"
+      @focus-map-site-boundary="focusOnMapSiteBoundary"
+      @focus-map-part-of-site="focusOnMapPartOfSite"
+      @focus-map-section="focusOnMapSection"
       @focus-work-lot="zoomToWorkLot"
       @focus-site-boundary="zoomToSiteBoundary"
       @focus-part-of-site="zoomToPartOfSite"
-      @focus-section="zoomToSection"
     />
 
     <WorkLotDialog
@@ -1566,6 +1569,63 @@ const isIdSelected = (ids = [], id) => {
   const normalized = String(id || "").trim().toLowerCase();
   if (!normalized) return false;
   return ids.some((item) => String(item || "").trim().toLowerCase() === normalized);
+};
+
+const resetFocusOnMapFilters = () => {
+  uiStore.setLayerVisibility("showWorkLots", false);
+  uiStore.setLayerVisibility("showSiteBoundary", false);
+  uiStore.setLayerVisibility("showPartOfSites", false);
+  uiStore.setLayerVisibility("showSections", false);
+  uiStore.setLayerVisibility("showIntLand", false);
+  uiStore.setMapFilterMode("workLot", "all");
+  uiStore.setMapFilterMode("siteBoundary", "all");
+  uiStore.setMapFilterMode("partOfSites", "all");
+  uiStore.setMapFilterMode("section", "all");
+};
+
+const focusOnMapWorkLot = (id) => {
+  const lot = workLotStore.workLots.find((item) => String(item.id) === String(id || "").trim());
+  if (!lot) return;
+  const selectedId = String(lot.id);
+  resetFocusOnMapFilters();
+  uiStore.setLayerVisibility("showWorkLots", true);
+  uiStore.setMapSelectedIds("workLot", [selectedId]);
+  zoomToWorkLot(selectedId);
+};
+
+const focusOnMapSiteBoundary = (id) => {
+  const feature = findSiteBoundaryFeatureById(id);
+  if (!feature) return;
+  const selectedId = String(feature.getId() ?? id ?? "").trim();
+  if (!selectedId) return;
+  resetFocusOnMapFilters();
+  uiStore.setLayerVisibility("showSiteBoundary", true);
+  uiStore.setMapSelectedIds("siteBoundary", [selectedId]);
+  zoomToSiteBoundary(selectedId);
+};
+
+const focusOnMapPartOfSite = (id) => {
+  const feature = findPartOfSitesFeatureById(id);
+  if (!feature) return;
+  const meta = resolvePartOfSiteMeta(feature);
+  const selectedId = String(meta.partId || "").trim();
+  if (!selectedId) return;
+  resetFocusOnMapFilters();
+  uiStore.setLayerVisibility("showPartOfSites", true);
+  uiStore.setMapSelectedIds("partOfSites", [selectedId]);
+  zoomToPartOfSite(selectedId);
+};
+
+const focusOnMapSection = (id) => {
+  const feature = findSectionFeatureById(id);
+  if (!feature) return;
+  const meta = resolveSectionMeta(feature);
+  const selectedId = String(meta.sectionId || "").trim();
+  if (!selectedId) return;
+  resetFocusOnMapFilters();
+  uiStore.setLayerVisibility("showSections", true);
+  uiStore.setMapSelectedIds("section", [selectedId]);
+  zoomToSection(selectedId);
 };
 
 const zoomToWorkLot = (id) => {
