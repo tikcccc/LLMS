@@ -11,6 +11,7 @@ import { useUiStore } from "./stores/useUiStore";
 import { useSiteBoundaryStore } from "./stores/useSiteBoundaryStore";
 import { usePartOfSitesStore } from "./stores/usePartOfSitesStore";
 import { useSectionsStore } from "./stores/useSectionsStore";
+import { useNotificationStore } from "./stores/useNotificationStore";
 import { parseWorkLotGeojson } from "./shared/utils/worklotGeojson";
 
 const LEGACY_MOCK_DATA_KEYS = ["ND_LLM_V1_worklots", "ND_LLM_V1_tasks"];
@@ -47,12 +48,14 @@ const mountApp = async () => {
   const siteBoundaryStore = useSiteBoundaryStore(pinia);
   const partOfSitesStore = usePartOfSitesStore(pinia);
   const sectionsStore = useSectionsStore(pinia);
+  const notificationStore = useNotificationStore(pinia);
 
   workLotStore.normalizeLegacyWorkLots();
   uiStore.normalizeLegacyState();
   siteBoundaryStore.normalizeLegacySiteBoundaries();
   partOfSitesStore.normalizeLegacyPartOfSites();
   sectionsStore.normalizeLegacySections();
+  notificationStore.normalizeLegacyNotifications();
 
   const workLotJson = await fetchJsonOptional(AUTO_LOAD_WORKLOTS_URL);
 
@@ -67,6 +70,8 @@ const mountApp = async () => {
       console.warn(`[bootstrap] invalid work lot file: ${AUTO_LOAD_WORKLOTS_URL}`, error);
     }
   }
+
+  await notificationStore.refreshNotifications();
 
   app.use(pinia);
   app.use(router);

@@ -1,6 +1,6 @@
 # Web PM Business Alignment
 
-最後更新：2026-03-02  
+最後更新：2026-03-04  
 狀態：啟用中（作為功能需求提出與開發對齊基線）
 
 ## 1) 文件用途
@@ -38,6 +38,7 @@
 | 現場/管理對同一地塊狀態認知一致 | Work Lot / Site Boundary 清單 + map 抽屜詳情 | 狀態語意、欄位命名、顯示位置是否一致 |
 | 追蹤進度與風險 | `/dashboard` KPI 與趨勢、boundary 狀態彙總 | 風險判定邏輯是否可解釋且與現有指標一致 |
 | `access date` 到期提醒（Web in-app） | 地圖與清單已有逾期視覺語意（基於 `dueDate` / `plannedHandoverDate`） | 是否新增 `accessDate` 與專屬到期規則，並明確呈現到期原因 |
+| Topbar 鈴鐺通知中心（Web in-app） | 已支援通知抽屜（`All / Alert / Task / System`）、未讀管理、一鍵跳轉 Map/清單 | 通知是否覆蓋核心風險、分類是否可理解、是否保留 email 擴展位 |
 | `part of site` / `section of works` 時程管理 | 現有可維護日期欄位（assess/handover/completion/float） | 是否補齊結構欄位與映射規則，避免把不同時程語意混在單一欄位 |
 | `part of site` 圖面修補與上圖 | 現有可透過 DXF 轉 GeoJSON 腳本與地圖圖層顯示達成 | 是否需要 CAD 級編輯（刪線段/刪 block/補線）；若不做，需定義前處理工具與責任人 |
 | 需要可交付資料給外部單位 | JSON 匯入匯出、Excel/PDF 報表 | 匯出欄位是否滿足業務口徑、格式是否可用 |

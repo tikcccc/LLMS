@@ -19,8 +19,13 @@
 
     <div class="actions">
       <el-button size="small" @click="resetDemoData">Reset Demo</el-button>
-      <button class="notif" type="button" aria-label="Notifications">
-        <span class="dot"></span>
+      <button
+        class="notif"
+        type="button"
+        :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
+        @click="openNotificationCenter"
+      >
+        <span v-if="unreadCount > 0" class="dot">{{ unreadBadgeText }}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M12 3a4 4 0 0 0-4 4v3.5l-1.4 2.8A1 1 0 0 0 7.5 15h9a1 1 0 0 0 .9-1.4L16 10.5V7a4 4 0 0 0-4-4z"/>
           <path d="M9.5 18a2.5 2.5 0 0 0 5 0"/>
@@ -33,31 +38,42 @@
       </el-select>
     </div>
   </header>
+
+  <NotificationCenterDrawer v-model="showNotificationCenter" />
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/useAuthStore";
+import { useNotificationStore } from "../stores/useNotificationStore";
 import { ROLE_OPTIONS } from "../shared/utils/role";
 import { TOP_NAV_ITEMS } from "../shared/config/navigation";
+import NotificationCenterDrawer from "./NotificationCenterDrawer.vue";
 
 const authStore = useAuthStore();
+const notificationStore = useNotificationStore();
 const route = useRoute();
 const router = useRouter();
 const roleOptions = ROLE_OPTIONS;
 const topNavItems = TOP_NAV_ITEMS;
+const showNotificationCenter = ref(false);
 
 const selectedRole = computed({
   get: () => authStore.role,
   set: (value) => authStore.switchRole(value),
 });
+const unreadCount = computed(() => notificationStore.unreadCount);
+const unreadBadgeText = computed(() => (unreadCount.value > 99 ? "99+" : String(unreadCount.value)));
 
 const isActive = (path) => route.path.startsWith(path);
 const go = (path) => {
   if (route.path === path) return;
   router.push(path);
+};
+const openNotificationCenter = () => {
+  showNotificationCenter.value = true;
 };
 
 const resetDemoData = () => {
@@ -74,12 +90,17 @@ const resetDemoData = () => {
         "ND_LLM_V1_site_boundaries",
         "ND_LLM_V1_tasks",
         "ND_LLM_V1_ui",
+        "ND_LLM_V1_notifications",
       ].forEach((key) => localStorage.removeItem(key));
       ElMessage.success("Demo data reset. Reloading...");
       window.location.reload();
     })
     .catch(() => {});
 };
+
+onMounted(() => {
+  notificationStore.refreshNotifications();
+});
 </script>
 
 <style scoped>
@@ -164,6 +185,8 @@ const resetDemoData = () => {
   background: white;
   border-radius: 12px;
   padding: 6px 8px;
+  min-width: 34px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -177,13 +200,21 @@ const resetDemoData = () => {
 
 .notif .dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: #ef4444;
   border: 2px solid white;
-  border-radius: 50%;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
 }
 
 .role-label {
