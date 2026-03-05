@@ -117,7 +117,6 @@ export const useInteractionDrawHandlers = ({
   };
 
   const handlePolygonDrawEnd = (event) => {
-    setDraftFeature(event.feature, null);
     hasDraft.value = true;
 
     if (activeLayerType.value === "partOfSites") {

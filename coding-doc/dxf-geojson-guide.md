@@ -195,6 +195,8 @@ PART 10（10B）特例口徑（2026-03-04 更新）：
 - 保留並繼承 Part of Sites 的 interior holes
 - `--min-area` 預設 `1.0`，先後兩輪剔除小碎片（union 後與最終輸出前）
 - `--min-hole-area` 預設 `10`，剔除小於門檻的微小洞（避免地圖上呈現碎線/碎點）
+- `--overlap-sliver-area` 預設 `20`，清理 section 之間的微小重疊（later section wins），避免分叉線/重疊邊
+- `SECTION-10` 會做固定 hole 校正：強制確認 `10B` 最大 interior hole 存在於 `SECTION-10`（不移除其他既有 holes）
 - `--simplify-tolerance` 預設 `0.05`，保拓撲簡化外框
 - 針對外框做去尖刺（A→B→A 回折）與短邊/共線點清理，避免多餘線段與點殘留
 
@@ -213,6 +215,7 @@ python scripts/build_sections_geojson.py
 - `--drop-holes`：需要強制移除 holes 時使用
 - `--min-area`：剔除小於此面積的碎片 polygon（單位 m²）
 - `--min-hole-area`：剔除小於此面積的 interior hole（單位 m²，`0` 代表保留所有 hole）
+- `--overlap-sliver-area`：清理 section 之間小於此面積的重疊區（單位 m²，`0` 代表關閉）
 - `--simplify-tolerance`：外框簡化容差（單位 m，`0` 代表關閉簡化）
 - `--no-allow-empty-sections`：若 section 無可用幾何則直接報錯（預設允許空 placeholder）
 

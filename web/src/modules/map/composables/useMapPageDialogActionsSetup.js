@@ -3,9 +3,18 @@ import {
   createWorkLotEditForm,
   buildWorkLotUpdatePayload,
 } from "../../../shared/utils/workLotEdit";
-import { buildSiteBoundaryUpdatePayload } from "../../../shared/utils/siteBoundaryEdit";
-import { buildPartOfSiteUpdatePayload } from "../../../shared/utils/partOfSiteEdit";
-import { buildSectionUpdatePayload } from "../../../shared/utils/sectionEdit";
+import {
+  createSiteBoundaryEditForm,
+  buildSiteBoundaryUpdatePayload,
+} from "../../../shared/utils/siteBoundaryEdit";
+import {
+  createPartOfSiteEditForm,
+  buildPartOfSiteUpdatePayload,
+} from "../../../shared/utils/partOfSiteEdit";
+import {
+  createSectionEditForm,
+  buildSectionUpdatePayload,
+} from "../../../shared/utils/sectionEdit";
 import { useMapDialogActions } from "./useMapDialogActions";
 
 export const useMapPageDialogActionsSetup = ({
@@ -34,6 +43,9 @@ export const useMapPageDialogActionsSetup = ({
     ...featureLookup,
     ...callbacks,
     createWorkLotEditForm,
+    createSiteBoundaryEditForm,
+    createPartOfSiteEditForm,
+    createSectionEditForm,
     buildWorkLotUpdatePayload,
     buildSiteBoundaryUpdatePayload,
     buildPartOfSiteUpdatePayload,

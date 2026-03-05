@@ -69,6 +69,7 @@
 - 建立 Site Boundary（多邊形/圓）
 - 建立 Part of Sites（多邊形/圓）
 - 建立 Section（多邊形/圓）
+- 建立 Work Lot / Site Boundary 後若未在彈窗按 `Save`（含關閉彈窗），會自動取消該次草稿 polygon，不保留在地圖上
 - 幾何修改並儲存
 - 刪除要素（含確認）
 - Part of Sites 幾何變更會快照到 localStorage（`ND_LLM_V1_part_of_sites`），重新整理後可延續
@@ -94,7 +95,7 @@
 - Part of Sites map 資料載入採「group index + part 檔案」有限併發下載（避免多檔串行等待），並使用前端記憶體 TTL 快取與失敗時 stale fallback 降低重載延遲
 - Part of Sites map 載入時僅渲染 `Polygon/MultiPolygon`，非面幾何（例如 `LineString`）會在前端過濾，避免線段殘留干擾邊界顯示
 - Section 與 Part of Sites 已預留 `section (1) -> part (n)` 關聯欄位，支援由 geometry 與顯式欄位同步關聯；geometry fallback 使用「part 去重疊後有效幾何」做面積交集判斷
-- Section 聚合邊界預設會繼承 Part of Sites 幾何中的 interior holes，並清理極小洞（`--min-hole-area`，預設 `10m²`）；可在轉檔時以 `--drop-holes` 關閉全部 holes
+- Section 聚合邊界預設會繼承 Part of Sites 幾何中的 interior holes，並清理極小洞（`--min-hole-area`，預設 `10m²`）；同時會清理 section 間微小重疊（`--overlap-sliver-area`，預設 `20m²`）以避免分叉線；`SECTION-10` 另有固定 hole 校正（強制確認 `10B` 最大 hole 存在）；可在轉檔時以 `--drop-holes` 關閉全部 holes
 - 搜尋與定位：
 - 側欄 Part of Sites 搜尋
 - 側欄 Sections 搜尋

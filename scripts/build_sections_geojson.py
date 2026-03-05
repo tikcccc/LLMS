@@ -25,6 +25,8 @@ DEFAULT_OUTPUT_ROOT = "web/public/data/geojson/sections"
 DEFAULT_CRS = "EPSG:2326"
 DEFAULT_MIN_AREA = 1.0
 DEFAULT_MIN_HOLE_AREA = 10.0
+DEFAULT_OVERLAP_SLIVER_AREA = 20.0
+SECTION_10_HOLE_OVERRIDE_PART_ID = "10B"
 DEFAULT_SIMPLIFY_TOLERANCE = 0.05
 DEFAULT_RING_DEDUP_TOLERANCE = 0.05
 DEFAULT_RING_BACKTRACK_TOLERANCE = 0.2
@@ -208,6 +210,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help=(
             "Drop interior holes smaller than this area (square meters). "
             f"0 keeps all holes. (default: {DEFAULT_MIN_HOLE_AREA})"
+        ),
+    )
+    parser.add_argument(
+        "--overlap-sliver-area",
+        type=float,
+        default=DEFAULT_OVERLAP_SLIVER_AREA,
+        help=(
+            "Trim tiny overlaps between sections up to this area (square meters). "
+            f"0 disables. Later sections win. (default: {DEFAULT_OVERLAP_SLIVER_AREA})"
         ),
     )
     parser.add_argument(
@@ -763,6 +774,313 @@ def build_section_feature(
     }
 
 
+def _extract_largest_hole_ring_from_part(part_file: Path) -> Optional[List[Tuple[float, float]]]:
+    _, _, _, shape, _, make_valid = _require_shapely()
+    payload = json.loads(part_file.read_text(encoding="utf-8"))
+    features = payload.get("features")
+    if not isinstance(features, list):
+        return None
+
+    best_area = 0.0
+    best_ring: Optional[List[Tuple[float, float]]] = None
+
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+        geometry = feature.get("geometry")
+        if not isinstance(geometry, dict):
+            continue
+        geom = make_valid(shape(geometry))
+        for polygon in _extract_polygon_parts(geom):
+            for interior in getattr(polygon, "interiors", []):
+                coords = [_xy_tuple(coord) for coord in interior.coords]
+                if len(coords) < 4:
+                    continue
+                area = _ring_area(coords)
+                if area <= 0:
+                    continue
+                if area > best_area:
+                    best_area = area
+                    best_ring = coords
+
+    return best_ring
+
+
+def apply_section_10_hole_override(
+    part_lookup: dict[str, Path],
+    section_records: List[dict],
+    min_area: float,
+) -> bool:
+    part_file = part_lookup.get(SECTION_10_HOLE_OVERRIDE_PART_ID)
+    if part_file is None or not part_file.exists():
+        print(
+            f"[WARN] SECTION-10 hole override skipped: part file not found for "
+            f"{SECTION_10_HOLE_OVERRIDE_PART_ID}"
+        )
+        return False
+
+    largest_hole_ring = _extract_largest_hole_ring_from_part(part_file)
+    if not largest_hole_ring:
+        print(
+            f"[WARN] SECTION-10 hole override skipped: no hole found in "
+            f"{SECTION_10_HOLE_OVERRIDE_PART_ID}"
+        )
+        return False
+
+    section_record = next(
+        (
+            item
+            for item in section_records
+            if normalize_space(item.get("id")) == "SECTION-10"
+            and int(item.get("featureCount", 0)) > 0
+            and isinstance(item.get("filePath"), Path)
+        ),
+        None,
+    )
+    if section_record is None:
+        print("[WARN] SECTION-10 hole override skipped: SECTION-10 record not found")
+        return False
+
+    section_file = section_record["filePath"]
+    if not section_file.exists():
+        print(f"[WARN] SECTION-10 hole override skipped: file not found {section_file}")
+        return False
+
+    MultiPolygon, Polygon, mapping, shape, unary_union, make_valid = _require_shapely()
+    payload = json.loads(section_file.read_text(encoding="utf-8"))
+    features = payload.get("features")
+    if not isinstance(features, list) or not features:
+        print("[WARN] SECTION-10 hole override skipped: empty section feature list")
+        return False
+
+    geometry = features[0].get("geometry")
+    if not isinstance(geometry, dict):
+        print("[WARN] SECTION-10 hole override skipped: invalid section geometry")
+        return False
+
+    section_geom = make_valid(shape(geometry))
+    section_parts = [
+        part
+        for part in _extract_polygon_parts(section_geom)
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not section_parts:
+        print("[WARN] SECTION-10 hole override skipped: no polygon parts")
+        return False
+
+    hole_polygon = make_valid(Polygon(largest_hole_ring))
+    hole_area = float(hole_polygon.area)
+    if hole_area <= 0:
+        print("[WARN] SECTION-10 hole override skipped: invalid hole geometry")
+        return False
+
+    host_index = -1
+    host_overlap = 0.0
+    for index, polygon in enumerate(section_parts):
+        shell = make_valid(Polygon(polygon.exterior.coords))
+        try:
+            overlap = float(make_valid(shell.intersection(hole_polygon)).area)
+        except Exception:
+            overlap = 0.0
+        if overlap > host_overlap:
+            host_overlap = overlap
+            host_index = index
+
+    if host_index < 0 or host_overlap <= 0:
+        print("[WARN] SECTION-10 hole override skipped: no host polygon overlaps hole")
+        return False
+
+    rebuilt_parts: List[object] = []
+    hole_inserted = False
+    hole_already_present = False
+
+    for index, polygon in enumerate(section_parts):
+        shell_coords = [_xy_tuple(coord) for coord in polygon.exterior.coords]
+        retained_holes: List[List[Tuple[float, float]]] = []
+
+        for interior in getattr(polygon, "interiors", []):
+            coords = [_xy_tuple(coord) for coord in interior.coords]
+            if len(coords) < 4:
+                continue
+            retained_holes.append(coords)
+            try:
+                interior_poly = make_valid(Polygon(coords))
+                intersection_area = float(
+                    make_valid(interior_poly.intersection(hole_polygon)).area
+                )
+                interior_area = float(interior_poly.area)
+            except Exception:
+                intersection_area = 0.0
+                interior_area = 0.0
+            if (
+                intersection_area > 0
+                and interior_area > 0
+                and intersection_area >= hole_area * 0.98
+                and intersection_area >= interior_area * 0.98
+            ):
+                hole_already_present = True
+
+        if index == host_index and not hole_already_present:
+            retained_holes.append(largest_hole_ring)
+            hole_inserted = True
+
+        candidate = make_valid(Polygon(shell_coords, retained_holes))
+        for part in _extract_polygon_parts(candidate):
+            area = float(part.area)
+            if area <= 0:
+                continue
+            if min_area > 0 and area < min_area:
+                continue
+            rebuilt_parts.append(part)
+
+    if not rebuilt_parts:
+        print("[WARN] SECTION-10 hole override skipped: no geometry after rebuilding")
+        return False
+
+    merged = make_valid(unary_union(rebuilt_parts))
+    merged_parts = [
+        part
+        for part in _extract_polygon_parts(merged)
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not merged_parts:
+        print("[WARN] SECTION-10 hole override skipped: no final polygon parts")
+        return False
+
+    final_geom = make_valid(MultiPolygon(merged_parts))
+    features[0]["geometry"] = mapping(final_geom)
+    write_json(section_file, payload)
+
+    final_holes = sum(len(part.interiors) for part in _extract_polygon_parts(final_geom))
+    action = "already-present" if hole_already_present else ("inserted" if hole_inserted else "skipped")
+    print(
+        "[OVERRIDE] SECTION-10 ensured hole from 10B: "
+        f"hole_area={hole_area:.3f} host_overlap={host_overlap:.3f} "
+        f"action={action} final_holes={final_holes}"
+    )
+    return True
+
+
+def cleanup_section_overlap_slivers(
+    section_records: List[dict],
+    min_area: float,
+    overlap_sliver_area: float,
+) -> int:
+    if overlap_sliver_area <= 0:
+        return 0
+
+    MultiPolygon, _, mapping, shape, _, make_valid = _require_shapely()
+
+    payloads_by_id: dict[str, dict] = {}
+    geometries_by_id: dict[str, object] = {}
+    sequence_ids: List[str] = []
+
+    for record in section_records:
+        section_id = normalize_space(record.get("id"))
+        section_file = record.get("filePath")
+        if not section_id or not isinstance(section_file, Path):
+            continue
+        if int(record.get("featureCount", 0)) <= 0:
+            continue
+        if not section_file.exists():
+            continue
+
+        payload = json.loads(section_file.read_text(encoding="utf-8"))
+        features = payload.get("features")
+        if not isinstance(features, list) or not features:
+            continue
+        geometry = features[0].get("geometry")
+        if not isinstance(geometry, dict):
+            continue
+
+        geom = make_valid(shape(geometry))
+        parts = [
+            part
+            for part in _extract_polygon_parts(geom)
+            if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+        ]
+        if not parts:
+            continue
+
+        sequence_ids.append(section_id)
+        payloads_by_id[section_id] = payload
+        geometries_by_id[section_id] = make_valid(MultiPolygon(parts))
+
+    trimmed = 0
+    for index, section_id in enumerate(sequence_ids):
+        current_geom = geometries_by_id.get(section_id)
+        if current_geom is None:
+            continue
+
+        for prev_id in sequence_ids[:index]:
+            previous_geom = geometries_by_id.get(prev_id)
+            if previous_geom is None:
+                continue
+
+            try:
+                overlap_geom = make_valid(previous_geom.intersection(current_geom))
+            except Exception:
+                continue
+
+            overlap_parts = [
+                part
+                for part in _extract_polygon_parts(overlap_geom)
+                if float(part.area) > 0
+            ]
+            if not overlap_parts:
+                continue
+
+            overlap_area = sum(float(part.area) for part in overlap_parts)
+            if overlap_area <= 0 or overlap_area > overlap_sliver_area:
+                continue
+
+            try:
+                cleaned_previous = make_valid(previous_geom.difference(overlap_geom))
+            except Exception:
+                continue
+
+            cleaned_parts = [
+                part
+                for part in _extract_polygon_parts(cleaned_previous)
+                if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+            ]
+            if not cleaned_parts:
+                continue
+
+            new_previous = make_valid(MultiPolygon(cleaned_parts))
+            if abs(float(previous_geom.area) - float(new_previous.area)) <= 1e-9:
+                continue
+
+            geometries_by_id[prev_id] = new_previous
+            trimmed += 1
+            print(
+                f"[CLEAN] trimmed overlap area={overlap_area:.3f} from {prev_id} "
+                f"(overlapped by {section_id})"
+            )
+
+    for section_id in sequence_ids:
+        payload = payloads_by_id.get(section_id)
+        geometry = geometries_by_id.get(section_id)
+        if payload is None or geometry is None:
+            continue
+        features = payload.get("features")
+        if not isinstance(features, list) or not features:
+            continue
+        features[0]["geometry"] = mapping(geometry)
+
+    for record in section_records:
+        section_id = normalize_space(record.get("id"))
+        section_file = record.get("filePath")
+        if not section_id or not isinstance(section_file, Path):
+            continue
+        payload = payloads_by_id.get(section_id)
+        if payload is None:
+            continue
+        write_json(section_file, payload)
+
+    return trimmed
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
     part_root = Path(args.part_root).resolve()
@@ -772,6 +1090,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     keep_holes = not bool(args.drop_holes)
     min_area = max(0.0, float(args.min_area))
     min_hole_area = max(0.0, float(args.min_hole_area))
+    overlap_sliver_area = max(0.0, float(args.overlap_sliver_area))
     simplify_tolerance = max(0.0, float(args.simplify_tolerance))
     allow_empty_sections = not args.no_allow_empty_sections
     generated_at = date.today().isoformat()
@@ -800,6 +1119,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     output_root.mkdir(parents=True, exist_ok=True)
 
     groups_meta: List[dict] = []
+    section_records: List[dict] = []
     total_features = 0
 
     for section_def in section_defs:
@@ -901,6 +1221,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "itemCount": 1,
             }
         )
+        section_records.append(
+            {
+                "id": section_id,
+                "slug": section_slug,
+                "featureCount": feature_count,
+                "filePath": section_geojson_file,
+            }
+        )
 
         total_features += feature_count
         if feature_count > 0:
@@ -910,6 +1238,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
         else:
             print(f"[DONE] {section_id} parts={len(part_ids)} features=0 (empty placeholder)")
+
+    trimmed_count = cleanup_section_overlap_slivers(
+        section_records=section_records,
+        min_area=min_area,
+        overlap_sliver_area=overlap_sliver_area,
+    )
+    if trimmed_count > 0:
+        print(f"[DONE] overlap-sliver-cleanup trimmed={trimmed_count}")
+
+    if apply_section_10_hole_override(
+        part_lookup=part_lookup,
+        section_records=section_records,
+        min_area=min_area,
+    ):
+        print("[DONE] SECTION-10 hole override applied")
 
     root_index = {
         "dataset": "sections",
