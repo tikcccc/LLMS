@@ -94,10 +94,14 @@
 
 結構：
 
-- Tab 切換區
+- Shell：`MapSidePanel.vue`（tab 裝配、事件透傳、桌機/行動切換）
+- Tab 子元件：`Layers/Scope/Part of Sites/Sections/Work Lots/Site Boundaries`
 - 內容區（可滾動）
 - 行動端 sheet header
 - 可調整尺寸控制（桌面）
+- 內部 composables：
+- `useMapSidePanelFilters.js`（`layerFilterState` proxy、增量 patch、白名單勾選）
+- `useMapSidePanelLayout.js`（mobile sheet、desktop collapse、resize）
 
 規範：
 
@@ -118,7 +122,30 @@
 - lot 勾選只影響地圖顯示，不影響側欄清單與 scope 結果資料集
 - Scope Results 建議維持「Section -> Part of Sites -> Site Boundary -> Work Lot」的呈現順序，方便先看 section 範圍再下鑽
 
-## 8) Overlay Pattern（Map 浮層）
+## 8) Drawer Pattern（Map）
+
+適用場景：Map 右側詳情抽屜（Work Lot / Site Boundary / Part of Sites / Section / Int Land）。
+
+結構：
+
+- Shell：`MapDrawer.vue`（開關控制、header/body 切換、刪除確認）
+- Header：`MapDrawerHeader.vue`（title、focus、edit/delete 動作）
+- Body 子元件（按視圖拆分）：
+- `MapDrawerBodyWork.vue`
+- `MapDrawerBodySiteBoundary.vue`
+- `MapDrawerBodyPartOfSite.vue`
+- `MapDrawerBodySection.vue`
+- `MapDrawerBodyIntLand.vue`
+- 狀態 composable：`useMapDrawerState.js`（collapse、focus active、related filters、area/progress 顯示字串）
+
+規範：
+
+- Shell 不直接承擔每個實體的大型模板，僅負責視圖切換與事件轉發。
+- 每個 body 子元件只關注單一實體類型，資料透過 props 傳入。
+- Header/Body 共享的衍生狀態（title、focus active、格式化字串）集中在 composable，避免重複 computed。
+- 子元件輸出事件維持語意化命名（`focus-*`、`update:*`），由 shell 統一轉給頁面層。
+
+## 9) Overlay Pattern（Map 浮層）
 
 適用場景：Toolbar、Legend、Scale、Hint。
 
@@ -128,7 +155,7 @@
 - mobile 狀態需有替代布局（避免遮擋）
 - 不應依賴單一像素值硬寫死，需保留可調整空間
 
-## 9) Status Visualization Pattern
+## 10) Status Visualization Pattern
 
 狀態顯示來源統一：
 
@@ -140,7 +167,7 @@
 - 不允許在頁面內直接臨時定義新的狀態色
 - 同一狀態詞在不同元件（地圖、表格、抽屜）需一致
 
-## 10) Responsive Pattern
+## 11) Responsive Pattern
 
 已存在斷點：
 
@@ -152,7 +179,7 @@
 - 主要操作按鈕在 mobile 不可被折疊到不可達位置
 - 表格在小螢幕至少保留關鍵欄位可讀
 
-## 11) 推薦可抽象成共用元件的清單
+## 12) 推薦可抽象成共用元件的清單
 
 1. `PageHeader`：統一頁面標題與副標區
 2. `TableToolbar`：統一搜尋/篩選/操作列
@@ -160,10 +187,11 @@
 4. `EntityMetaGrid`：統一抽屜基本資訊網格
 5. `EmptyStateBlock`：統一空狀態樣式
 
-## 12) PR 檢查清單（元件模式）
+## 13) PR 檢查清單（元件模式）
 
 1. 新增頁面是否沿用現有 page/header/toolbar 模式。
 2. 新增卡片/表格是否重用既有樣式語言。
 3. 狀態顯示是否調用既有 status style helper。
 4. Dialog 是否使用統一 footer 與事件回傳模式。
-5. mobile 下是否已驗證不遮擋主要操作。
+5. Side Panel / Drawer 是否維持 shell + 子元件拆分，不回流為單體模板。
+6. mobile 下是否已驗證不遮擋主要操作。

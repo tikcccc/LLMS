@@ -84,14 +84,29 @@
 
 ### 4.5 Map Engine 層
 
-`MapPage` 透過 composables 做地圖引擎拆分：
+`MapPage` 透過 composables 做地圖引擎與頁面協調拆分：
 
 - `useMapCore.js`：地圖實例、底圖/標籤圖層初始化
-- `useMapLayers.js`：向量 source/layer 管理、feature 生成、GeoJSON 載入（Drawing/Part of Sites/Sections/Site Boundary/Work Lot）與 lot 級白名單渲染控制
+- `useMapLayers.js`：圖層總裝配（向量 source/layer 管理、feature 生成、filter 刷新）；內部再委派：
+- `useMapLayerVisibility.js`：圖層顯示/phase/filter 樣式判定與可見性更新
 - `useMapLayerDataIO.js`：地圖資料 I/O（GeoJSON 載入、Part/Section 快照 build/persist/export）
-- `useMapInteractions.js`：工具互動狀態機（scope/measure/draw/modify/delete/select；scope 結果涵蓋 Sections / Part of Sites / Site Boundary / Work Lot），並支援 Part/Section 點擊時以座標命中有效幾何做二次判定，降低重疊區誤選
+- `useMapFeatureNormalization.js`：Part/Section feature 正規化與 phase 欄位補齊
+- `useMapSiteBoundarySourceState.js`：Site Boundary source/state 同步與快取重建
+- `useMapInteractions.js`：互動總裝配（scope/measure/draw/modify/delete/select），內部再委派：
+- `useInteractionToolState.js`：工具切換與 interaction 建立/清理
+- `useInteractionDrawHandlers.js`：scope/draw 完成事件處理
+- `useInteractionModifyLifecycle.js`：save/cancel modify 與 backup 邏輯
+- `useInteractionSelectionHandlers.js`：select/delete/modify 選取分流
+- `useInteractionOverlayState.js`：scope/measure overlay source/layer
 - `useMapFocusState.js`：Map 抽屜 focus mode 狀態機（snapshot 捕捉/還原、focus 鎖、有效性校驗）
 - `useMapHighlights.js`：選中要素高亮圖層（Work Lot / Part of Sites / Sections / Site Boundary）
+- `useMapPageLifecycle.js`：MapPage onMounted/onBeforeUnmount 載入與初始化流程
+- `useMapPageWatchers.js`：MapPage 主要 watcher 協調（圖層刷新、focus 校驗、route query 監聽）
+- `useMapPageFocusSetup.js`：focus/zoom/route query 聚焦裝配（整合 `useMapFocusState` + `useMapZoomRouteActions`）
+- `useMapPageSpatialSetup.js`：Part/Section 幾何解析、關聯同步與高亮 source 裝配
+- `useMapPageDialogActionsSetup.js`：四類實體 dialog 的 create/edit/delete/confirm 流程裝配
+- `useMapPageUiActions.js`：抽屜關閉、角色切換、圖層重算等 UI action 聚合
+- `useMapPagePanelState.js`：側欄 tab/search/source version 的 page-level state
 - `modules/map/utils/partGeometryResolution.js`：Part of Sites/Sections 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）；重疊優先序為「內含或高覆蓋率的小幾何優先，其餘重疊由較小面積優先，最後用 ID 自然序穩定化」
 - `modules/map/utils/featureMeta.js`：Part/Section 純函數（ID/數值正規化、System ID 產生、feature -> meta 解析器）
 - `modules/map/utils/layerFeatureHelpers.js`：Map layer feature 純函數（ID/日期/數值正規化、lot-id/system-id、filter 判定）
@@ -104,9 +119,24 @@
 Map UI 元件分工：
 
 - 工具列：`MapToolbar.vue`
-- 側欄（lot 級圖層篩選/搜尋/scope 結果）：`MapSidePanel.vue`
+- 側欄 shell：`MapSidePanel.vue`
+- 側欄 tab 子元件：
+- `MapSidePanelLayersTab.vue`
+- `MapSidePanelScopeTab.vue`
+- `MapSidePanelPartOfSitesTab.vue`
+- `MapSidePanelSectionsTab.vue`
+- `MapSidePanelWorkLotsTab.vue`
+- `MapSidePanelSiteBoundariesTab.vue`
 - 側欄 composables：`components/composables/useMapSidePanelFilters.js`、`components/composables/useMapSidePanelLayout.js`
-- 詳情抽屜：`MapDrawer.vue`
+- 抽屜 shell：`MapDrawer.vue`
+- 抽屜 header/body 子元件：
+- `MapDrawerHeader.vue`
+- `MapDrawerBodyWork.vue`
+- `MapDrawerBodySiteBoundary.vue`
+- `MapDrawerBodyPartOfSite.vue`
+- `MapDrawerBodySection.vue`
+- `MapDrawerBodyIntLand.vue`
+- 抽屜狀態 composable：`components/composables/useMapDrawerState.js`
 - 編輯對話框：`WorkLotDialog.vue`、`SiteBoundaryDialog.vue`、`PartOfSiteDialog.vue`、`SectionDialog.vue`
 - 地圖覆蓋元件：`MapLegend.vue`、`MapScaleBar.vue`
 
@@ -192,6 +222,8 @@ web/src
 
 - Page / Store / Utility / Map Engine 分層清楚
 - 地圖邏輯已拆到 composables，維護性高
+- `MapPage.vue` 已降到 < 900 LOC，並以 page-level composables 分攤協調責任
+- `MapSidePanel.vue` / `MapDrawer.vue` 已改為 shell + 子元件，UI 變更風險可局部控制
 - 正規化工具集中，減少資料格式漂移
 - 無後端仍可完整跑 demo（本地優先）
 
@@ -200,12 +232,12 @@ web/src
 - 尚無 API adapter/repository 層
 - 權限僅前端控制，沒有後端驗證
 - 目前沒有自動化測試（unit/component/e2e）
-- `MapPage.vue` 仍然偏大，協調責任較重
+- `MapPage.vue` 仍是協調中樞，跨 composable 參數注入面較寬（依賴治理成本仍高）
 
 ## 10) 建議演進路線
 
 1. 新增 `src/shared/api/`，隔離未來 API 介接邏輯。
-2. 進一步拆分 `MapPage.vue` 協調邏輯（選取、表單、路由聚焦）。
+2. 收斂 `MapPage` 的大型參數注入（以 context object 或 typed contract 分群傳遞）。
 3. 導入型別化資料契約（TypeScript 或 runtime schema）。
 4. 建立前端測試基線：
 - `shared/utils` 單元測試

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-05T01:52:15",
+  "generated_at": "2026-03-05T03:44:07",
   "root": "/home/dministrator/LLMS/coding-doc",
   "count": 10,
   "files": [
@@ -30,11 +30,11 @@
         "5) Table Pattern",
         "6) Dialog Form Pattern",
         "7) Side Panel Pattern（Map）",
-        "8) Overlay Pattern（Map 浮層）",
-        "9) Status Visualization Pattern",
-        "10) Responsive Pattern",
-        "11) 推薦可抽象成共用元件的清單",
-        "12) PR 檢查清單（元件模式）"
+        "8) Drawer Pattern（Map）",
+        "9) Overlay Pattern（Map 浮層）",
+        "10) Status Visualization Pattern",
+        "11) Responsive Pattern",
+        "12) 推薦可抽象成共用元件的清單"
       ]
     },
     {
