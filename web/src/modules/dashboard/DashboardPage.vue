@@ -4,10 +4,17 @@
       <div>
         <h2>Analytics Dashboard</h2>
         <p class="muted">
-          KPI scope follows Date Range using Work Lot updated date.
+          KPI scope follows Contract Package and Date Range using Work Lot updated date.
         </p>
       </div>
       <div class="filters">
+        <div class="filter-item">
+          <span class="filter-label">Contract Package</span>
+          <el-radio-group v-model="contractPackageFilter" size="small">
+            <el-radio-button label="C1">C1</el-radio-button>
+            <el-radio-button label="C2">C2</el-radio-button>
+          </el-radio-group>
+        </div>
         <div class="filter-item">
           <span class="filter-label">Float &lt; X Months</span>
           <el-input-number
@@ -35,7 +42,7 @@
       <div class="kpi-card kpi-card--coverage">
         <div class="kpi-head">
           <div class="kpi-label">KPI Scope Coverage</div>
-          <div class="kpi-chip">{{ rangeLabel }}</div>
+          <div class="kpi-chip">{{ contractPackageFilter }} · {{ rangeLabel }}</div>
         </div>
         <div class="kpi-value">{{ kpis.boundariesWithWorkLots }}/{{ kpis.landCount }}</div>
         <div class="kpi-progress">
@@ -234,6 +241,7 @@ import { useDashboardMetrics } from "./useDashboardMetrics";
 import { useRouter } from "vue-router";
 import TimeText from "../../components/TimeText.vue";
 import { workStatusStyle } from "../map/utils/statusStyle";
+import { CONTRACT_PACKAGE } from "../../shared/utils/contractPackage";
 
 Chart.register(
   DoughnutController,
@@ -250,6 +258,7 @@ Chart.register(
 );
 
 const timeRange = ref("12M");
+const contractPackageFilter = ref(CONTRACT_PACKAGE.C2);
 const floatThresholdMonths = ref(3);
 const donutRef = ref(null);
 const siteBarRef = ref(null);
@@ -269,6 +278,7 @@ const { kpis, workLotCategorySplit, workLotStatusSplit, siteBoundaryStatusSplit,
     workLots: computed(() => workLotStore.workLots),
     siteBoundaries: computed(() => siteBoundaryStore.siteBoundaries),
     timeRange,
+    contractPackage: contractPackageFilter,
     floatThresholdMonths,
   });
 
@@ -566,7 +576,18 @@ onMounted(() => {
   updateCharts();
 });
 
-watch([timeRange, floatThresholdMonths, kpis, workLotCategorySplit, workLotStatusSplit, siteBoundaryStatusSplit], updateCharts);
+watch(
+  [
+    timeRange,
+    contractPackageFilter,
+    floatThresholdMonths,
+    kpis,
+    workLotCategorySplit,
+    workLotStatusSplit,
+    siteBoundaryStatusSplit,
+  ],
+  updateCharts
+);
 
 onBeforeUnmount(() => {
   donutChart?.destroy();

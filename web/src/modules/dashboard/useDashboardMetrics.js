@@ -9,6 +9,7 @@ import {
   buildWorkLotsByBoundary,
   summarizeSiteBoundary,
 } from "../../shared/utils/siteBoundary";
+import { normalizeContractPackage } from "../../shared/utils/contractPackage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const YYYY_MM_DD_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -103,6 +104,13 @@ const filterByRange = (items, dateField, range) => {
     if (!value) return false;
     return new Date(value) >= start;
   });
+};
+
+const filterByContractPackage = (items = [], contractPackage = "") => {
+  const normalizedTarget = normalizeContractPackage(contractPackage);
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => normalizeContractPackage(item?.contractPackage) === normalizedTarget
+  );
 };
 
 const isWorkLotOverdue = (lot) => {
@@ -317,20 +325,33 @@ export function useDashboardMetrics({
   workLots,
   siteBoundaries,
   timeRange,
+  contractPackage,
   floatThresholdMonths,
 }) {
+  const normalizedContractPackage = computed(() =>
+    normalizeContractPackage(contractPackage?.value)
+  );
+
+  const contractScopedWorkLots = computed(() =>
+    filterByContractPackage(workLots.value, normalizedContractPackage.value)
+  );
+
+  const contractScopedSiteBoundaries = computed(() =>
+    filterByContractPackage(siteBoundaries.value, normalizedContractPackage.value)
+  );
+
   const normalizedFloatThreshold = computed(() => {
     const parsed = Number(floatThresholdMonths.value);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   });
 
   const filteredWorkLots = computed(() =>
-    filterByRange(workLots.value, "updatedAt", timeRange.value)
+    filterByRange(contractScopedWorkLots.value, "updatedAt", timeRange.value)
   );
 
   const boundarySummaries = computed(() => {
     return summarizeBoundaries({
-      siteBoundaries: siteBoundaries.value,
+      siteBoundaries: contractScopedSiteBoundaries.value,
       scopedWorkLots: filteredWorkLots.value,
       floatThresholdMonths: normalizedFloatThreshold.value,
     });
@@ -338,8 +359,8 @@ export function useDashboardMetrics({
 
   const trend = computed(() =>
     buildMonthlyTrend({
-      siteBoundaries: siteBoundaries.value,
-      workLots: workLots.value,
+      siteBoundaries: contractScopedSiteBoundaries.value,
+      workLots: contractScopedWorkLots.value,
       floatThresholdMonths: normalizedFloatThreshold.value,
     })
   );
@@ -348,7 +369,7 @@ export function useDashboardMetrics({
     const snapshot = buildKpiSnapshot({
       boundarySummaries: boundarySummaries.value,
       scopedWorkLots: filteredWorkLots.value,
-      totalBoundaries: siteBoundaries.value.length,
+      totalBoundaries: contractScopedSiteBoundaries.value.length,
       floatThresholdMonths: normalizedFloatThreshold.value,
     });
 

@@ -40,7 +40,7 @@
 | `access date` 到期提醒（Web in-app） | 地圖與清單已有逾期視覺語意（基於 `dueDate` / `plannedHandoverDate`） | 是否新增 `accessDate` 與專屬到期規則，並明確呈現到期原因 |
 | Topbar 鈴鐺通知中心（Web in-app） | 已支援通知抽屜（`All / Alert / Task / System`）、未讀管理、一鍵跳轉 Map/清單 | 通知是否覆蓋核心風險、分類是否可理解、是否保留 email 擴展位 |
 | `part of site` / `section of works` 時程管理 | 現有可維護日期欄位（assess/handover/completion/float） | 是否補齊結構欄位與映射規則，避免把不同時程語意混在單一欄位 |
-| `site/work lot/part/section` C1/C2 分層作業（不對照） | 現有已改為 `Contract Workspace` 單一切換（C1/C2） | 是否維持 map/清單/scope/匯出一致套用同一 `activeContract` 口徑 |
+| `site/work lot/part/section` C1/C2 分層作業（不對照） | 現有已改為 `Contract Workspace` 單一切換（C1/C2）；Dashboard 提供 C1/C2 篩選；清單頁提供 All/C1/C2 篩選 | 是否維持「地圖單 contract作業」與「清單全量盤點」並存口徑，且不把 Dashboard KPI 做跨 contract 混算 |
 | `part of site` 圖面修補與上圖 | 現有可透過 DXF 轉 GeoJSON 腳本與地圖圖層顯示達成 | 是否需要 CAD 級編輯（刪線段/刪 block/補線）；若不做，需定義前處理工具與責任人 |
 | 需要可交付資料給外部單位 | JSON 匯入匯出、Excel/PDF 報表 | 匯出欄位是否滿足業務口徑、格式是否可用 |
 | 多角色操作邊界清晰 | 前端角色切換、路由守衛、地圖編輯限制 | 是否新增越權操作、deny 行為是否明確 |
@@ -83,7 +83,7 @@
 6. 若涉及時程推導，驗收結果需明確列出「起算日、計算規則、覆核方式」。
 7. 若涉及提醒，需驗證 Web 呈現位置、觸發條件與關閉條件一致。
 8. 需求完成回報包含「業務價值是否成立」的結論。
-9. 若涉及 C1/C2，需驗證 workspace 切換後只顯示單一 contract，且同一業務 ID 在不同 phase 仍可分開保存不互相覆蓋。
+9. 若涉及 C1/C2，需驗證 map workspace 切換後只顯示單一 contract、Dashboard 僅允許 C1/C2（不含 All）、清單頁可用 All/C1/C2 盤點，且同一業務 ID 在不同 phase 仍可分開保存不互相覆蓋。
 
 ## 8) 文件聯動規則
 

@@ -16,6 +16,14 @@
             clearable
             style="width: 220px"
           />
+          <el-select v-model="contractFilter" size="small" style="width: 130px">
+            <el-option
+              v-for="option in contractOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
           <el-select v-model="statusFilter" size="small" style="width: 170px">
             <el-option
               v-for="option in statusOptions"
@@ -175,6 +183,10 @@ import {
   buildSiteBoundaryUpdatePayload,
 } from "../../shared/utils/siteBoundaryEdit";
 import {
+  CONTRACT_PACKAGE,
+  normalizeContractPackage,
+} from "../../shared/utils/contractPackage";
+import {
   buildWorkLotsByBoundary,
   summarizeSiteBoundary,
 } from "../../shared/utils/siteBoundary";
@@ -185,6 +197,7 @@ const siteBoundaryStore = useSiteBoundaryStore();
 const FLOAT_THRESHOLD_MONTHS = 3;
 
 const searchQuery = ref("");
+const contractFilter = ref("ALL");
 const statusFilter = ref("All");
 const loading = ref(false);
 const showEditDialog = ref(false);
@@ -193,6 +206,11 @@ const importInputRef = ref(null);
 const editForm = ref(createSiteBoundaryEditForm());
 const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 
+const contractOptions = [
+  { label: "All Contracts", value: "ALL" },
+  { label: CONTRACT_PACKAGE.C1, value: CONTRACT_PACKAGE.C1 },
+  { label: CONTRACT_PACKAGE.C2, value: CONTRACT_PACKAGE.C2 },
+];
 const statusOptions = [
   { label: "All", value: "All" },
   { label: "Pending Clearance", value: "PENDING_CLEARANCE" },
@@ -265,6 +283,10 @@ const relatedWorkLotSummary = (row) => {
 
 const filteredBoundaries = computed(() =>
   enrichedBoundaries.value.filter((item) => {
+    const boundaryContract = normalizeContractPackage(item?.contractPackage);
+    if (contractFilter.value !== "ALL" && boundaryContract !== contractFilter.value) {
+      return false;
+    }
     if (statusFilter.value !== "All" && item.statusKey !== statusFilter.value) return false;
     return fuzzyMatchAny(
       [

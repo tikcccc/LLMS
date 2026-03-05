@@ -25,6 +25,7 @@
 - `% Land with Float < X Months`
 - Overdue Site Boundaries（含 aging bucket）
 - 篩選：
+- Contract Package：`C1 / C2`（不提供 All）
 - Date Range：`12M / YTD / ALL`
 - Float threshold（月）
 - 圖表：
@@ -111,6 +112,7 @@
 - 含 `Contract Package (C1/C2)` 欄位
 - 關鍵字 fuzzy search
 - 篩選：
+- Contract Package：`All / C1 / C2`
 - Status
 - Category
 - 列選取
@@ -128,7 +130,7 @@
 
 - 表格清單 + 進度顯示 + 關聯 work lot 提示
 - 含 `Contract Package (C1/C2)` 欄位
-- 搜尋 + 狀態篩選
+- 搜尋 + Contract Package（`All / C1 / C2`）+ 狀態篩選
 - 編輯 Site Boundary（dialog，含 `Contract Package` 下拉）
 - 「View on Map」跳轉
 - JSON 交換：
@@ -142,7 +144,7 @@
 
 - 從 `/data/geojson/part-of-sites/index.json` + 各 group index 載入 part 清單
 - group index 採有限併發載入，並套用前端記憶體 TTL 快取；`Reload` 會強制刷新（繞過 TTL）以拉取最新索引
-- 搜尋 + group 篩選
+- 搜尋 + group + Contract Package（`All / C1 / C2`）篩選
 - 表格檢視：
 - Part ID
 - Group
@@ -157,7 +159,7 @@
 ## `/landbank/sections` Sections 清單
 
 - 從 `/data/geojson/sections/index.json` + 各 group index 載入 section 清單
-- 搜尋 + group 篩選
+- 搜尋 + group + Contract Package（`All / C1 / C2`）篩選
 - 表格檢視：
 - Section ID
 - Group
@@ -270,7 +272,7 @@
 | `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
 | Topbar 鈴鐺通知中心（in-app） | 已支援 | 提供 `All / Alert / Task / System` 分類、已讀管理、`View on Map` / `Open List` 快速跳轉；目前未接 email |
 | `section of works` 對應 `sectional completion date` | 部分支援 | 已新增 Section layer、`completionDate` 欄位與 `section -> part` 關聯；合約 offset 規則仍待補 |
-| `site/work lot/part/section` 需拆 C1/C2 兩層 | 已支援（前端層） | Map Layers 已改為單一 `Contract Workspace` 切換（C1 或 C2），並維持四類實體 `contractPackage` 欄位與 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存） |
+| `site/work lot/part/section` 需拆 C1/C2 兩層 | 已支援（前端層） | Map Layers 已改為單一 `Contract Workspace` 切換（C1 或 C2）；Dashboard 提供 `C1/C2` KPI 篩選；四個 landbank list 提供 `All/C1/C2` 篩選，並維持 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存） |
 | 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |
 
 ## 9) 建議補充的功能文件

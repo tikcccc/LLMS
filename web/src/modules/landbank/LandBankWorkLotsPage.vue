@@ -14,6 +14,14 @@
             clearable
             style="width: 200px"
           />
+          <el-select v-model="contractFilter" size="small" style="width: 130px">
+            <el-option
+              v-for="option in contractOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
           <el-select v-model="statusFilter" size="small" style="width: 140px">
             <el-option v-for="option in statusOptions" :key="option" :label="option" :value="option" />
           </el-select>
@@ -204,6 +212,10 @@ import {
   createWorkLotEditForm,
   buildWorkLotUpdatePayload,
 } from "../../shared/utils/workLotEdit";
+import {
+  CONTRACT_PACKAGE,
+  normalizeContractPackage,
+} from "../../shared/utils/contractPackage";
 
 const workLotStore = useWorkLotStore();
 const siteBoundaryStore = useSiteBoundaryStore();
@@ -213,6 +225,7 @@ const router = useRouter();
 const workLots = computed(() => workLotStore.workLots);
 
 const searchQuery = ref("");
+const contractFilter = ref("ALL");
 const statusFilter = ref("All");
 const categoryFilter = ref("All");
 const selectedWorkLots = ref([]);
@@ -224,6 +237,11 @@ const editForm = ref(createWorkLotEditForm());
 const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 const FLOAT_THRESHOLD_MONTHS = 3;
 
+const contractOptions = [
+  { label: "All Contracts", value: "ALL" },
+  { label: CONTRACT_PACKAGE.C1, value: CONTRACT_PACKAGE.C1 },
+  { label: CONTRACT_PACKAGE.C2, value: CONTRACT_PACKAGE.C2 },
+];
 const statusOptions = ["All", ...WORK_LOT_STATUSES];
 const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];
 const workCategoryLabel = (category) => toWorkLotCategoryLabel(category);
@@ -258,6 +276,8 @@ const formatArea = (area) => {
 
 const filteredWorkLots = computed(() =>
   workLots.value.filter((lot) => {
+    const lotContract = normalizeContractPackage(lot?.contractPackage);
+    if (contractFilter.value !== "ALL" && lotContract !== contractFilter.value) return false;
     if (statusFilter.value !== "All" && lot.status !== statusFilter.value) return false;
     if (categoryFilter.value !== "All" && lot.category !== categoryFilter.value) return false;
     return fuzzyMatchAny(

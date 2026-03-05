@@ -25,6 +25,14 @@
               :value="option"
             />
           </el-select>
+          <el-select v-model="contractFilter" size="small" style="width: 130px">
+            <el-option
+              v-for="option in contractOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
         </div>
         <div class="action-buttons">
           <el-button size="small" :loading="loading" @click="reloadPartOfSites">
@@ -148,6 +156,7 @@ const loadError = ref("");
 const rows = ref([]);
 const searchQuery = ref("");
 const groupFilter = ref("All");
+const contractFilter = ref("ALL");
 const showEditDialog = ref(false);
 const editForm = ref(createPartOfSiteEditForm());
 const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
@@ -199,6 +208,11 @@ const normalizeAreaNumber = (value) => {
 };
 const resolveContractPackageValue = (values = []) =>
   resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
+const contractOptions = [
+  { label: "All Contracts", value: "ALL" },
+  { label: CONTRACT_PACKAGE.C1, value: CONTRACT_PACKAGE.C1 },
+  { label: CONTRACT_PACKAGE.C2, value: CONTRACT_PACKAGE.C2 },
+];
 const resolvePartAttributeOverride = (partId, contractPackage = "") => {
   const normalizedPartId = String(partId || "").trim();
   if (!normalizedPartId) return null;
@@ -365,6 +379,8 @@ const groupOptions = computed(() => {
 const filteredRows = computed(() =>
   rows.value.filter((row) => {
     if (groupFilter.value !== "All" && row.groupLabel !== groupFilter.value) return false;
+    const rowContract = resolveContractPackageValue(row.contractPackage);
+    if (contractFilter.value !== "ALL" && rowContract !== contractFilter.value) return false;
     return fuzzyMatchAny(
       [
         row.partId,
