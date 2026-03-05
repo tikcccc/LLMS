@@ -3,9 +3,6 @@
     <div class="header">
       <div class="header-copy">
         <h2>Sections</h2>
-        <p class="muted">
-          Reference list of imported section boundaries from the DXF index.
-        </p>
       </div>
 
       <div class="toolbar">
@@ -35,9 +32,26 @@
           </el-select>
         </div>
         <div class="action-buttons">
-          <el-button size="small" :loading="loading" @click="loadSections">
-            Reload
+          <el-button size="small" type="primary" plain @click="exportSelectedJson">
+            Export JSON
           </el-button>
+          <el-dropdown trigger="click" @command="handleExportReportCommand">
+            <el-button size="small" type="primary">
+              Export Report
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="option in reportFormatOptions"
+                  :key="option.value"
+                  :command="option.value"
+                >
+                  {{ option.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
     </div>
@@ -55,7 +69,9 @@
       :data="filteredRows"
       height="calc(100vh - 260px)"
       :empty-text="loading ? 'Loading…' : 'No sections'"
+      @selection-change="handleSelectionChange"
     >
+      <el-table-column type="selection" width="46" fixed="left" />
       <el-table-column prop="sectionId" label="Section ID" width="120" fixed="left" />
       <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
@@ -122,6 +138,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+import { ArrowDown } from "@element-plus/icons-vue";
 import SectionDialog from "../map/components/SectionDialog.vue";
 import TimeText from "../../components/TimeText.vue";
 import { useAuthStore } from "../../stores/useAuthStore";
@@ -135,10 +152,15 @@ import {
 } from "../../shared/utils/sectionEdit";
 import { featureCollectionAreaSqm } from "../../shared/utils/geojsonArea";
 import {
+  REPORT_FORMAT_OPTIONS,
+  exportSectionsReport,
+} from "../../shared/utils/reportExport";
+import {
   CONTRACT_PACKAGE,
   resolveContractPackage,
   toContractPhaseScopedId,
 } from "../../shared/utils/contractPackage";
+import { downloadJson } from "../../shared/utils/jsonDownload";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -151,9 +173,11 @@ const searchQuery = ref("");
 const groupFilter = ref("All");
 const contractFilter = ref("ALL");
 const showEditDialog = ref(false);
+const selectedRows = ref([]);
 const editForm = ref(createSectionEditForm());
 const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
 const editingOriginalContractPackage = ref(CONTRACT_PACKAGE.C2);
+const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -375,8 +399,10 @@ const loadSections = async () => {
         compareNatural(left.groupLabel, right.groupLabel) ||
         compareNatural(left.sectionId, right.sectionId)
     );
+    selectedRows.value = [];
   } catch (error) {
     rows.value = [];
+    selectedRows.value = [];
     loadError.value = error?.message || "Failed to load sections index.";
   } finally {
     loading.value = false;
@@ -429,6 +455,74 @@ const filteredRows = computed(() =>
     );
   })
 );
+const rowsForExport = computed(() =>
+  selectedRows.value.length > 0 ? selectedRows.value : filteredRows.value
+);
+const hasSelectedRows = computed(() => selectedRows.value.length > 0);
+
+const sectionCountText = (count) => (count === 1 ? "1 section" : `${count} sections`);
+
+const buildSectionExportRecord = (row = {}) => ({
+  sectionId: String(row.sectionId || "").trim(),
+  contractPackage: resolveContractPackageValue(row.contractPackage),
+  groupLabel: String(row.groupLabel || "").trim(),
+  systemId: String(row.systemId || "").trim(),
+  completionDate: normalizeDateText(row.completionDate),
+  area: normalizeAreaNumber(row.area),
+  relatedPartIds: relatedPartNames(row),
+  partCount: Number.isFinite(Number(row.partCount)) ? Number(row.partCount) : 0,
+  updatedAt: String(row.updatedAt || "").trim(),
+  updatedBy: String(row.updatedBy || "").trim(),
+});
+
+const handleSelectionChange = (rowsSelection) => {
+  selectedRows.value = Array.isArray(rowsSelection) ? rowsSelection : [];
+};
+
+const exportSelectedJson = () => {
+  const targets = rowsForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No sections to export.");
+    return;
+  }
+  const selectedMode = hasSelectedRows.value;
+  downloadJson(
+    {
+      schema: "llms.sections.list.json.v1",
+      exportedAt: nowIso(),
+      count: targets.length,
+      sections: targets.map((row) => buildSectionExportRecord(row)),
+    },
+    selectedMode ? "sections-selected.json" : "sections.json"
+  );
+  ElMessage.success(
+    `Exported ${sectionCountText(targets.length)} (${selectedMode ? "selected" : "all listed"}) to JSON.`
+  );
+};
+
+const exportReport = async (format = "excel") => {
+  const targets = rowsForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No sections to export.");
+    return;
+  }
+  const selectedFormat = String(format || "excel");
+  try {
+    await exportSectionsReport({
+      sections: targets,
+      format: selectedFormat,
+    });
+    ElMessage.success(
+      `Exported ${sectionCountText(targets.length)} (${hasSelectedRows.value ? "selected" : "all listed"}) report as ${selectedFormat.toUpperCase()}.`
+    );
+  } catch (error) {
+    ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
+  }
+};
+
+const handleExportReportCommand = (format) => {
+  exportReport(format);
+};
 
 const viewOnMap = (sectionId) => {
   router.push({ path: "/map", query: { sectionId } });
@@ -535,10 +629,6 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: flex-end;
   flex: 0 0 auto;
-}
-
-.muted {
-  color: var(--muted);
 }
 
 .row-actions {

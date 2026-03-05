@@ -144,7 +144,7 @@
 ## `/landbank/part-of-sites` Part of Sites 清單
 
 - 從 `/data/geojson/part-of-sites/index.json` + 各 group index 載入 part 清單
-- group index 採有限併發載入，並套用前端記憶體 TTL 快取；`Reload` 會強制刷新（繞過 TTL）以拉取最新索引
+- group index 採有限併發載入，並套用前端記憶體 TTL 快取以降低重複請求
 - 搜尋 + group + Contract Package（`All / C1 / C2`）篩選
 - 表格檢視：
 - Part ID
@@ -153,6 +153,9 @@
 - Contract Package（可編修）
 - Access Date（可編修）
 - Area（可編修）
+- 匯出：
+- JSON（支援「已勾選列」或「目前篩選結果」）
+- Report（Excel / PDF，支援「已勾選列」或「目前篩選結果」）
 - `Edit`（dialog）可維護 `contractPackage`、`accessDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?partOfSiteId=`）
 
@@ -168,6 +171,9 @@
 - Completion Date（可編修）
 - Area（可編修）
 - Related Parts（摘要 + 數量統計，hover 可展開完整 part 清單）
+- 匯出：
+- JSON（支援「已勾選列」或「目前篩選結果」）
+- Report（Excel / PDF，支援「已勾選列」或「目前篩選結果」）
 - `Edit`（dialog）可維護 `contractPackage`、`completionDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?sectionId=`）
 

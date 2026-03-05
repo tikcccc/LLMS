@@ -164,6 +164,19 @@ const buildOverviewRows = ({
   ],
 ];
 
+const buildSimpleOverviewRows = ({
+  reportTitle,
+  exportScope,
+  recordLabel,
+  recordCount,
+  generatedAt,
+}) => [
+  ["Report", reportTitle],
+  ["Export Scope", exportScope],
+  ["Generated At", generatedAt],
+  [recordLabel, recordCount],
+];
+
 const toXlsxFilename = (filename) => (filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`);
 
 const toPdfFilename = (filename) => (filename.endsWith(".pdf") ? filename : `${filename}.pdf`);
@@ -297,6 +310,21 @@ const drawPdfOverview = (doc, overview, yStart, recordLabel, recordCount, useCjk
   return y + 10;
 };
 
+const drawPdfSummaryLines = (doc, lines = [], yStart, useCjkFont) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
+  setPdfFont(doc, useCjkFont, "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  let y = yStart;
+  lines.forEach((line) => {
+    const wrappedLines = doc.splitTextToSize(String(line || ""), contentWidth);
+    doc.text(wrappedLines, PDF_MARGIN, y);
+    y += Math.max(1, wrappedLines.length) * 14;
+  });
+  return y + 10;
+};
+
 const loadPdfModules = async () => {
   const { jsPDF } = await import("jspdf");
   return { jsPDF };
@@ -319,6 +347,7 @@ const downloadPdf = async ({
   headers,
   rows,
   recordLabel,
+  summaryLines = null,
 }) => {
   const { jsPDF } = await loadPdfModules();
   const doc = new jsPDF({
@@ -339,7 +368,11 @@ const downloadPdf = async ({
     y = drawPdfPageHeader(doc, title, generatedAt, useCjkFont, true);
   };
 
-  y = drawPdfOverview(doc, overview, y, recordLabel, rows.length, useCjkFont);
+  if (Array.isArray(summaryLines) && summaryLines.length > 0) {
+    y = drawPdfSummaryLines(doc, summaryLines, y, useCjkFont);
+  } else {
+    y = drawPdfOverview(doc, overview, y, recordLabel, rows.length, useCjkFont);
+  }
   if (y + 24 > pageHeight - PDF_MARGIN) {
     resetPage();
   }
@@ -497,6 +530,44 @@ const toSiteBoundaryReportRows = (
   });
 };
 
+const toPartOfSitesReportRows = (partOfSites = []) =>
+  partOfSites.map((part) => {
+    const areaSqm = toNumber(part?.area);
+    return [
+      String(part?.partId || part?.id || ""),
+      String(part?.contractPackage || "C2"),
+      String(part?.groupLabel || ""),
+      String(part?.systemId || ""),
+      formatDate(part?.accessDate),
+      formatAreaSqmText(areaSqm),
+      formatAreaHaText(areaSqm),
+      formatDateTime(part?.updatedAt),
+      String(part?.updatedBy || ""),
+    ];
+  });
+
+const toSectionsReportRows = (sections = []) =>
+  sections.map((section) => {
+    const areaSqm = toNumber(section?.area);
+    const relatedPartIds = (Array.isArray(section?.relatedPartIds) ? section.relatedPartIds : [])
+      .map((partId) => String(partId || "").trim())
+      .filter(Boolean)
+      .join(", ");
+    const relatedPartsText = relatedPartIds || String(section?.partCount || "");
+    return [
+      String(section?.sectionId || section?.id || ""),
+      String(section?.contractPackage || "C2"),
+      String(section?.groupLabel || ""),
+      String(section?.systemId || ""),
+      formatDate(section?.completionDate),
+      formatAreaSqmText(areaSqm),
+      formatAreaHaText(areaSqm),
+      relatedPartsText,
+      formatDateTime(section?.updatedAt),
+      String(section?.updatedBy || ""),
+    ];
+  });
+
 export async function exportWorkLotsReport({
   workLots = [],
   siteBoundaries = [],
@@ -622,6 +693,107 @@ export async function exportSiteBoundariesReport({
 
   downloadWorkbook({
     filename: "site-boundaries-report",
+    overviewRows,
+    detailHeaders,
+    detailRows,
+  });
+}
+
+export async function exportPartOfSitesReport({
+  partOfSites = [],
+  format = "excel",
+} = {}) {
+  const normalizedFormat = normalizeFormat(format);
+  const exportedParts = Array.isArray(partOfSites) ? partOfSites : [];
+  const generatedAt = formatDateTime(new Date());
+
+  const overviewRows = buildSimpleOverviewRows({
+    reportTitle: "Part of Sites Report",
+    exportScope: "Current filtered part of sites",
+    recordLabel: "Part of Sites Exported",
+    recordCount: exportedParts.length,
+    generatedAt,
+  });
+
+  const detailHeaders = [
+    "Part ID",
+    "Contract Package",
+    "Group",
+    "System ID",
+    "Access Date",
+    "Area (m²)",
+    "Area (ha)",
+    "Updated At",
+    "Updated By",
+  ];
+  const detailRows = toPartOfSitesReportRows(exportedParts);
+
+  if (normalizedFormat === "pdf") {
+    await downloadPdf({
+      filename: "part-of-sites-report",
+      title: "Part of Sites Report",
+      generatedAt,
+      headers: detailHeaders,
+      rows: detailRows,
+      recordLabel: "Part of Sites Exported",
+      summaryLines: [`Part of Sites Exported: ${exportedParts.length}`],
+    });
+    return;
+  }
+
+  downloadWorkbook({
+    filename: "part-of-sites-report",
+    overviewRows,
+    detailHeaders,
+    detailRows,
+  });
+}
+
+export async function exportSectionsReport({
+  sections = [],
+  format = "excel",
+} = {}) {
+  const normalizedFormat = normalizeFormat(format);
+  const exportedSections = Array.isArray(sections) ? sections : [];
+  const generatedAt = formatDateTime(new Date());
+
+  const overviewRows = buildSimpleOverviewRows({
+    reportTitle: "Sections Report",
+    exportScope: "Current filtered sections",
+    recordLabel: "Sections Exported",
+    recordCount: exportedSections.length,
+    generatedAt,
+  });
+
+  const detailHeaders = [
+    "Section ID",
+    "Contract Package",
+    "Group",
+    "System ID",
+    "Completion Date",
+    "Area (m²)",
+    "Area (ha)",
+    "Related Parts",
+    "Updated At",
+    "Updated By",
+  ];
+  const detailRows = toSectionsReportRows(exportedSections);
+
+  if (normalizedFormat === "pdf") {
+    await downloadPdf({
+      filename: "sections-report",
+      title: "Sections Report",
+      generatedAt,
+      headers: detailHeaders,
+      rows: detailRows,
+      recordLabel: "Sections Exported",
+      summaryLines: [`Sections Exported: ${exportedSections.length}`],
+    });
+    return;
+  }
+
+  downloadWorkbook({
+    filename: "sections-report",
     overviewRows,
     detailHeaders,
     detailRows,

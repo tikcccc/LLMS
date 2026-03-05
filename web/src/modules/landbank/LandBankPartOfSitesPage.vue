@@ -3,9 +3,6 @@
     <div class="header">
       <div class="header-copy">
         <h2>Part of Sites</h2>
-        <p class="muted">
-          Reference list of imported part boundaries from the DXF index.
-        </p>
       </div>
 
       <div class="toolbar">
@@ -35,9 +32,26 @@
           </el-select>
         </div>
         <div class="action-buttons">
-          <el-button size="small" :loading="loading" @click="reloadPartOfSites">
-            Reload
+          <el-button size="small" type="primary" plain @click="exportSelectedJson">
+            Export JSON
           </el-button>
+          <el-dropdown trigger="click" @command="handleExportReportCommand">
+            <el-button size="small" type="primary">
+              Export Report
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="option in reportFormatOptions"
+                  :key="option.value"
+                  :command="option.value"
+                >
+                  {{ option.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
     </div>
@@ -55,7 +69,9 @@
       :data="filteredRows"
       height="calc(100vh - 260px)"
       :empty-text="loading ? 'Loading…' : 'No part of sites'"
+      @selection-change="handleSelectionChange"
     >
+      <el-table-column type="selection" width="46" fixed="left" />
       <el-table-column prop="partId" label="Part ID" width="120" fixed="left" />
       <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
@@ -99,6 +115,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+import { ArrowDown } from "@element-plus/icons-vue";
 import PartOfSiteDialog from "../map/components/PartOfSiteDialog.vue";
 import TimeText from "../../components/TimeText.vue";
 import { useAuthStore } from "../../stores/useAuthStore";
@@ -122,10 +139,15 @@ import {
 } from "../../shared/utils/partOfSiteEdit";
 import { featureCollectionAreaSqm } from "../../shared/utils/geojsonArea";
 import {
+  REPORT_FORMAT_OPTIONS,
+  exportPartOfSitesReport,
+} from "../../shared/utils/reportExport";
+import {
   CONTRACT_PACKAGE,
   resolveContractPackage,
   toContractPhaseScopedId,
 } from "../../shared/utils/contractPackage";
+import { downloadJson } from "../../shared/utils/jsonDownload";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -138,9 +160,11 @@ const searchQuery = ref("");
 const groupFilter = ref("All");
 const contractFilter = ref("ALL");
 const showEditDialog = ref(false);
+const selectedRows = ref([]);
 const editForm = ref(createPartOfSiteEditForm());
 const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
 const editingOriginalContractPackage = ref(CONTRACT_PACKAGE.C2);
+const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -333,15 +357,15 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
         compareNatural(left.groupLabel, right.groupLabel) ||
         compareNatural(left.partId, right.partId)
     );
+    selectedRows.value = [];
   } catch (error) {
     rows.value = [];
+    selectedRows.value = [];
     loadError.value = error?.message || "Failed to load part of sites index.";
   } finally {
     loading.value = false;
   }
 };
-
-const reloadPartOfSites = () => loadPartOfSites({ forceRefresh: true });
 
 const groupOptions = computed(() => {
   const options = Array.from(new Set(rows.value.map((row) => row.groupLabel))).sort(
@@ -368,6 +392,72 @@ const filteredRows = computed(() =>
     );
   })
 );
+const rowsForExport = computed(() =>
+  selectedRows.value.length > 0 ? selectedRows.value : filteredRows.value
+);
+const hasSelectedRows = computed(() => selectedRows.value.length > 0);
+
+const partCountText = (count) => (count === 1 ? "1 part of site" : `${count} part of sites`);
+
+const buildPartExportRecord = (row = {}) => ({
+  partId: String(row.partId || "").trim(),
+  contractPackage: resolveContractPackageValue(row.contractPackage),
+  groupLabel: String(row.groupLabel || "").trim(),
+  systemId: String(row.systemId || "").trim(),
+  accessDate: normalizeDateText(row.accessDate),
+  area: normalizeAreaNumber(row.area),
+  updatedAt: String(row.updatedAt || "").trim(),
+  updatedBy: String(row.updatedBy || "").trim(),
+});
+
+const handleSelectionChange = (rowsSelection) => {
+  selectedRows.value = Array.isArray(rowsSelection) ? rowsSelection : [];
+};
+
+const exportSelectedJson = () => {
+  const targets = rowsForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No part of sites to export.");
+    return;
+  }
+  const selectedMode = hasSelectedRows.value;
+  downloadJson(
+    {
+      schema: "llms.part-of-sites.list.json.v1",
+      exportedAt: nowIso(),
+      count: targets.length,
+      partOfSites: targets.map((row) => buildPartExportRecord(row)),
+    },
+    selectedMode ? "part-of-sites-selected.json" : "part-of-sites.json"
+  );
+  ElMessage.success(
+    `Exported ${partCountText(targets.length)} (${selectedMode ? "selected" : "all listed"}) to JSON.`
+  );
+};
+
+const exportReport = async (format = "excel") => {
+  const targets = rowsForExport.value;
+  if (!targets.length) {
+    ElMessage.warning("No part of sites to export.");
+    return;
+  }
+  const selectedFormat = String(format || "excel");
+  try {
+    await exportPartOfSitesReport({
+      partOfSites: targets,
+      format: selectedFormat,
+    });
+    ElMessage.success(
+      `Exported ${partCountText(targets.length)} (${hasSelectedRows.value ? "selected" : "all listed"}) report as ${selectedFormat.toUpperCase()}.`
+    );
+  } catch (error) {
+    ElMessage.error(`Report export failed: ${error?.message || "unknown error."}`);
+  }
+};
+
+const handleExportReportCommand = (format) => {
+  exportReport(format);
+};
 
 const viewOnMap = (partOfSiteId) => {
   router.push({ path: "/map", query: { partOfSiteId } });
@@ -474,10 +564,6 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: flex-end;
   flex: 0 0 auto;
-}
-
-.muted {
-  color: var(--muted);
 }
 
 .row-actions {

@@ -3,7 +3,6 @@
     <div class="header">
       <div class="header-copy">
         <h2>Work Lots</h2>
-        <p class="muted">Inventory view of all work lots.</p>
       </div>
       <div class="toolbar">
         <div class="filters">
@@ -531,10 +530,6 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: flex-end;
   flex: 0 0 auto;
-}
-
-.muted {
-  color: var(--muted);
 }
 
 .row-actions {
