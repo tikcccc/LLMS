@@ -89,7 +89,7 @@
 - Part of Sites 標題顯示對應 `Part ID`；`System ID` 以公式自動分配（不與標題重名）
 - 點選 Part of Sites 可交互高亮，並在側欄/抽屜顯示明細；高亮與面積均使用「去重疊後有效幾何」，確保不同 part 不重疊（含內含情境，例如 `10A` 會扣除內含 `10B`）
 - 點選 Section 可交互高亮，並可在抽屜查看關聯 Part of Sites；高亮與面積同樣使用「去重疊後有效幾何」
-- Part/Section 去重疊規則：優先保留被包含（或覆蓋率極高）的較小幾何；其餘重疊優先保留面積較小者，面積近似相同時以 ID 自然序做穩定決策
+- Part/Section 去重疊規則：優先保留被包含（或覆蓋率極高）的較小幾何；MultiPolygon 會以子 polygon 覆蓋率判斷內含（例如 `10B` 內含塊可正確從 `10A` 扣除）；其餘重疊優先保留面積較小者，面積近似相同時以 ID 自然序做穩定決策
 - Part/Section 點擊判定使用「點位命中 + 去重疊後有效幾何 + 最小有效面積優先」，避免大範圍外層面誤選（例如點內層區塊卻選到外層）
 - Part of Sites map 資料載入採「group index + part 檔案」有限併發下載（避免多檔串行等待），並使用前端記憶體 TTL 快取與失敗時 stale fallback 降低重載延遲
 - Part of Sites map 載入時僅渲染 `Polygon/MultiPolygon`，非面幾何（例如 `LineString`）會在前端過濾，避免線段殘留干擾邊界顯示

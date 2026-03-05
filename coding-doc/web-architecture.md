@@ -107,7 +107,7 @@
 - `useMapPageDialogActionsSetup.js`：四類實體 dialog 的 create/edit/delete/confirm 流程裝配
 - `useMapPageUiActions.js`：抽屜關閉、角色切換、圖層重算等 UI action 聚合
 - `useMapPagePanelState.js`：側欄 tab/search/source version 的 page-level state
-- `modules/map/utils/partGeometryResolution.js`：Part of Sites/Sections 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）；重疊優先序為「內含或高覆蓋率的小幾何優先，其餘重疊由較小面積優先，最後用 ID 自然序穩定化」
+- `modules/map/utils/partGeometryResolution.js`：Part of Sites/Sections 幾何去重疊差集（有效面積/高亮）與幾何交集面積判斷工具（供 section-part 關聯 fallback 使用）；重疊優先序為「內含或高覆蓋率的小幾何優先（MultiPolygon 以子 polygon 覆蓋率判斷），其餘重疊由較小面積優先，最後用 ID 自然序穩定化」
 - `modules/map/utils/featureMeta.js`：Part/Section 純函數（ID/數值正規化、System ID 產生、feature -> meta 解析器）
 - `modules/map/utils/layerFeatureHelpers.js`：Map layer feature 純函數（ID/日期/數值正規化、lot-id/system-id、filter 判定）
 - `modules/map/utils/layerFilterState.js`：Layers 面板 state 快照與 patch 套用（`layerFilterState` 讀寫邏輯）

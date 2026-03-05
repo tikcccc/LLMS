@@ -201,22 +201,56 @@ const getAreaCoverage = (intersectionArea, rawArea) => {
   return intersectionArea / base;
 };
 
+const getMaxComponentCoverage = (subjectCoordinates, clipCoordinates) => {
+  const subject = sanitizeMultiPolygon(subjectCoordinates);
+  const clip = sanitizeMultiPolygon(clipCoordinates);
+  if (!subject.length || !clip.length) return 0;
+  let maxCoverage = 0;
+  subject.forEach((polygon) => {
+    const polygonCoordinates = sanitizeMultiPolygon([polygon]);
+    if (!polygonCoordinates.length) return;
+    const polygonArea = getCoordinatesArea(polygonCoordinates);
+    if (!(polygonArea > EPSILON)) return;
+    const componentIntersectionArea = getIntersectionArea(polygonCoordinates, clip);
+    if (!(componentIntersectionArea > EPSILON)) return;
+    maxCoverage = Math.max(
+      maxCoverage,
+      getAreaCoverage(componentIntersectionArea, polygonArea)
+    );
+  });
+  return maxCoverage;
+};
+
 const resolvePairWinner = (leftRecord, rightRecord) => {
   if (!leftRecord || !rightRecord) return null;
   if (!intersectsRecordExtent(leftRecord.extent, rightRecord.extent)) return null;
   const intersectionArea = getIntersectionArea(leftRecord.rawCoordinates, rightRecord.rawCoordinates);
   if (!(intersectionArea > EPSILON)) return null;
 
+  const leftComponentCoverage = getMaxComponentCoverage(
+    leftRecord.rawCoordinates,
+    rightRecord.rawCoordinates
+  );
+  const rightComponentCoverage = getMaxComponentCoverage(
+    rightRecord.rawCoordinates,
+    leftRecord.rawCoordinates
+  );
   const leftInsideRight =
     intersectionArea > AREA_RESOLUTION_EPSILON &&
-    areAreasNearlyEqual(intersectionArea, leftRecord.rawArea);
+    (areAreasNearlyEqual(intersectionArea, leftRecord.rawArea) ||
+      leftComponentCoverage >= CONTAINMENT_COVERAGE_THRESHOLD);
   const rightInsideLeft =
     intersectionArea > AREA_RESOLUTION_EPSILON &&
-    areAreasNearlyEqual(intersectionArea, rightRecord.rawArea);
+    (areAreasNearlyEqual(intersectionArea, rightRecord.rawArea) ||
+      rightComponentCoverage >= CONTAINMENT_COVERAGE_THRESHOLD);
   const leftCoverage = getAreaCoverage(intersectionArea, leftRecord.rawArea);
   const rightCoverage = getAreaCoverage(intersectionArea, rightRecord.rawArea);
-  const leftMostlyCovered = leftCoverage >= CONTAINMENT_COVERAGE_THRESHOLD;
-  const rightMostlyCovered = rightCoverage >= CONTAINMENT_COVERAGE_THRESHOLD;
+  const leftMostlyCovered =
+    leftCoverage >= CONTAINMENT_COVERAGE_THRESHOLD ||
+    leftComponentCoverage >= CONTAINMENT_COVERAGE_THRESHOLD;
+  const rightMostlyCovered =
+    rightCoverage >= CONTAINMENT_COVERAGE_THRESHOLD ||
+    rightComponentCoverage >= CONTAINMENT_COVERAGE_THRESHOLD;
 
   // Contained part always keeps the overlap footprint.
   if ((leftInsideRight || leftMostlyCovered) && !(rightInsideLeft || rightMostlyCovered)) {
