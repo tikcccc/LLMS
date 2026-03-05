@@ -70,26 +70,6 @@
           {{ formatArea(row.area) }}
         </template>
       </el-table-column>
-      <el-table-column label="Features" width="90" align="center">
-        <template #default="{ row }">
-          {{ row.featureCount }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Geometry" min-width="150">
-        <template #default="{ row }">
-          {{ geometryTypeText(row.geometryTypes) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Source DXF" min-width="280">
-        <template #default="{ row }">
-          <span class="mono">{{ row.sourceDxf || "—" }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Generated At" width="130">
-        <template #default="{ row }">
-          <TimeText :value="row.generatedAt" mode="date" />
-        </template>
-      </el-table-column>
       <el-table-column label="Actions" width="170" align="right" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
@@ -178,12 +158,6 @@ const normalizeToken = (value, fallback) => {
 const buildPartOfSitesSystemId = (groupLabel, partId) =>
   `POS-${normalizeToken(groupLabel, "PART")}-${normalizeToken(partId, "UNK")}-001`;
 
-const geometryTypeText = (types) => {
-  const normalized = Array.isArray(types)
-    ? types.map((type) => String(type || "").trim()).filter(Boolean)
-    : [];
-  return normalized.length > 0 ? normalized.join(", ") : "—";
-};
 const formatArea = (area) => {
   const value = Number(area);
   if (!Number.isFinite(value) || value <= 0) return "—";
@@ -389,9 +363,6 @@ const filteredRows = computed(() =>
         row.accessDate,
         row.area,
         row.contractPackage,
-        row.sourceDxf,
-        row.featureCount,
-        geometryTypeText(row.geometryTypes),
       ],
       searchQuery.value
     );

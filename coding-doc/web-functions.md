@@ -152,7 +152,6 @@
 - Contract Package（可編修）
 - Access Date（可編修）
 - Area（可編修）
-- Feature Count / Geometry Types / Source DXF / Generated At
 - `Edit`（dialog）可維護 `contractPackage`、`accessDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?partOfSiteId=`）
 
@@ -167,7 +166,7 @@
 - Contract Package（可編修）
 - Completion Date（可編修）
 - Area（可編修）
-- Related Parts / Feature Count / Geometry Types / Source DXF / Generated At
+- Related Parts
 - `Edit`（dialog）可維護 `contractPackage`、`completionDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?sectionId=`）
 
