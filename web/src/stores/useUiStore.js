@@ -4,7 +4,8 @@ import {
   normalizeContractPackage,
 } from "../shared/utils/contractPackage";
 
-const MAP_FILTER_SCHEMA_VERSION = 3;
+const MAP_FILTER_SCHEMA_VERSION = 4;
+const DEFAULT_ACTIVE_CONTRACT = CONTRACT_PACKAGE.C1;
 const FILTER_MODE_ALL = "all";
 const FILTER_MODE_CUSTOM = "custom";
 
@@ -44,7 +45,7 @@ const normalizeIdList = (value) => {
 const resolveFilterGroupKeys = (filterGroup) => FILTER_GROUP_MAP[filterGroup] || null;
 
 const resolveActiveContractValue = (value) =>
-  normalizeContractPackage(value, { fallback: CONTRACT_PACKAGE.C2 });
+  normalizeContractPackage(value, { fallback: DEFAULT_ACTIVE_CONTRACT });
 
 const buildPhaseVisibilityByContract = (activeContract) => {
   const resolved = resolveActiveContractValue(activeContract);
@@ -69,19 +70,19 @@ export const useUiStore = defineStore("ui", {
     showBasemap: true,
     showLabels: true,
     showIntLand: false,
-    activeContract: CONTRACT_PACKAGE.C2,
+    activeContract: DEFAULT_ACTIVE_CONTRACT,
     showPartOfSites: false,
-    showPartOfSitesC1: false,
-    showPartOfSitesC2: true,
+    showPartOfSitesC1: true,
+    showPartOfSitesC2: false,
     showSections: false,
-    showSectionsC1: false,
-    showSectionsC2: true,
+    showSectionsC1: true,
+    showSectionsC2: false,
     showSiteBoundary: true,
-    showSiteBoundaryC1: false,
-    showSiteBoundaryC2: true,
+    showSiteBoundaryC1: true,
+    showSiteBoundaryC2: false,
     showWorkLots: true,
-    showWorkLotsC1: false,
-    showWorkLotsC2: true,
+    showWorkLotsC1: true,
+    showWorkLotsC2: false,
     showWorkLotsBusiness: true,
     showWorkLotsDomestic: true,
     showWorkLotsGovernment: true,
@@ -122,19 +123,19 @@ export const useUiStore = defineStore("ui", {
         this.showBasemap = true;
         this.showLabels = true;
         this.showIntLand = false;
-        this.activeContract = CONTRACT_PACKAGE.C2;
+        this.activeContract = DEFAULT_ACTIVE_CONTRACT;
         this.showPartOfSites = false;
-        this.showPartOfSitesC1 = false;
-        this.showPartOfSitesC2 = true;
+        this.showPartOfSitesC1 = true;
+        this.showPartOfSitesC2 = false;
         this.showSections = false;
-        this.showSectionsC1 = false;
-        this.showSectionsC2 = true;
+        this.showSectionsC1 = true;
+        this.showSectionsC2 = false;
         this.showSiteBoundary = true;
-        this.showSiteBoundaryC1 = false;
-        this.showSiteBoundaryC2 = true;
+        this.showSiteBoundaryC1 = true;
+        this.showSiteBoundaryC2 = false;
         this.showWorkLots = true;
-        this.showWorkLotsC1 = false;
-        this.showWorkLotsC2 = true;
+        this.showWorkLotsC1 = true;
+        this.showWorkLotsC2 = false;
         this.showWorkLotsBusiness = true;
         this.showWorkLotsDomestic = true;
         this.showWorkLotsGovernment = true;

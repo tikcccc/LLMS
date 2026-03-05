@@ -61,7 +61,7 @@ export const buildSelectedWorkLotRelatedSites = ({
 export const buildSelectedSiteBoundaryRelatedWorkLots = ({
   selectedSiteBoundary,
   workLots = [],
-  activeContract = "C2",
+  activeContract = "C1",
   resolveContractPackageValue,
   defaultWorkLotStatus = "Waiting for Assessment",
 } = {}) => {
@@ -109,7 +109,7 @@ export const buildSelectedPartOfSiteRelatedSections = ({
   normalizeIdCollection,
   findSectionFeatureById,
   resolveSectionMeta,
-  activeContract = "C2",
+  activeContract = "C1",
   sectionFeatures = [],
 } = {}) => {
   const partId = selectedPartOfSite?.partId;
@@ -178,7 +178,7 @@ export const buildSelectedSectionRelatedPartOfSites = ({
   normalizeIdCollection,
   findPartOfSitesFeatureById,
   resolvePartOfSiteMeta,
-  activeContract = "C2",
+  activeContract = "C1",
   partOfSitesFeatures = [],
 } = {}) => {
   const sectionId = selectedSection?.sectionId;

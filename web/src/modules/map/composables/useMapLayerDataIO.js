@@ -15,7 +15,6 @@ import {
   PART_OF_SITES_GEOJSON_INDEX_URL,
   SECTIONS_GEOJSON_INDEX_URL,
   SITE_BOUNDARY_GEOJSON_URL,
-  STATIC_JSON_FETCH_CACHE_MODE,
 } from "../../../shared/config/mapApi";
 import {
   fetchJsonWithCache,
@@ -130,12 +129,12 @@ export const useMapLayerDataIO = ({
   };
 
   const loadPartOfSitesGeojson = async () => {
-    const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
+    const fetchJsonOrThrow = async (url, label, { forceRefresh = true } = {}) => {
       try {
         return await fetchJsonWithCache(url, {
           ttlMs: PART_OF_SITES_CACHE_TTL_MS,
           forceRefresh,
-          requestCache: STATIC_JSON_FETCH_CACHE_MODE,
+          requestCache: "no-cache",
         });
       } catch (error) {
         const status = Number(error?.status);

@@ -26,7 +26,7 @@ const resolvePackageValue = (resolver, values = []) => {
 const normalizeContractValue = (value) =>
   String(value || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
 
-const isActiveContractMatch = (value, activeContract = "C2") =>
+const isActiveContractMatch = (value, activeContract = "C1") =>
   normalizeContractValue(value) === normalizeContractValue(activeContract);
 
 const resolveWorkLotCategoryCode = (normalizedCategory, workLotCategory = {}) => {
@@ -49,7 +49,7 @@ export const buildLayerFilterOptions = ({
   siteBoundaryFeatures = [],
   partOfSitesFeatures = [],
   sectionFeatures = [],
-  activeContract = "C2",
+  activeContract = "C1",
   resolveContractPackageValue,
   resolvePartOfSiteMeta,
   resolveSectionMeta,
@@ -158,7 +158,7 @@ export const buildLayerFilterOptions = ({
 export const buildWorkLotResults = ({
   workLots = [],
   query = "",
-  activeContract = "C2",
+  activeContract = "C1",
   resolveContractPackageValue,
   fuzzyMatchAny,
   workCategoryLabel,
@@ -212,7 +212,7 @@ export const buildWorkLotResults = ({
 export const buildPartOfSitesResults = ({
   partOfSitesFeatures = [],
   query = "",
-  activeContract = "C2",
+  activeContract = "C1",
   fuzzyMatchAny,
   resolvePartOfSiteMeta,
   limit = 120,
@@ -249,7 +249,7 @@ export const buildPartOfSitesResults = ({
 export const buildSectionResults = ({
   sectionFeatures = [],
   query = "",
-  activeContract = "C2",
+  activeContract = "C1",
   fuzzyMatchAny,
   resolveSectionMeta,
   limit = 120,
@@ -310,7 +310,7 @@ export const buildSiteBoundaryResults = ({
   siteBoundaryFeatures = [],
   workLots = [],
   query = "",
-  activeContract = "C2",
+  activeContract = "C1",
   resolveContractPackageValue,
 } = {}) => {
   if (!siteBoundaryFeatures.length) return [];
@@ -390,7 +390,7 @@ export const buildSiteBoundaryResults = ({
 export const buildScopeWorkLotResults = ({
   scopeWorkLotIds = [],
   workLots = [],
-  activeContract = "C2",
+  activeContract = "C1",
   resolveContractPackageValue,
 } = {}) => {
   const normalizedScopeIds = normalizeScopeIdList(scopeWorkLotIds);

@@ -27,6 +27,7 @@ DEFAULT_MIN_AREA = 1.0
 DEFAULT_MIN_HOLE_AREA = 10.0
 DEFAULT_OVERLAP_SLIVER_AREA = 20.0
 SECTION_10_HOLE_OVERRIDE_PART_ID = "10B"
+SECTION_10_HOLE_OVERRIDE_CONTRACT = "C2"
 DEFAULT_SIMPLIFY_TOLERANCE = 0.05
 DEFAULT_RING_DEDUP_TOLERANCE = 0.05
 DEFAULT_RING_BACKTRACK_TOLERANCE = 0.2
@@ -145,6 +146,56 @@ CONTRACT_SECTION_DEFINITIONS = [
     },
 ]
 
+C1_SECTION_DEFINITIONS = [
+    {
+        "id": "SECTION-1",
+        "label": "Section 1",
+        "group": "SECTION 1 (C1)",
+        "slug": "section-c1-1",
+        "partIds": ["A1", "A2", "A6", "A11"],
+        "description": "Comprises all the works within Part A1, Part A2, Part A6, and Part A11 of the Site.",
+        "contractPackage": "C1",
+    },
+    {
+        "id": "SECTION-2",
+        "label": "Section 2",
+        "group": "SECTION 2 (C1)",
+        "slug": "section-c1-2",
+        "partIds": ["A9", "A12"],
+        "description": "Comprises all the works within Part A9 and Part A12 of the Site.",
+        "contractPackage": "C1",
+    },
+    {
+        "id": "SECTION-3",
+        "label": "Section 3",
+        "group": "SECTION 3 (C1)",
+        "slug": "section-c1-3",
+        "partIds": ["A3", "A4", "A5"],
+        "description": "Comprises all the works within Part A3, Part A4, and Part A5 of the Site.",
+        "contractPackage": "C1",
+    },
+    {
+        "id": "SECTION-4",
+        "label": "Section 4",
+        "group": "SECTION 4 (C1)",
+        "slug": "section-c1-4",
+        "partIds": ["B1"],
+        "description": "Comprises all the works within Part B1 of the Site.",
+        "contractPackage": "C1",
+    },
+    {
+        "id": "SECTION-5",
+        "label": "Section 5",
+        "group": "SECTION 5 (C1)",
+        "slug": "section-c1-5",
+        "partIds": ["A7", "A8", "A10"],
+        "description": "Comprises all the works within Part A7, Part A8, and Part A10 of the Site.",
+        "contractPackage": "C1",
+    },
+]
+
+ALL_SECTION_DEFINITIONS = [*CONTRACT_SECTION_DEFINITIONS, *C1_SECTION_DEFINITIONS]
+
 
 def _require_shapely():
     try:
@@ -250,6 +301,13 @@ def slugify(text: str) -> str:
 def normalize_token(value: str, fallback: str) -> str:
     token = re.sub(r"[^a-zA-Z0-9]", "", str(value or "")).upper()
     return token or fallback
+
+
+def normalize_contract_package(value: str, fallback: str = "C2") -> str:
+    token = normalize_space(value).upper()
+    if token in {"C1", "C2"}:
+        return token
+    return normalize_space(fallback).upper() or "C2"
 
 
 def normalize_part_id(value: str) -> str:
@@ -916,6 +974,7 @@ def build_section_feature(
     section_id: str,
     section_label: str,
     section_group: str,
+    contract_package: str,
     section_description: str,
     section_note: str,
     related_part_ids: List[str],
@@ -929,6 +988,7 @@ def build_section_feature(
         "sectionSystemId": build_section_system_id(section_group, section_id),
         "relatedPartIds": related_part_ids,
         "partCount": len(related_part_ids),
+        "contractPackage": normalize_contract_package(contract_package, "C2"),
     }
     if section_description:
         properties["description"] = section_description
@@ -1000,6 +1060,11 @@ def apply_section_10_hole_override(
             item
             for item in section_records
             if normalize_space(item.get("id")) == "SECTION-10"
+            and normalize_contract_package(
+                item.get("contractPackage"),
+                SECTION_10_HOLE_OVERRIDE_CONTRACT,
+            )
+            == SECTION_10_HOLE_OVERRIDE_CONTRACT
             and int(item.get("featureCount", 0)) > 0
             and isinstance(item.get("filePath"), Path)
         ),
