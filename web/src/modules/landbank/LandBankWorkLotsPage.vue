@@ -64,6 +64,7 @@
     >
       <el-table-column type="selection" width="46" fixed="left" />
       <el-table-column prop="id" label="System ID" width="150" fixed="left" />
+      <el-table-column prop="contractPackage" label="Contract" width="110" />
       <el-table-column label="Related Lands" min-width="220">
         <template #default="{ row }">
           {{ relatedLandText(row) }}
@@ -138,6 +139,7 @@
       :work-lot-id="editForm.id"
       :related-site-boundary-ids="editForm.relatedSiteBoundaryIds"
       :related-site-boundary-names="editRelatedSiteBoundaryNames"
+      v-model:contractPackage="editForm.contractPackage"
       v-model:operatorName="editForm.operatorName"
       v-model:category="editForm.category"
       v-model:responsiblePerson="editForm.responsiblePerson"
@@ -261,6 +263,7 @@ const filteredWorkLots = computed(() =>
     return fuzzyMatchAny(
       [
         lot.id,
+        lot.contractPackage,
         relatedLandText(lot),
         workLotName(lot),
         workCategoryLabel(lot.category),

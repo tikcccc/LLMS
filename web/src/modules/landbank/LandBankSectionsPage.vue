@@ -51,6 +51,7 @@
       <el-table-column prop="sectionId" label="Section ID" width="120" fixed="left" />
       <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
+      <el-table-column prop="contractPackage" label="Contract" width="110" />
       <el-table-column label="Completion Date" width="140">
         <template #default="{ row }">
           <TimeText :value="row.completionDate" mode="date" />
@@ -102,6 +103,7 @@
       confirm-text="Save"
       :system-id="editForm.id"
       :section-id="editForm.sectionId"
+      v-model:contractPackage="editingContractPackage"
       v-model:completionDate="editForm.completionDate"
       v-model:area="editForm.area"
       @confirm="saveEditSection"
@@ -144,6 +146,7 @@ const groupFilter = ref("All");
 const showEditDialog = ref(false);
 const editForm = ref(createSectionEditForm());
 const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
+const editingOriginalContractPackage = ref(CONTRACT_PACKAGE.C2);
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -367,6 +370,7 @@ const viewOnMap = (sectionId) => {
 const openEditDialog = (row) => {
   editForm.value = createSectionEditForm(row);
   editingContractPackage.value = resolveContractPackageValue(row.contractPackage);
+  editingOriginalContractPackage.value = editingContractPackage.value;
   showEditDialog.value = true;
 };
 
@@ -382,11 +386,13 @@ const saveEditSection = () => {
     contractPackage: editingContractPackage.value,
     ...payload,
   }, editingContractPackage.value);
+  const originalContractPackage = editingOriginalContractPackage.value;
   rows.value = rows.value.map((row) =>
     String(row.sectionId || "").trim().toLowerCase() === sectionId.toLowerCase() &&
-    resolveContractPackageValue(row.contractPackage) === editingContractPackage.value
+    resolveContractPackageValue(row.contractPackage) === originalContractPackage
       ? applySectionOverridesToRow({
           ...row,
+          contractPackage: editingContractPackage.value,
           baseCompletionDate: row.baseCompletionDate || row.completionDate || "",
           baseArea: row.baseArea ?? row.area ?? null,
         })
@@ -394,12 +400,14 @@ const saveEditSection = () => {
   );
   showEditDialog.value = false;
   editingContractPackage.value = CONTRACT_PACKAGE.C2;
+  editingOriginalContractPackage.value = CONTRACT_PACKAGE.C2;
   ElMessage.success("Section updated.");
 };
 
 const cancelEditSection = () => {
   showEditDialog.value = false;
   editingContractPackage.value = CONTRACT_PACKAGE.C2;
+  editingOriginalContractPackage.value = CONTRACT_PACKAGE.C2;
 };
 
 watch(

@@ -27,7 +27,7 @@
 - 一個地段可能涉及多個 Operator/BU/Household，人工判斷容易錯誤。
 - 現場與管理需要同一張地圖語意來判斷「已交地」「未清場」「高風險延誤」。
 - 2026-03-02 新增時程語意：`part of site` 與 `section of the works` 地理邊界固定，但實際日期需由 C2 批出後的起算日推導。
-- 2026-03-05 新增分層語意：`site boundary`、`work lot`、`part of site`、`section of works` 皆需按 C1/C2 拆分，並可在地圖以兩層獨立開關對照。
+- 2026-03-05 新增分層語意：`site boundary`、`work lot`、`part of site`、`section of works` 皆需按 C1/C2 拆分，並以單一 workspace 切換（C1 或 C2）分開作業，不做同圖對照。
 
 客戶要解決的關鍵問題：
 
@@ -48,7 +48,7 @@
 | P0 | 每地塊需要可維護 `Part of the Site`、`access date` | 2026-02-26 客戶 email 明確要求 |
 | P0 | `access date` 到期提醒需在 Demo 先顯示於網站 | 2026-02-26 客戶回覆明確要求 web 顯示 alerts |
 | P0 | 時程模型需同時支持 `part of site -> access date` 與 `section of works -> sectional completion date` | 2026-03-02 Victor WhatsApp 時程說明 |
-| P0 | `site boundary`、`work lot`、`part of site`、`section of works` 需按 C1/C2 分層（可分開顯示、可同時對照） | 2026-03-05 使用者補充（客戶要求） |
+| P0 | `site boundary`、`work lot`、`part of site`、`section of works` 需按 C1/C2 分層（單一 workspace 切換，不同圖對照） | 2026-03-05 使用者補充（客戶要求） |
 | P1 | 可顯示交地進度比例、處理中、困難個案 | 期望管理層可直接看全局進度 |
 | P1 | 支援不同層級資料可視化與圖層開關 | 提到多圖層聯動與位置關聯 |
 | P1 | 需可依合約規則計算 section 完工日期（多為相對 access/start date 天數） | 2026-03-02 X5 / Contract Data Part One 表格 |
@@ -97,7 +97,7 @@
 | Access Date 到期提醒 | 現有已有顏色狀態與逾期視覺語意（`dueDate`/`plannedHandoverDate`） | 尚未有明確 `accessDate` 欄位與「access date expiry」專屬規則 |
 | Part of Site / Section of Works 雙軸時程 | 現有有 `assessDate`、`plannedHandoverDate`、`completionDate`、`float` | 尚未有 `partOfSite`、`sectionOfWorks` 結構與 section 完工日期計算規則 |
 | C2 圖面清理與邊界修補 | 既有 DXF 轉 GeoJSON 腳本可透過 `close/snap/bridge tolerance` 修補小斷裂 | Map 工具欄尚未提供 CAD 實體級編輯（刪線段/刪 block/逐段補線），需前處理或新增編輯能力 |
-| C1/C2 雙層圖層（Site/Work Lot/Part/Section） | 現有僅按實體分層（`showWorkLots/showSiteBoundary/showPartOfSites/showSections`）與 lot 白名單篩選 | 尚未有 `contractPackage` 欄位、phase filter 與同 ID 跨 C1/C2 共存規則 |
+| C1/C2 分層作業（Site/Work Lot/Part/Section） | 現有已支援四類實體 `contractPackage` 欄位與 map `Contract Workspace` 單一切換 | 仍需後續確認 C1 原始圖面齊備度與跨 phase 業務 ID 對應規則 |
 | 匯出與溝通 | JSON/Excel/PDF 匯出 | 匯出欄位需與客戶最終業務口徑再對齊 |
 | 提醒渠道（Web/Email） | Web 端已可做 in-app 視覺提醒（地圖與清單語意） | 尚未有可配置通知渠道與 email 發送流程 |
 | 角色邊界 | 角色切換與部分權限控制 | 後端硬權限與審計仍未導入 |
@@ -124,7 +124,7 @@
 | 2026-03-02 | `reference-doc/meeting-record/1st_meeting_record.md`、`reference-doc/meeting-record/predemo_meeting_record.md` | 建立初版業務背景、需求、資料口徑與術語 | 本文件（初版） |
 | 2026-03-02 | `reference-doc/emails/email`、`reference-doc/2026-3-2 Project-timeline information/*` | 新增 `part of site`/`access date`、`section of works`/`sectional completion` 時程語意；確認 Demo 以網站提醒為主 | 本文件、`web-pm-business-alignment.md`、`web-functions.md` |
 | 2026-03-02 | 使用者補充（Codex 對話） | 補充 `part of site` drawings 目前有缺線/錯亂需人工修圖；確認 `part name` 與 `date` 需人工輸入 | 本文件、`web-pm-business-alignment.md`、`web-functions.md` |
-| 2026-03-05 | 使用者補充（Codex 對話） | 客戶要求 `site/work lot/part/section` 全部拆為 C1/C2 兩層並可分開控制圖層 | 本文件、`web-pm-business-alignment.md`、`web-functions.md` |
+| 2026-03-05 | 使用者補充（Codex 對話） | 客戶確認 `site/work lot/part/section` 需拆為 C1/C2，並改為單一 workspace 切換（不做 C1/C2 對照） | 本文件、`web-pm-business-alignment.md`、`web-functions.md` |
 
 ## 10) 完成標準
 

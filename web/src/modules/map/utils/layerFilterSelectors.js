@@ -23,6 +23,12 @@ const resolvePackageValue = (resolver, values = []) => {
   return String(values || "").trim();
 };
 
+const normalizeContractValue = (value) =>
+  String(value || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+
+const isActiveContractMatch = (value, activeContract = "C2") =>
+  normalizeContractValue(value) === normalizeContractValue(activeContract);
+
 const resolveWorkLotCategoryCode = (normalizedCategory, workLotCategory = {}) => {
   if (normalizedCategory === workLotCategory.BU) return "BU";
   if (normalizedCategory === workLotCategory.HH) return "HH";
@@ -43,6 +49,7 @@ export const buildLayerFilterOptions = ({
   siteBoundaryFeatures = [],
   partOfSitesFeatures = [],
   sectionFeatures = [],
+  activeContract = "C2",
   resolveContractPackageValue,
   resolvePartOfSiteMeta,
   resolveSectionMeta,
@@ -77,6 +84,7 @@ export const buildLayerFilterOptions = ({
         dueDate: lot?.dueDate || "",
       };
     })
+    .filter((item) => isActiveContractMatch(item.contractPackage, activeContract))
     .sort(compareByLabelThenId);
 
   const normalizedSiteBoundaries = [...siteBoundaryFeatures]
@@ -100,6 +108,7 @@ export const buildLayerFilterOptions = ({
         overdue: !!readFeatureValue(feature, "overdue"),
       };
     })
+    .filter((item) => isActiveContractMatch(item.contractPackage, activeContract))
     .sort(compareByLabelThenId);
 
   const partById = new Map();
@@ -107,6 +116,7 @@ export const buildLayerFilterOptions = ({
     partOfSitesFeatures.forEach((feature, index) => {
       const meta = resolvePartOfSiteMeta(feature, index);
       if (!meta?.partId || partById.has(meta.partId)) return;
+      if (!isActiveContractMatch(meta.contractPackage, activeContract)) return;
       partById.set(meta.partId, {
         id: meta.partId,
         contractPackage: meta.contractPackage,
@@ -124,6 +134,7 @@ export const buildLayerFilterOptions = ({
     sectionFeatures.forEach((feature, index) => {
       const meta = resolveSectionMeta(feature, index);
       if (!meta?.sectionId || sectionById.has(meta.sectionId)) return;
+      if (!isActiveContractMatch(meta.contractPackage, activeContract)) return;
       sectionById.set(meta.sectionId, {
         id: meta.sectionId,
         contractPackage: meta.contractPackage,
@@ -147,12 +158,27 @@ export const buildLayerFilterOptions = ({
 export const buildWorkLotResults = ({
   workLots = [],
   query = "",
+  activeContract = "C2",
+  resolveContractPackageValue,
   fuzzyMatchAny,
   workCategoryLabel,
   limit = 80,
 } = {}) => {
   const trimmedQuery = String(query || "").trim();
-  const sortedWorkLots = [...workLots].sort((left, right) => compareById(left, right));
+  const sortedWorkLots = [...workLots]
+    .filter((lot) =>
+      isActiveContractMatch(
+        resolvePackageValue(resolveContractPackageValue, [
+          lot?.contractPackage,
+          lot?.contract_package,
+          lot?.phase,
+          lot?.package,
+          lot?.contractNo,
+        ]),
+        activeContract
+      )
+    )
+    .sort((left, right) => compareById(left, right));
   if (!trimmedQuery) {
     return sortedWorkLots.slice(0, limit);
   }
@@ -186,6 +212,7 @@ export const buildWorkLotResults = ({
 export const buildPartOfSitesResults = ({
   partOfSitesFeatures = [],
   query = "",
+  activeContract = "C2",
   fuzzyMatchAny,
   resolvePartOfSiteMeta,
   limit = 120,
@@ -196,6 +223,7 @@ export const buildPartOfSitesResults = ({
   partOfSitesFeatures.forEach((feature, index) => {
     const meta = resolvePartOfSiteMeta(feature, index);
     if (!meta?.partId || partById.has(meta.partId)) return;
+    if (!isActiveContractMatch(meta.contractPackage, activeContract)) return;
     partById.set(meta.partId, {
       id: meta.partId,
       title: meta.label,
@@ -221,6 +249,7 @@ export const buildPartOfSitesResults = ({
 export const buildSectionResults = ({
   sectionFeatures = [],
   query = "",
+  activeContract = "C2",
   fuzzyMatchAny,
   resolveSectionMeta,
   limit = 120,
@@ -231,6 +260,7 @@ export const buildSectionResults = ({
   sectionFeatures.forEach((feature, index) => {
     const meta = resolveSectionMeta(feature, index);
     if (!meta?.sectionId || sectionById.has(meta.sectionId)) return;
+    if (!isActiveContractMatch(meta.contractPackage, activeContract)) return;
     const partCount = Number(readFeatureValue(feature, "partCount"));
     sectionById.set(meta.sectionId, {
       id: meta.sectionId,
@@ -280,10 +310,26 @@ export const buildSiteBoundaryResults = ({
   siteBoundaryFeatures = [],
   workLots = [],
   query = "",
+  activeContract = "C2",
+  resolveContractPackageValue,
 } = {}) => {
   if (!siteBoundaryFeatures.length) return [];
 
   const workLotCountByBoundaryId = workLots.reduce((map, lot) => {
+    if (
+      !isActiveContractMatch(
+        resolvePackageValue(resolveContractPackageValue, [
+          lot?.contractPackage,
+          lot?.contract_package,
+          lot?.phase,
+          lot?.package,
+          lot?.contractNo,
+        ]),
+        activeContract
+      )
+    ) {
+      return map;
+    }
     const relatedIds = Array.isArray(lot?.relatedSiteBoundaryIds)
       ? lot.relatedSiteBoundaryIds
       : [];
@@ -308,8 +354,17 @@ export const buildSiteBoundaryResults = ({
         : Number.isFinite(fallbackCount)
           ? fallbackCount
           : 0;
+      const contractPackage = resolvePackageValue(resolveContractPackageValue, [
+        readFeatureValue(feature, "contractPackage"),
+        readFeatureValue(feature, "contract_package"),
+        readFeatureValue(feature, "phase"),
+        readFeatureValue(feature, "package"),
+        readFeatureValue(feature, "contractNo"),
+        readFeatureValue(feature, "layer"),
+      ]);
       return {
         id,
+        contractPackage,
         name: readFeatureValue(feature, "name") ?? "",
         plannedHandoverDate: readFeatureValue(feature, "plannedHandoverDate") ?? "",
         boundaryStatus: readFeatureValue(feature, "boundaryStatus") ?? "Pending Clearance",
@@ -319,6 +374,7 @@ export const buildSiteBoundaryResults = ({
       };
     })
     .filter((item) => {
+      if (!isActiveContractMatch(item.contractPackage, activeContract)) return false;
       if (!normalizedQuery) return true;
       return (
         String(item.id || "").toLowerCase().includes(normalizedQuery) ||
@@ -331,10 +387,30 @@ export const buildSiteBoundaryResults = ({
     .sort(compareById);
 };
 
-export const buildScopeWorkLotResults = ({ scopeWorkLotIds = [], workLots = [] } = {}) => {
+export const buildScopeWorkLotResults = ({
+  scopeWorkLotIds = [],
+  workLots = [],
+  activeContract = "C2",
+  resolveContractPackageValue,
+} = {}) => {
   const normalizedScopeIds = normalizeScopeIdList(scopeWorkLotIds);
   if (!normalizedScopeIds.length) return [];
-  const byId = new Map(workLots.map((lot) => [String(lot?.id || ""), lot]));
+  const byId = new Map(
+    workLots
+      .filter((lot) =>
+        isActiveContractMatch(
+          resolvePackageValue(resolveContractPackageValue, [
+            lot?.contractPackage,
+            lot?.contract_package,
+            lot?.phase,
+            lot?.package,
+            lot?.contractNo,
+          ]),
+          activeContract
+        )
+      )
+      .map((lot) => [String(lot?.id || ""), lot])
+  );
   return normalizedScopeIds.map((id) => byId.get(id)).filter(Boolean);
 };
 

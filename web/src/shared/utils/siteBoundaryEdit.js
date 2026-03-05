@@ -1,5 +1,10 @@
+import { normalizeContractPackage } from "./contractPackage";
+
 export const createSiteBoundaryEditForm = (boundary = {}) => ({
   id: String(boundary.id || ""),
+  contractPackage: normalizeContractPackage(
+    boundary.contractPackage ?? boundary.contract_package ?? boundary.phase ?? boundary.package
+  ),
   name: String(boundary.name || ""),
   contractNo: String(boundary.contractNo || ""),
   futureUse: String(boundary.futureUse || ""),
@@ -9,6 +14,9 @@ export const createSiteBoundaryEditForm = (boundary = {}) => ({
 });
 
 export const buildSiteBoundaryUpdatePayload = (form = {}) => ({
+  contractPackage: normalizeContractPackage(
+    form.contractPackage ?? form.contract_package ?? form.phase ?? form.package
+  ),
   name: String(form.name || ""),
   contractNo: String(form.contractNo || ""),
   futureUse: String(form.futureUse || ""),

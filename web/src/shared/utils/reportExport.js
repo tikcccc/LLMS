@@ -444,6 +444,7 @@ const toWorkLotReportRows = (workLots = [], siteBoundaries = []) => {
     const areaSqm = toNumber(lot?.area);
     return [
       String(lot?.id || ""),
+      String(lot?.contractPackage || "C2"),
       String(lot?.operatorName || lot?.name || ""),
       relatedBoundaryNamesText(lot, boundaryNameById),
       workLotCategoryCode(lot?.category),
@@ -478,6 +479,7 @@ const toSiteBoundaryReportRows = (
     const areaSqm = toNumber(boundary?.area);
     return [
       String(boundary?.id || ""),
+      String(boundary?.contractPackage || "C2"),
       String(boundary?.name || ""),
       formatAreaSqmText(areaSqm),
       formatAreaHaText(areaSqm),
@@ -519,6 +521,7 @@ export async function exportWorkLotsReport({
 
   const detailHeaders = [
     "System ID",
+    "Contract Package",
     "Name",
     "Related Site Boundaries",
     "Category",
@@ -582,6 +585,7 @@ export async function exportSiteBoundariesReport({
 
   const detailHeaders = [
     "System ID",
+    "Contract Package",
     "Name",
     "Area (m²)",
     "Area (ha)",

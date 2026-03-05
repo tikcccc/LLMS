@@ -226,6 +226,7 @@ export const useMapLayers = ({
     siteBoundarySource,
     siteBoundaryStore,
     workLotStore,
+    uiStore,
     resolveContractPackageValue,
     refreshLayerFilters,
   });
@@ -255,7 +256,7 @@ export const useMapLayers = ({
     return null;
   };
 
-  const getPartOfSitesFeatureById = (id, contractPackage = "") => {
+  const getPartOfSitesFeatureById = (id, contractPackage = uiStore.activeContract) => {
     const normalizedId = normalizeFeatureId(id);
     if (!normalizedId) return null;
     const lookup = normalizedId.toLowerCase();
@@ -273,7 +274,7 @@ export const useMapLayers = ({
         }) || null
     );
   };
-  const getSectionFeatureById = (id, contractPackage = "") => {
+  const getSectionFeatureById = (id, contractPackage = uiStore.activeContract) => {
     const normalizedId = normalizeFeatureId(id);
     if (!normalizedId) return null;
     const lookup = normalizedId.toLowerCase();

@@ -11,6 +11,17 @@
         <el-input :model-value="boundaryId" disabled />
       </el-form-item>
 
+      <el-form-item label="Contract Package">
+        <el-select v-model="contractPackageProxy">
+          <el-option
+            v-for="item in CONTRACT_PACKAGE_VALUES"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="Name">
         <el-input v-model="nameProxy" placeholder="e.g. HKSTP No.1" />
       </el-form-item>
@@ -60,12 +71,14 @@
 
 <script setup>
 import { computed } from "vue";
+import { CONTRACT_PACKAGE_VALUES } from "../../../shared/utils/contractPackage";
 
 const props = defineProps({
   modelValue: { type: Boolean, required: true },
   title: { type: String, default: "Edit Site Boundary" },
   confirmText: { type: String, default: "Save" },
   boundaryId: { type: String, default: "" },
+  contractPackage: { type: String, default: "C2" },
   name: { type: String, default: "" },
   contractNo: { type: String, default: "" },
   futureUse: { type: String, default: "" },
@@ -76,6 +89,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   "update:modelValue",
+  "update:contractPackage",
   "update:name",
   "update:contractNo",
   "update:futureUse",
@@ -85,6 +99,11 @@ const emit = defineEmits([
   "confirm",
   "cancel",
 ]);
+
+const contractPackageProxy = computed({
+  get: () => props.contractPackage,
+  set: (value) => emit("update:contractPackage", value),
+});
 
 const nameProxy = computed({
   get: () => props.name,
@@ -118,6 +137,7 @@ const othersProxy = computed({
 
 const formProxy = computed(() => ({
   boundaryId: props.boundaryId,
+  contractPackage: contractPackageProxy.value,
   name: nameProxy.value,
   contractNo: contractNoProxy.value,
   futureUse: futureUseProxy.value,

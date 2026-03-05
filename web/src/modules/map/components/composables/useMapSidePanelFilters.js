@@ -1,13 +1,6 @@
 import { computed, ref } from "vue";
 import { siteBoundaryStatusStyle } from "../../utils/siteBoundaryStatusStyle";
 
-const PHASE_GROUP_KEY_PAIRS = [
-  ["showPartOfSitesC1", "showPartOfSitesC2"],
-  ["showSectionsC1", "showSectionsC2"],
-  ["showSiteBoundaryC1", "showSiteBoundaryC2"],
-  ["showWorkLotsC1", "showWorkLotsC2"],
-];
-
 const normalizeIdList = (value) => {
   if (!Array.isArray(value)) return [];
   const dedupe = new Set();
@@ -59,39 +52,20 @@ export const useMapSidePanelFilters = ({ props, emit }) => {
 
   const showBasemapProxy = createBooleanFilterProxy("showBasemap", true);
   const showLabelsProxy = createBooleanFilterProxy("showLabels", true);
+  const activeContractProxy = computed({
+    get: () => {
+      const value = String(props.layerFilterState?.activeContract || "").trim().toUpperCase();
+      return value === "C1" ? "C1" : "C2";
+    },
+    set: (value) => {
+      const normalized = String(value || "").trim().toUpperCase();
+      patchLayerFilterState({ activeContract: normalized === "C1" ? "C1" : "C2" });
+    },
+  });
   const showPartOfSitesProxy = createBooleanFilterProxy("showPartOfSites", false);
-  const showPartOfSitesC1Proxy = createBooleanFilterProxy("showPartOfSitesC1", true);
-  const showPartOfSitesC2Proxy = createBooleanFilterProxy("showPartOfSitesC2", true);
   const showSectionsProxy = createBooleanFilterProxy("showSections", false);
-  const showSectionsC1Proxy = createBooleanFilterProxy("showSectionsC1", true);
-  const showSectionsC2Proxy = createBooleanFilterProxy("showSectionsC2", true);
   const showSiteBoundaryProxy = createBooleanFilterProxy("showSiteBoundary", true);
-  const showSiteBoundaryC1Proxy = createBooleanFilterProxy("showSiteBoundaryC1", true);
-  const showSiteBoundaryC2Proxy = createBooleanFilterProxy("showSiteBoundaryC2", true);
   const showWorkLotsProxy = createBooleanFilterProxy("showWorkLots", true);
-  const showWorkLotsC1Proxy = createBooleanFilterProxy("showWorkLotsC1", true);
-  const showWorkLotsC2Proxy = createBooleanFilterProxy("showWorkLotsC2", true);
-
-  const getLayerBoolean = (key) => !!props.layerFilterState?.[key];
-
-  const buildGlobalPhasePatch = ({ c1, c2 } = {}) => {
-    const patch = {};
-    PHASE_GROUP_KEY_PAIRS.forEach(([c1Key, c2Key]) => {
-      if (typeof c1 === "boolean") patch[c1Key] = c1;
-      if (typeof c2 === "boolean") patch[c2Key] = c2;
-    });
-    return patch;
-  };
-
-  const showGlobalC1Proxy = computed({
-    get: () => PHASE_GROUP_KEY_PAIRS.every(([c1Key]) => getLayerBoolean(c1Key)),
-    set: (value) => patchLayerFilterState(buildGlobalPhasePatch({ c1: !!value })),
-  });
-
-  const showGlobalC2Proxy = computed({
-    get: () => PHASE_GROUP_KEY_PAIRS.every(([, c2Key]) => getLayerBoolean(c2Key)),
-    set: (value) => patchLayerFilterState(buildGlobalPhasePatch({ c2: !!value })),
-  });
 
   const getFilterMode = (modeKey) =>
     props.layerFilterState?.[modeKey] === "custom" ? "custom" : "all";
@@ -281,20 +255,11 @@ export const useMapSidePanelFilters = ({ props, emit }) => {
     sectionSearchProxy,
     showBasemapProxy,
     showLabelsProxy,
+    activeContractProxy,
     showPartOfSitesProxy,
-    showPartOfSitesC1Proxy,
-    showPartOfSitesC2Proxy,
     showSectionsProxy,
-    showSectionsC1Proxy,
-    showSectionsC2Proxy,
     showSiteBoundaryProxy,
-    showSiteBoundaryC1Proxy,
-    showSiteBoundaryC2Proxy,
     showWorkLotsProxy,
-    showWorkLotsC1Proxy,
-    showWorkLotsC2Proxy,
-    showGlobalC1Proxy,
-    showGlobalC2Proxy,
     layerFilterKeyword,
     filteredPartOfSitesOptions,
     filteredSectionOptions,

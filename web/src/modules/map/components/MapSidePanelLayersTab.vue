@@ -21,26 +21,18 @@
     <section class="layer-block">
       <div class="layer-block-head">
         <div class="layer-title-wrap">
-          <div class="layer-title">Phase (Global)</div>
-          <div class="layer-subtitle">Apply C1/C2 to all layer groups</div>
+          <div class="layer-title">Contract Workspace</div>
+          <div class="layer-subtitle">Switch map data between C1 and C2</div>
         </div>
         <div class="layer-actions">
-          <el-checkbox
-            :model-value="showGlobalC1"
+          <el-radio-group
+            :model-value="activeContract"
             size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showGlobalC1', $event)"
+            @update:model-value="emit('update:activeContract', $event)"
           >
-            C1
-          </el-checkbox>
-          <el-checkbox
-            :model-value="showGlobalC2"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showGlobalC2', $event)"
-          >
-            C2
-          </el-checkbox>
+            <el-radio-button :label="'C1'">C1</el-radio-button>
+            <el-radio-button :label="'C2'">C2</el-radio-button>
+          </el-radio-group>
         </div>
       </div>
     </section>
@@ -55,22 +47,6 @@
         </div>
         <div class="layer-actions">
           <el-switch :model-value="showPartOfSites" size="small" @update:model-value="emit('update:showPartOfSites', $event)" />
-          <el-checkbox
-            :model-value="showPartOfSitesC1"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showPartOfSitesC1', $event)"
-          >
-            C1
-          </el-checkbox>
-          <el-checkbox
-            :model-value="showPartOfSitesC2"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showPartOfSitesC2', $event)"
-          >
-            C2
-          </el-checkbox>
           <button
             type="button"
             class="inline-action"
@@ -150,22 +126,6 @@
         </div>
         <div class="layer-actions">
           <el-switch :model-value="showSections" size="small" @update:model-value="emit('update:showSections', $event)" />
-          <el-checkbox
-            :model-value="showSectionsC1"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showSectionsC1', $event)"
-          >
-            C1
-          </el-checkbox>
-          <el-checkbox
-            :model-value="showSectionsC2"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showSectionsC2', $event)"
-          >
-            C2
-          </el-checkbox>
           <button
             type="button"
             class="inline-action"
@@ -245,22 +205,6 @@
         </div>
         <div class="layer-actions">
           <el-switch :model-value="showSiteBoundary" size="small" @update:model-value="emit('update:showSiteBoundary', $event)" />
-          <el-checkbox
-            :model-value="showSiteBoundaryC1"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showSiteBoundaryC1', $event)"
-          >
-            C1
-          </el-checkbox>
-          <el-checkbox
-            :model-value="showSiteBoundaryC2"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showSiteBoundaryC2', $event)"
-          >
-            C2
-          </el-checkbox>
           <button
             type="button"
             class="inline-action"
@@ -350,22 +294,6 @@
         </div>
         <div class="layer-actions">
           <el-switch :model-value="showWorkLots" size="small" @update:model-value="emit('update:showWorkLots', $event)" />
-          <el-checkbox
-            :model-value="showWorkLotsC1"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showWorkLotsC1', $event)"
-          >
-            C1
-          </el-checkbox>
-          <el-checkbox
-            :model-value="showWorkLotsC2"
-            size="small"
-            class="phase-toggle"
-            @update:model-value="emit('update:showWorkLotsC2', $event)"
-          >
-            C2
-          </el-checkbox>
           <button
             type="button"
             class="inline-action"
@@ -449,20 +377,11 @@ defineProps({
   showBasemap: { type: Boolean, default: true },
   showLabels: { type: Boolean, default: true },
   layerFilterKeyword: { type: String, default: "" },
-  showGlobalC1: { type: Boolean, default: true },
-  showGlobalC2: { type: Boolean, default: true },
+  activeContract: { type: String, default: "C2" },
   showPartOfSites: { type: Boolean, default: false },
-  showPartOfSitesC1: { type: Boolean, default: true },
-  showPartOfSitesC2: { type: Boolean, default: true },
   showSections: { type: Boolean, default: false },
-  showSectionsC1: { type: Boolean, default: true },
-  showSectionsC2: { type: Boolean, default: true },
   showSiteBoundary: { type: Boolean, default: true },
-  showSiteBoundaryC1: { type: Boolean, default: true },
-  showSiteBoundaryC2: { type: Boolean, default: true },
   showWorkLots: { type: Boolean, default: true },
-  showWorkLotsC1: { type: Boolean, default: true },
-  showWorkLotsC2: { type: Boolean, default: true },
   filteredPartOfSitesOptions: { type: Array, default: () => [] },
   filteredSectionOptions: { type: Array, default: () => [] },
   filteredSiteBoundaryOptions: { type: Array, default: () => [] },
@@ -493,20 +412,11 @@ const emit = defineEmits([
   "update:showBasemap",
   "update:showLabels",
   "update:layerFilterKeyword",
-  "update:showGlobalC1",
-  "update:showGlobalC2",
+  "update:activeContract",
   "update:showPartOfSites",
-  "update:showPartOfSitesC1",
-  "update:showPartOfSitesC2",
   "update:showSections",
-  "update:showSectionsC1",
-  "update:showSectionsC2",
   "update:showSiteBoundary",
-  "update:showSiteBoundaryC1",
-  "update:showSiteBoundaryC2",
   "update:showWorkLots",
-  "update:showWorkLotsC1",
-  "update:showWorkLotsC2",
   "select-all-part-of-sites",
   "clear-part-of-sites",
   "part-of-sites-selection-change",

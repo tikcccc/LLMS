@@ -27,6 +27,7 @@ export const useMapFocusState = ({
   );
 
   const captureFocusSnapshot = () => ({
+    activeContract: uiStore.activeContract,
     showIntLand: uiStore.showIntLand,
     showWorkLots: uiStore.showWorkLots,
     showWorkLotsC1: uiStore.showWorkLotsC1,

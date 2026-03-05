@@ -46,6 +46,7 @@ export const useMapLayerFilterPanelState = ({
       siteBoundaryFeatures: siteBoundarySource?.getFeatures() || [],
       partOfSitesFeatures: partOfSitesSource?.getFeatures() || [],
       sectionFeatures: sectionsSource?.getFeatures() || [],
+      activeContract: uiStore.activeContract,
       resolveContractPackageValue,
       resolvePartOfSiteMeta,
       resolveSectionMeta,
@@ -68,6 +69,8 @@ export const useMapLayerFilterPanelState = ({
     buildWorkLotResults({
       workLots: workLotStore.workLots,
       query: workSearchQuery.value,
+      activeContract: uiStore.activeContract,
+      resolveContractPackageValue,
       fuzzyMatchAny,
       workCategoryLabel,
     })
@@ -78,6 +81,7 @@ export const useMapLayerFilterPanelState = ({
     return buildPartOfSitesResults({
       partOfSitesFeatures: partOfSitesSource?.getFeatures() || [],
       query: partOfSitesSearchQuery.value,
+      activeContract: uiStore.activeContract,
       fuzzyMatchAny,
       resolvePartOfSiteMeta,
     });
@@ -88,6 +92,7 @@ export const useMapLayerFilterPanelState = ({
     return buildSectionResults({
       sectionFeatures: sectionsSource?.getFeatures() || [],
       query: sectionSearchQuery.value,
+      activeContract: uiStore.activeContract,
       fuzzyMatchAny,
       resolveSectionMeta,
     });
@@ -99,6 +104,8 @@ export const useMapLayerFilterPanelState = ({
       siteBoundaryFeatures: siteBoundarySource?.getFeatures() || [],
       workLots: workLotStore.workLots,
       query: siteBoundarySearchQuery.value,
+      activeContract: uiStore.activeContract,
+      resolveContractPackageValue,
     });
   });
 

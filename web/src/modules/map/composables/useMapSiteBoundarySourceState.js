@@ -13,6 +13,7 @@ export const useMapSiteBoundarySourceState = ({
   siteBoundarySource,
   siteBoundaryStore,
   workLotStore,
+  uiStore,
   resolveContractPackageValue,
   refreshLayerFilters,
 }) => {
@@ -353,14 +354,48 @@ export const useMapSiteBoundarySourceState = ({
     refreshLayerFilters();
   };
 
-  const getSiteBoundaryFeatureById = (id) => {
+  const getSiteBoundaryFeatureById = (id, contractPackage = uiStore?.activeContract || "") => {
     if (id === null || id === undefined) return null;
     const normalized = String(id);
-    return (
+    const scopedPackage = String(contractPackage || "").trim()
+      ? resolveContractPackageValue(contractPackage)
+      : "";
+    const directHit =
       siteBoundarySource.getFeatureById(normalized) ||
       siteBoundarySource.getFeatureById(normalized.toUpperCase()) ||
       siteBoundarySource.getFeatureById(normalized.toLowerCase()) ||
-      null
+      null;
+    if (!scopedPackage || !directHit) return directHit;
+    if (
+      resolveContractPackageValue([
+        directHit.get("contractPackage"),
+        directHit.get("contract_package"),
+        directHit.get("phase"),
+        directHit.get("package"),
+        directHit.get("contractNo"),
+        directHit.get("layer"),
+      ]) === scopedPackage
+    ) {
+      return directHit;
+    }
+    return (
+      siteBoundarySource
+        .getFeatures()
+        .find((feature) => {
+          const featureId = String(feature.getId() ?? feature.get("refId") ?? "").trim();
+          if (!featureId) return false;
+          if (featureId.toLowerCase() !== normalized.toLowerCase()) return false;
+          return (
+            resolveContractPackageValue([
+              feature.get("contractPackage"),
+              feature.get("contract_package"),
+              feature.get("phase"),
+              feature.get("package"),
+              feature.get("contractNo"),
+              feature.get("layer"),
+            ]) === scopedPackage
+          );
+        }) || null
     );
   };
 

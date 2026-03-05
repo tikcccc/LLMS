@@ -51,6 +51,7 @@
       <el-table-column prop="partId" label="Part ID" width="120" fixed="left" />
       <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
+      <el-table-column prop="contractPackage" label="Contract" width="110" />
       <el-table-column label="Access Date" width="130">
         <template #default="{ row }">
           <TimeText :value="row.accessDate" mode="date" />
@@ -97,6 +98,7 @@
       confirm-text="Save"
       :system-id="editForm.id"
       :part-id="editForm.partId"
+      v-model:contractPackage="editingContractPackage"
       v-model:accessDate="editForm.accessDate"
       v-model:area="editForm.area"
       @confirm="saveEditPartOfSite"
@@ -149,6 +151,7 @@ const groupFilter = ref("All");
 const showEditDialog = ref(false);
 const editForm = ref(createPartOfSiteEditForm());
 const editingContractPackage = ref(CONTRACT_PACKAGE.C2);
+const editingOriginalContractPackage = ref(CONTRACT_PACKAGE.C2);
 
 const compareNatural = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, {
@@ -386,6 +389,7 @@ const viewOnMap = (partOfSiteId) => {
 const openEditDialog = (row) => {
   editForm.value = createPartOfSiteEditForm(row);
   editingContractPackage.value = resolveContractPackageValue(row.contractPackage);
+  editingOriginalContractPackage.value = editingContractPackage.value;
   showEditDialog.value = true;
 };
 
@@ -401,11 +405,13 @@ const saveEditPartOfSite = () => {
     contractPackage: editingContractPackage.value,
     ...payload,
   }, editingContractPackage.value);
+  const originalContractPackage = editingOriginalContractPackage.value;
   rows.value = rows.value.map((row) =>
     String(row.partId || "").trim().toLowerCase() === partId.toLowerCase() &&
-    resolveContractPackageValue(row.contractPackage) === editingContractPackage.value
+    resolveContractPackageValue(row.contractPackage) === originalContractPackage
       ? applyPartOverridesToRow({
           ...row,
+          contractPackage: editingContractPackage.value,
           baseAccessDate: row.baseAccessDate || row.accessDate || "",
           baseArea: row.baseArea ?? row.area ?? null,
         })
@@ -413,12 +419,14 @@ const saveEditPartOfSite = () => {
   );
   showEditDialog.value = false;
   editingContractPackage.value = CONTRACT_PACKAGE.C2;
+  editingOriginalContractPackage.value = CONTRACT_PACKAGE.C2;
   ElMessage.success("Part of Site updated.");
 };
 
 const cancelEditPartOfSite = () => {
   showEditDialog.value = false;
   editingContractPackage.value = CONTRACT_PACKAGE.C2;
+  editingOriginalContractPackage.value = CONTRACT_PACKAGE.C2;
 };
 
 watch(

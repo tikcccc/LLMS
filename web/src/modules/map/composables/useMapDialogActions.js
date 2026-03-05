@@ -69,7 +69,9 @@ export const useMapDialogActions = ({
   ) => {
     const normalizedPartId = normalizePartValue(partId);
     if (!normalizedPartId) return false;
-    const feature = findPartOfSitesFeatureById(normalizedPartId, contractPackage);
+    const feature =
+      findPartOfSitesFeatureById(normalizedPartId, contractPackage) ||
+      findPartOfSitesFeatureById(normalizedPartId);
     if (!feature) return false;
     const resolvedPackage = resolveContractPackageValue([
       contractPackage,
@@ -89,6 +91,7 @@ export const useMapDialogActions = ({
     }
     feature.set("updatedAt", String(payload.updatedAt || "").trim());
     feature.set("updatedBy", String(payload.updatedBy || "").trim());
+    feature.set("contractPackage", resolvedPackage);
 
     if (typeof partOfSitesStore.setAttributeOverride === "function") {
       partOfSitesStore.setAttributeOverride(
@@ -111,7 +114,9 @@ export const useMapDialogActions = ({
   ) => {
     const normalizedSectionId = normalizeSectionValue(sectionId);
     if (!normalizedSectionId) return false;
-    const feature = findSectionFeatureById(normalizedSectionId, contractPackage);
+    const feature =
+      findSectionFeatureById(normalizedSectionId, contractPackage) ||
+      findSectionFeatureById(normalizedSectionId);
     if (!feature) return false;
     const resolvedPackage = resolveContractPackageValue([
       contractPackage,
@@ -131,6 +136,7 @@ export const useMapDialogActions = ({
     }
     feature.set("updatedAt", String(payload.updatedAt || "").trim());
     feature.set("updatedBy", String(payload.updatedBy || "").trim());
+    feature.set("contractPackage", resolvedPackage);
 
     if (typeof sectionsStore.setAttributeOverride === "function") {
       sectionsStore.setAttributeOverride(
@@ -202,6 +208,7 @@ export const useMapDialogActions = ({
     siteBoundaryDialogMode.value = "create";
     editingSiteBoundaryId.value = "";
     resetSiteBoundaryForm();
+    siteBoundaryForm.value.contractPackage = normalizeContractPackageValue(uiStore.activeContract);
   };
 
   const confirmWork = () => {
@@ -234,6 +241,9 @@ export const useMapDialogActions = ({
       pendingGeometry.value
     );
     workLotStore.addWorkLot({
+      contractPackage: normalizeContractPackageValue(
+        workForm.value.contractPackage || uiStore.activeContract
+      ),
       operatorName: workLotName,
       category: workForm.value.category,
       relatedSiteBoundaryIds,
@@ -251,6 +261,7 @@ export const useMapDialogActions = ({
       updatedAt: nowIso(),
     });
     resetWorkForm();
+    workForm.value.contractPackage = normalizeContractPackageValue(uiStore.activeContract);
     showWorkDialog.value = false;
     clearDraft();
     resetWorkDialogEditState();
@@ -279,12 +290,16 @@ export const useMapDialogActions = ({
     if (!pendingGeometry.value) return;
     const created = siteBoundaryStore.addSiteBoundary({
       ...buildSiteBoundaryUpdatePayload(siteBoundaryForm.value),
+      contractPackage: normalizeContractPackageValue(
+        siteBoundaryForm.value.contractPackage || uiStore.activeContract
+      ),
       name: String(siteBoundaryForm.value.name || "").trim() || "Site Boundary",
       geometry: pendingGeometry.value,
       entity: pendingGeometry.value?.type || "Polygon",
     });
     uiStore.selectSiteBoundary(created.id);
     resetSiteBoundaryForm();
+    siteBoundaryForm.value.contractPackage = normalizeContractPackageValue(uiStore.activeContract);
     clearDraft();
     resetSiteBoundaryDialogEditState();
   };

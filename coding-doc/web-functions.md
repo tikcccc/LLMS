@@ -47,8 +47,8 @@
 - Sections（section 級多選白名單）
 - Site Boundary（lot 級多選白名單）
 - Work Lots（lot 級多選白名單）
-- `Part of Sites / Sections / Site Boundary / Work Lots` 均支援 C1/C2 phase 子開關（可分開顯示或同時疊加）
-- Layers 區提供「Phase (Global)」總控，可一鍵套用全圖層 C1/C2
+- Layers 區提供「Contract Workspace（C1/C2）」單一切換（同一時間只顯示一個 contract）
+- `Part of Sites / Sections / Site Boundary / Work Lots` 的圖層、搜尋、Scope 結果、抽屜關聯均遵循目前 workspace 的 contract 過濾
 - 跨圖層可同時勾選多個 lot，僅影響地圖可見性
 - 瀏覽工具：
 - Pan/select
@@ -108,12 +108,13 @@
 ## `/landbank/work-lots` Work Lots 清單
 
 - 表格清單與欄位資訊展示
+- 含 `Contract Package (C1/C2)` 欄位
 - 關鍵字 fuzzy search
 - 篩選：
 - Status
 - Category
 - 列選取
-- 編輯 Work Lot（dialog）
+- 編輯 Work Lot（dialog，含 `Contract Package` 下拉）
 - 刪除 Work Lot（confirm dialog）
 - 「View on Map」跳轉
 - JSON 交換：
@@ -126,8 +127,9 @@
 ## `/landbank/site-boundaries` Site Boundaries 清單
 
 - 表格清單 + 進度顯示 + 關聯 work lot 提示
+- 含 `Contract Package (C1/C2)` 欄位
 - 搜尋 + 狀態篩選
-- 編輯 Site Boundary（dialog）
+- 編輯 Site Boundary（dialog，含 `Contract Package` 下拉）
 - 「View on Map」跳轉
 - JSON 交換：
 - 匯入 JSON（確認後覆蓋現有資料）
@@ -145,10 +147,11 @@
 - Part ID
 - Group
 - System ID（以既有規則顯示）
+- Contract Package（可編修）
 - Access Date（可編修）
 - Area（可編修）
 - Feature Count / Geometry Types / Source DXF / Generated At
-- `Edit`（dialog）可維護 `accessDate` 與 `area`，寫入前端持久化 overrides
+- `Edit`（dialog）可維護 `contractPackage`、`accessDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?partOfSiteId=`）
 
 ## `/landbank/sections` Sections 清單
@@ -159,10 +162,11 @@
 - Section ID
 - Group
 - System ID（以既有規則顯示）
+- Contract Package（可編修）
 - Completion Date（可編修）
 - Area（可編修）
 - Related Parts / Feature Count / Geometry Types / Source DXF / Generated At
-- `Edit`（dialog）可維護 `completionDate` 與 `area`，寫入前端持久化 overrides
+- `Edit`（dialog）可維護 `contractPackage`、`completionDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?sectionId=`）
 
 ## `/users` 使用者頁
@@ -218,6 +222,7 @@
 - 日期/文字/布林/數字正規化
 - 幾何與面積正規化
 - `contractPackage`（C1/C2）正規化（缺值時依來源線索推斷，預設回退 C2）
+- 四類實體編輯表單統一提供 `contractPackage` 下拉（`C1`/`C2`）
 - 時程欄位（現況）：
 - Work Lot：`assessDate`、`dueDate`、`completionDate`、`floatMonths`
 - Site Boundary：`assessDate`、`plannedHandoverDate`、`completionDate`
@@ -251,7 +256,7 @@
 - 尚無跨實體完整契約的 `partOfSite`/`sectionOfWorks` 時程模型（目前已支援 map feature 層級欄位與 `section -> parts` 關聯）
 - 無「`access date` 到期提醒」專屬規則（目前逾期語意基於 `dueDate`/`plannedHandoverDate`）
 - 尚無通知渠道策略配置（目前僅 Web in-app 通知中心，未接 email）
-- 已支援 map C1/C2 phase 子開關與四類實體 `contractPackage` 欄位（Work Lot / Site Boundary / Part / Section）
+- 已支援 map「Contract Workspace（C1/C2）」單一切換與四類實體 `contractPackage` 欄位（Work Lot / Site Boundary / Part / Section）
 - 已支援 phase-scoped 覆寫鍵（`C1/C2 + 業務 ID`）；同一業務 ID 可在不同 phase 分開編修，不互相覆蓋
 
 ## 8) 近期業務需求對照（2026-03-02 ~ 2026-03-05）
@@ -265,7 +270,7 @@
 | `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
 | Topbar 鈴鐺通知中心（in-app） | 已支援 | 提供 `All / Alert / Task / System` 分類、已讀管理、`View on Map` / `Open List` 快速跳轉；目前未接 email |
 | `section of works` 對應 `sectional completion date` | 部分支援 | 已新增 Section layer、`completionDate` 欄位與 `section -> part` 關聯；合約 offset 規則仍待補 |
-| `site/work lot/part/section` 需拆 C1/C2 兩層 | 已支援（前端層） | Map Layers 已新增 C1/C2 子開關、四類實體 `contractPackage` 欄位，以及 Part/Section 的 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存） |
+| `site/work lot/part/section` 需拆 C1/C2 兩層 | 已支援（前端層） | Map Layers 已改為單一 `Contract Workspace` 切換（C1 或 C2），並維持四類實體 `contractPackage` 欄位與 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存） |
 | 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |
 
 ## 9) 建議補充的功能文件

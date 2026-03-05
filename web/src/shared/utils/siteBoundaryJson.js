@@ -1,4 +1,5 @@
 import { normalizeSiteBoundary } from "./siteBoundary";
+import { normalizeContractPackage } from "./contractPackage";
 
 const SITE_BOUNDARY_JSON_SCHEMA = "llms.site-boundaries.json.v1";
 const DEFAULT_FILENAME = "site-boundaries.json";
@@ -29,7 +30,14 @@ const isPolygonGeometry = (geometry) =>
 const toExportBoundary = (boundary = {}) => ({
   id: normalizeText(boundary.id),
   sourceRef: normalizeText(boundary.sourceRef),
-  contractPackage: normalizeText(boundary.contractPackage || boundary.contract_package),
+  contractPackage: normalizeContractPackage(
+    boundary.contractPackage ??
+      boundary.contract_package ??
+      boundary.phase ??
+      boundary.package ??
+      boundary.contractNo ??
+      boundary.layer
+  ),
   name: normalizeText(boundary.name),
   layer: normalizeText(boundary.layer),
   entity: normalizeText(boundary.entity),

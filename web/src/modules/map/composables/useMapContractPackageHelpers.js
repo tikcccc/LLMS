@@ -28,7 +28,12 @@ export const useMapContractPackageHelpers = ({
   };
 
   const ensureContractPackageVisible = (group, packageValue) => {
-    const key = toContractPackageVisibilityKey(group, packageValue);
+    const normalized = normalizeContractPackageValue(packageValue);
+    if (uiStore.activeContract !== normalized) {
+      uiStore.setActiveContract(normalized);
+      return;
+    }
+    const key = toContractPackageVisibilityKey(group, normalized);
     if (key && !uiStore[key]) {
       uiStore.setLayerVisibility(key, true);
     }

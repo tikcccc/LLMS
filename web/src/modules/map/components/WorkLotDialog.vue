@@ -10,6 +10,17 @@
         <el-input :model-value="workLotId" disabled />
       </el-form-item>
 
+      <el-form-item label="Contract Package">
+        <el-select v-model="contractPackageProxy">
+          <el-option
+            v-for="item in CONTRACT_PACKAGE_VALUES"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="Work Lot Name">
         <el-input v-model="operatorNameProxy" placeholder="Work Lot Name" />
       </el-form-item>
@@ -128,6 +139,7 @@ import {
   WORK_LOT_CATEGORIES,
   WORK_LOT_STATUSES,
 } from "../../../shared/utils/worklot";
+import { CONTRACT_PACKAGE_VALUES } from "../../../shared/utils/contractPackage";
 
 const responsiblePersonOptions = buildUserOptions();
 
@@ -136,6 +148,7 @@ const props = defineProps({
   title: { type: String, default: "Create Work Lot" },
   confirmText: { type: String, default: "Save" },
   workLotId: { type: String, default: "" },
+  contractPackage: { type: String, default: "C2" },
   operatorName: { type: String, default: "" },
   category: { type: String, required: true },
   relatedSiteBoundaryIds: { type: Array, default: () => [] },
@@ -153,6 +166,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   "update:modelValue",
+  "update:contractPackage",
   "update:operatorName",
   "update:category",
   "update:responsiblePerson",
@@ -167,6 +181,11 @@ const emit = defineEmits([
   "confirm",
   "cancel",
 ]);
+
+const contractPackageProxy = computed({
+  get: () => props.contractPackage,
+  set: (value) => emit("update:contractPackage", value),
+});
 
 const operatorNameProxy = computed({
   get: () => props.operatorName,
@@ -224,6 +243,7 @@ const remarkProxy = computed({
 });
 
 const formProxy = computed(() => ({
+  contractPackage: contractPackageProxy.value,
   operatorName: operatorNameProxy.value,
   category: categoryProxy.value,
   relatedSiteBoundaryIds: props.relatedSiteBoundaryIds,

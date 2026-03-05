@@ -11,6 +11,9 @@ export const normalizeLayerSelectedIdList = (values = []) => {
 
 export const applyLayerFilterStateToUiStore = (uiStore, nextState = {}) => {
   if (!uiStore || !nextState || typeof nextState !== "object") return;
+  if (typeof nextState.activeContract === "string" && nextState.activeContract.trim()) {
+    uiStore.setActiveContract(nextState.activeContract);
+  }
   if (typeof nextState.showBasemap === "boolean") {
     uiStore.setLayerVisibility("showBasemap", nextState.showBasemap);
   }
@@ -107,6 +110,7 @@ export const applyLayerFilterStateToUiStore = (uiStore, nextState = {}) => {
 export const buildLayerFilterStateFromUiStore = (uiStore) => {
   if (!uiStore) return {};
   return {
+    activeContract: uiStore.activeContract,
     showBasemap: uiStore.showBasemap,
     showLabels: uiStore.showLabels,
     showIntLand: uiStore.showIntLand,

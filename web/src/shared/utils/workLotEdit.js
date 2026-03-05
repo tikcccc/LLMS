@@ -4,6 +4,7 @@ import {
   WORK_LOT_STATUS,
 } from "./worklot";
 import { todayHongKong } from "./time";
+import { normalizeContractPackage } from "./contractPackage";
 
 const normalizeIdList = (value) =>
   Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
@@ -12,6 +13,9 @@ export const createWorkLotEditForm = (lot = {}, overrides = {}) => {
   const fallbackDueDate = todayHongKong();
   return {
     id: String(lot.id || ""),
+    contractPackage: normalizeContractPackage(
+      lot.contractPackage ?? lot.contract_package ?? lot.phase ?? lot.package
+    ),
     operatorName: String(lot.operatorName || lot.name || ""),
     category: normalizeWorkLotCategory(lot.category ?? lot.type) || WORK_LOT_CATEGORY.BU,
     relatedSiteBoundaryIds:
@@ -52,6 +56,9 @@ export const buildWorkLotUpdatePayload = (
       ? normalizeIdList(relatedSiteBoundaryIds)
       : normalizeIdList(form.relatedSiteBoundaryIds);
   return {
+    contractPackage: normalizeContractPackage(
+      form.contractPackage ?? form.contract_package ?? form.phase ?? form.package
+    ),
     operatorName: resolvedName,
     category: normalizeWorkLotCategory(form.category ?? form.type),
     relatedSiteBoundaryIds: normalizedRelatedIds,

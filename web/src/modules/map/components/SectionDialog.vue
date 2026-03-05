@@ -15,6 +15,17 @@
         <el-input :model-value="sectionId" disabled />
       </el-form-item>
 
+      <el-form-item label="Contract Package">
+        <el-select v-model="contractPackageProxy">
+          <el-option
+            v-for="item in CONTRACT_PACKAGE_VALUES"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="Completion Date">
         <el-date-picker
           v-model="completionDateProxy"
@@ -45,6 +56,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { CONTRACT_PACKAGE_VALUES } from "../../../shared/utils/contractPackage";
 
 const props = defineProps({
   modelValue: { type: Boolean, required: true },
@@ -52,17 +64,24 @@ const props = defineProps({
   confirmText: { type: String, default: "Save" },
   systemId: { type: String, default: "" },
   sectionId: { type: String, default: "" },
+  contractPackage: { type: String, default: "C2" },
   completionDate: { type: String, default: "" },
   area: { type: Number, default: null },
 });
 
 const emit = defineEmits([
   "update:modelValue",
+  "update:contractPackage",
   "update:completionDate",
   "update:area",
   "confirm",
   "cancel",
 ]);
+
+const contractPackageProxy = computed({
+  get: () => props.contractPackage,
+  set: (value) => emit("update:contractPackage", value),
+});
 
 const completionDateProxy = computed({
   get: () => props.completionDate,
@@ -77,6 +96,7 @@ const areaProxy = computed({
 const formProxy = computed(() => ({
   systemId: props.systemId,
   sectionId: props.sectionId,
+  contractPackage: contractPackageProxy.value,
   completionDate: completionDateProxy.value,
   area: areaProxy.value,
 }));

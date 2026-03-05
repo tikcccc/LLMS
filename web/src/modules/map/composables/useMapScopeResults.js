@@ -12,6 +12,8 @@ export const useMapScopeResults = ({
   scopePartOfSitesIds,
   scopeSectionIds,
   workLotStore,
+  uiStore,
+  resolveContractPackageValue,
   siteBoundarySourceVersion,
   partOfSitesSourceVersion,
   sectionSourceVersion,
@@ -25,6 +27,8 @@ export const useMapScopeResults = ({
     buildScopeWorkLotResults({
       scopeWorkLotIds: scopeWorkLotIds.value,
       workLots: workLotStore.workLots,
+      activeContract: uiStore.activeContract,
+      resolveContractPackageValue,
     })
   );
 

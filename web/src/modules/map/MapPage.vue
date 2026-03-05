@@ -92,6 +92,7 @@
       :work-lot-id="workDialogWorkLotId"
       :related-site-boundary-ids="workForm.relatedSiteBoundaryIds"
       :related-site-boundary-names="workFormRelatedSiteBoundaryNames"
+      v-model:contractPackage="workForm.contractPackage"
       v-model:operatorName="workForm.operatorName"
       v-model:category="workForm.category"
       v-model:responsiblePerson="workForm.responsiblePerson"
@@ -112,6 +113,7 @@
       :title="siteBoundaryDialogTitle"
       :confirm-text="siteBoundaryDialogConfirmText"
       :boundary-id="siteBoundaryDialogBoundaryId"
+      v-model:contractPackage="siteBoundaryForm.contractPackage"
       v-model:name="siteBoundaryForm.name"
       v-model:contractNo="siteBoundaryForm.contractNo"
       v-model:futureUse="siteBoundaryForm.futureUse"
@@ -128,6 +130,7 @@
       :confirm-text="partOfSiteDialogConfirmText"
       :system-id="partOfSiteDialogSystemId"
       :part-id="partOfSiteDialogPartId"
+      v-model:contractPackage="editingPartOfSiteContractPackage"
       v-model:accessDate="partOfSiteForm.accessDate"
       v-model:area="partOfSiteForm.area"
       @confirm="confirmPartOfSite"
@@ -140,6 +143,7 @@
       :confirm-text="sectionDialogConfirmText"
       :system-id="sectionDialogSystemId"
       :section-id="sectionDialogSectionId"
+      v-model:contractPackage="editingSectionContractPackage"
       v-model:completionDate="sectionForm.completionDate"
       v-model:area="sectionForm.area"
       @confirm="confirmSection"
@@ -244,7 +248,19 @@ const { activeLayerType, setActiveLayerType } = useMapEditLayerType({
 });
 
 const selectedWorkLot = computed(
-  () => workLotStore.workLots.find((lot) => lot.id === uiStore.selectedWorkLotId) || null
+  () =>
+    workLotStore.workLots.find((lot) => {
+      if (lot.id !== uiStore.selectedWorkLotId) return false;
+      return (
+        resolveContractPackageValue([
+          lot.contractPackage,
+          lot.contract_package,
+          lot.phase,
+          lot.package,
+          lot.contractNo,
+        ]) === uiStore.activeContract
+      );
+    }) || null
 );
 
 const drawerWorkLot = computed(() =>
@@ -576,6 +592,8 @@ const {
   scopePartOfSitesIds,
   scopeSectionIds,
   workLotStore,
+  uiStore,
+  resolveContractPackageValue,
   ...sourceVersions,
   ...featureLookup,
   ...metaResolvers,
@@ -602,6 +620,7 @@ const {
   getSectionAreaOverride,
   normalizePositiveNumber,
   normalizeIdCollection,
+  resolveContractPackageValue,
   resolveRelatedSiteBoundaryIdsByGeometryObject,
   withRelatedIdFallback,
   ...mapSources,

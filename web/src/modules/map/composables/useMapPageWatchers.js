@@ -93,6 +93,7 @@ export const useMapPageWatchers = ({
     () => showWorkDialog.value,
     (open) => {
       if (!open || workDialogMode.value !== "create") return;
+      workForm.value.contractPackage = uiStore.activeContract;
       workForm.value.relatedSiteBoundaryIds =
         resolveRelatedSiteBoundaryIdsByGeometryObject(pendingGeometry.value);
     }
@@ -103,6 +104,7 @@ export const useMapPageWatchers = ({
       uiStore.showBasemap,
       uiStore.showLabels,
       uiStore.showIntLand,
+      uiStore.activeContract,
       uiStore.showPartOfSites,
       uiStore.showPartOfSitesC1,
       uiStore.showPartOfSitesC2,
@@ -156,6 +158,7 @@ export const useMapPageWatchers = ({
       activeMapFocus.value?.group || "",
       activeMapFocus.value?.id || "",
       uiStore.showIntLand,
+      uiStore.activeContract,
       uiStore.showWorkLots,
       uiStore.showWorkLotsC1,
       uiStore.showWorkLotsC2,
@@ -192,6 +195,18 @@ export const useMapPageWatchers = ({
   watch(
     () => authStore.role,
     () => onRoleChange()
+  );
+
+  watch(
+    () => uiStore.activeContract,
+    () => {
+      uiStore.clearSelection();
+      clearHighlightOverride();
+      sanitizeMapFilterSelections();
+      refreshLayerFilters();
+      refreshHighlights();
+      updateHighlightVisibility();
+    }
   );
 
   watch(

@@ -64,6 +64,7 @@
     >
       <el-table-column type="selection" width="46" fixed="left" />
       <el-table-column prop="id" label="System ID" width="170" fixed="left" />
+      <el-table-column prop="contractPackage" label="Contract" width="110" />
       <el-table-column prop="name" label="Name" min-width="190" />
       <el-table-column label="Handover Date" width="140">
         <template #default="{ row }">
@@ -137,6 +138,7 @@
       title="Edit Site Boundary"
       confirm-text="Save"
       :boundary-id="String(editForm.id || '')"
+      v-model:contractPackage="editForm.contractPackage"
       v-model:name="editForm.name"
       v-model:contractNo="editForm.contractNo"
       v-model:futureUse="editForm.futureUse"
@@ -265,7 +267,14 @@ const filteredBoundaries = computed(() =>
   enrichedBoundaries.value.filter((item) => {
     if (statusFilter.value !== "All" && item.statusKey !== statusFilter.value) return false;
     return fuzzyMatchAny(
-      [item.id, item.name, item.contractNo, item.futureUse, relatedWorkLotText(item)],
+      [
+        item.id,
+        item.contractPackage,
+        item.name,
+        item.contractNo,
+        item.futureUse,
+        relatedWorkLotText(item),
+      ],
       searchQuery.value
     );
   })

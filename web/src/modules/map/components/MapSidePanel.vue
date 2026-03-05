@@ -59,20 +59,11 @@
           v-model:show-basemap="showBasemapProxy"
           v-model:show-labels="showLabelsProxy"
           v-model:layer-filter-keyword="layerFilterKeyword"
-          v-model:show-global-c1="showGlobalC1Proxy"
-          v-model:show-global-c2="showGlobalC2Proxy"
+          v-model:active-contract="activeContractProxy"
           v-model:show-part-of-sites="showPartOfSitesProxy"
-          v-model:show-part-of-sites-c1="showPartOfSitesC1Proxy"
-          v-model:show-part-of-sites-c2="showPartOfSitesC2Proxy"
           v-model:show-sections="showSectionsProxy"
-          v-model:show-sections-c1="showSectionsC1Proxy"
-          v-model:show-sections-c2="showSectionsC2Proxy"
           v-model:show-site-boundary="showSiteBoundaryProxy"
-          v-model:show-site-boundary-c1="showSiteBoundaryC1Proxy"
-          v-model:show-site-boundary-c2="showSiteBoundaryC2Proxy"
           v-model:show-work-lots="showWorkLotsProxy"
-          v-model:show-work-lots-c1="showWorkLotsC1Proxy"
-          v-model:show-work-lots-c2="showWorkLotsC2Proxy"
           :filtered-part-of-sites-options="filteredPartOfSitesOptions"
           :filtered-section-options="filteredSectionOptions"
           :filtered-site-boundary-options="filteredSiteBoundaryOptions"
@@ -237,20 +228,11 @@ const {
   sectionSearchProxy,
   showBasemapProxy,
   showLabelsProxy,
+  activeContractProxy,
   showPartOfSitesProxy,
-  showPartOfSitesC1Proxy,
-  showPartOfSitesC2Proxy,
   showSectionsProxy,
-  showSectionsC1Proxy,
-  showSectionsC2Proxy,
   showSiteBoundaryProxy,
-  showSiteBoundaryC1Proxy,
-  showSiteBoundaryC2Proxy,
   showWorkLotsProxy,
-  showWorkLotsC1Proxy,
-  showWorkLotsC2Proxy,
-  showGlobalC1Proxy,
-  showGlobalC2Proxy,
   layerFilterKeyword,
   filteredPartOfSitesOptions,
   filteredSectionOptions,

@@ -1,6 +1,12 @@
 import { computed, ref } from "vue";
 
-const createDefaultWorkForm = ({ workLotCategory, workLotStatus, todayHongKong }) => ({
+const createDefaultWorkForm = ({
+  contractPackage,
+  workLotCategory,
+  workLotStatus,
+  todayHongKong,
+}) => ({
+  contractPackage: contractPackage.C2,
   operatorName: "",
   category: workLotCategory.BU,
   relatedSiteBoundaryIds: [],
@@ -45,6 +51,7 @@ export const useMapDialogForms = ({
 
   const workForm = ref(
     createDefaultWorkForm({
+      contractPackage,
       workLotCategory,
       workLotStatus,
       todayHongKong,
@@ -52,6 +59,7 @@ export const useMapDialogForms = ({
   );
 
   const siteBoundaryForm = ref({
+    contractPackage: contractPackage.C2,
     name: "",
     contractNo: "",
     futureUse: "",
@@ -124,6 +132,7 @@ export const useMapDialogForms = ({
 
   const resetWorkForm = () => {
     workForm.value = createDefaultWorkForm({
+      contractPackage,
       workLotCategory,
       workLotStatus,
       todayHongKong,

@@ -44,6 +44,7 @@ export const buildSelectedWorkLotRelatedSites = ({
         typeof findSiteBoundaryFeatureById === "function"
           ? findSiteBoundaryFeatureById(siteBoundaryId)
           : null;
+      if (!feature) return null;
       return {
         id: String(feature?.getId?.() ?? siteBoundaryId),
         name: feature?.get?.("name") ?? "",
@@ -53,20 +54,36 @@ export const buildSelectedWorkLotRelatedSites = ({
         overdue: !!feature?.get?.("overdue"),
       };
     })
+    .filter(Boolean)
     .sort(compareByNameThenId);
 };
 
 export const buildSelectedSiteBoundaryRelatedWorkLots = ({
   selectedSiteBoundary,
   workLots = [],
+  activeContract = "C2",
+  resolveContractPackageValue,
   defaultWorkLotStatus = "Waiting for Assessment",
 } = {}) => {
   const siteBoundaryId = selectedSiteBoundary?.id;
   if (!siteBoundaryId) return [];
 
   const normalizedSiteBoundaryId = String(siteBoundaryId).toLowerCase();
+  const normalizedActiveContract = String(activeContract || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
   return [...workLots]
     .filter((lot) => {
+      const contractPackage =
+        typeof resolveContractPackageValue === "function"
+          ? resolveContractPackageValue([
+              lot?.contractPackage,
+              lot?.contract_package,
+              lot?.phase,
+              lot?.package,
+              lot?.contractNo,
+            ])
+          : String(lot?.contractPackage || "").trim().toUpperCase();
+      const normalizedContract = contractPackage === "C1" ? "C1" : "C2";
+      if (normalizedContract !== normalizedActiveContract) return false;
       const relatedIds = Array.isArray(lot?.relatedSiteBoundaryIds)
         ? lot.relatedSiteBoundaryIds
         : [];
@@ -92,6 +109,7 @@ export const buildSelectedPartOfSiteRelatedSections = ({
   normalizeIdCollection,
   findSectionFeatureById,
   resolveSectionMeta,
+  activeContract = "C2",
   sectionFeatures = [],
 } = {}) => {
   const partId = selectedPartOfSite?.partId;
@@ -132,8 +150,13 @@ export const buildSelectedPartOfSiteRelatedSections = ({
     });
   } else if (typeof resolveSectionMeta === "function") {
     const normalizedPartId = String(partId).toLowerCase();
+    const normalizedActiveContract =
+      String(activeContract || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
     sectionFeatures.forEach((feature, index) => {
       const meta = resolveSectionMeta(feature, index);
+      const normalizedContract =
+        String(meta?.contractPackage || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+      if (normalizedContract !== normalizedActiveContract) return;
       const relatedPartIds = (meta?.relatedPartIds || []).map((value) => String(value).toLowerCase());
       if (!relatedPartIds.includes(normalizedPartId)) return;
       const key = String(meta?.sectionId || "").toLowerCase();
@@ -155,6 +178,7 @@ export const buildSelectedSectionRelatedPartOfSites = ({
   normalizeIdCollection,
   findPartOfSitesFeatureById,
   resolvePartOfSiteMeta,
+  activeContract = "C2",
   partOfSitesFeatures = [],
 } = {}) => {
   const sectionId = selectedSection?.sectionId;
@@ -197,8 +221,13 @@ export const buildSelectedSectionRelatedPartOfSites = ({
     });
   } else if (typeof resolvePartOfSiteMeta === "function") {
     const normalizedSectionId = String(sectionId).toLowerCase();
+    const normalizedActiveContract =
+      String(activeContract || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
     partOfSitesFeatures.forEach((feature, index) => {
       const meta = resolvePartOfSiteMeta(feature, index);
+      const normalizedContract =
+        String(meta?.contractPackage || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+      if (normalizedContract !== normalizedActiveContract) return;
       const sectionIds = (meta?.sectionIds || []).map((value) => String(value).toLowerCase());
       if (!sectionIds.includes(normalizedSectionId)) return;
       const key = String(meta?.partId || "").toLowerCase();
