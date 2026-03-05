@@ -1,4 +1,5 @@
 import { normalizeContractPackage } from "../../../shared/utils/contractPackage";
+import { resolvePartGroupLabel } from "../../../shared/utils/partGroup";
 import {
   buildManualPartOfSitesId as buildManualPartOfSitesIdForSource,
   buildManualPartOfSitesSystemId as buildManualPartOfSitesSystemIdForSource,
@@ -24,21 +25,22 @@ export const useInteractionFeatureMeta = ({ partOfSitesSource, sectionsSource })
     const systemId =
       normalizeValue(feature.get("partOfSitesSystemId")) ||
       buildManualPartOfSitesSystemId(partId);
+    const partGroup = resolvePartGroupLabel(
+      partId,
+      normalizeValue(feature.get("partOfSitesGroup")) ||
+        normalizeValue(feature.get("partGroup")) ||
+        "Manual Draw"
+    );
     feature.setId(systemId);
     feature.set("partId", partId);
-    feature.set("partGroup", normalizeValue(feature.get("partGroup")) || "Manual Draw");
+    feature.set("partGroup", partGroup);
     feature.set("partOfSitesLotId", partId);
     feature.set(
       "partOfSitesLotLabel",
       normalizeValue(feature.get("partOfSitesLotLabel")) || partId
     );
     feature.set("partOfSitesSystemId", systemId);
-    feature.set(
-      "partOfSitesGroup",
-      normalizeValue(feature.get("partOfSitesGroup")) ||
-        normalizeValue(feature.get("partGroup")) ||
-        "Manual Draw"
-    );
+    feature.set("partOfSitesGroup", partGroup);
     feature.set(
       "contractPackage",
       normalizeContractPackage(

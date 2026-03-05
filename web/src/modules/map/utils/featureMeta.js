@@ -1,3 +1,5 @@
+import { resolvePartGroupLabel } from "../../../shared/utils/partGroup";
+
 const normalizeText = (value) => String(value || "").trim();
 
 export const normalizePartValue = normalizeText;
@@ -61,9 +63,11 @@ export const createPartOfSiteMetaResolver =
       normalizePartValue(feature?.get("partOfSitesLotLabel")) ||
       normalizePartValue(feature?.get("partId")) ||
       partId;
-    const group =
+    const group = resolvePartGroupLabel(
+      partId,
       normalizePartValue(feature?.get("partOfSitesGroup")) ||
-      normalizePartValue(feature?.get("partGroup"));
+        normalizePartValue(feature?.get("partGroup"))
+    );
     const systemId =
       normalizePartValue(feature?.get("partOfSitesSystemId")) ||
       normalizePartValue(feature?.get("systemId")) ||

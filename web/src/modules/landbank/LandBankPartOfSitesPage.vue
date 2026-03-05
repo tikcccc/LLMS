@@ -148,6 +148,7 @@ import {
   toContractPhaseScopedId,
 } from "../../shared/utils/contractPackage";
 import { downloadJson } from "../../shared/utils/jsonDownload";
+import { resolvePartGroupLabel } from "../../shared/utils/partGroup";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -284,14 +285,14 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
       groups,
       async (groupMeta, groupIndex) => {
         const normalizedGroupMeta = groupMeta || {};
-        const groupLabel =
+        const rootGroupLabel =
           String(normalizedGroupMeta.id || "").trim() || `PART ${groupIndex + 1}`;
         const groupIndexUrl = String(normalizedGroupMeta.index || "").trim();
         if (!groupIndexUrl) return [];
 
         const groupIndexData = await fetchJsonOrThrow(
           groupIndexUrl,
-          `Part of Sites group index (${groupLabel})`,
+          `Part of Sites group index (${rootGroupLabel})`,
           { forceRefresh }
         );
         const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
@@ -328,8 +329,9 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
               item?.phase,
               item?.package,
               item?.sourceDxf,
-              groupLabel,
+              rootGroupLabel,
             ]);
+            const groupLabel = resolvePartGroupLabel(partId, rootGroupLabel) || rootGroupLabel;
             return applyPartOverridesToRow({
               key: `${groupLabel}:${partId}`,
               partId,

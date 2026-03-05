@@ -4,6 +4,7 @@ import {
   resolveContractPackage,
   toContractPhaseScopedId,
 } from "../../../shared/utils/contractPackage";
+import { resolvePartGroupLabel } from "../../../shared/utils/partGroup";
 import {
   buildPartOfSitesSystemId,
   buildSectionSystemId,
@@ -77,11 +78,12 @@ export const useMapFeatureNormalization = ({ partOfSitesStore, sectionsStore }) 
       normalizePartOfSitesId(feature?.get("partOfSitesLotId")) ||
       normalizePartOfSitesId(partIdHint) ||
       getPartOfSitesLotId(feature, featureIndex);
-    const groupLabel =
+    const rawGroupLabel =
       normalizeFeatureId(feature?.get("partOfSitesGroup")) ||
       normalizeFeatureId(feature?.get("partGroup")) ||
       normalizeFeatureId(groupLabelHint) ||
       "Manual Draw";
+    const groupLabel = resolvePartGroupLabel(lotId, rawGroupLabel) || "Manual Draw";
     const lotLabel =
       normalizeFeatureId(feature?.get("partOfSitesLotLabel")) ||
       normalizeFeatureId(feature?.get("partId")) ||
