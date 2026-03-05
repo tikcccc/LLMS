@@ -6,6 +6,35 @@ import {
   getResolvedPartGeometryStat,
 } from "../utils/partGeometryResolution";
 
+const normalizeText = (value) => String(value || "").trim();
+const normalizeContractPackage = (value) =>
+  normalizeText(value).toUpperCase() === "C1" ? "C1" : "C2";
+const buildScopedKey = (id, contractPackage = "C2") => {
+  const normalizedId = normalizeText(id);
+  if (!normalizedId) return "";
+  const normalizedContract = normalizeContractPackage(contractPackage);
+  return `${normalizedContract}:${normalizedId.toLowerCase()}`;
+};
+const normalizeNaturalSort = (left, right) =>
+  String(left || "").localeCompare(String(right || ""), undefined, { numeric: true });
+
+const resolveScopedGeometryStat = (statsMap, id, contractPackage = "") => {
+  const normalizedId = normalizeText(id);
+  if (!normalizedId || !(statsMap instanceof Map)) return null;
+  const normalizedContract = normalizeText(contractPackage).toUpperCase();
+  if (normalizedContract === "C1" || normalizedContract === "C2") {
+    return getResolvedPartGeometryStat(
+      statsMap,
+      buildScopedKey(normalizedId, normalizedContract)
+    );
+  }
+  const c1Stat = getResolvedPartGeometryStat(statsMap, buildScopedKey(normalizedId, "C1"));
+  const c2Stat = getResolvedPartGeometryStat(statsMap, buildScopedKey(normalizedId, "C2"));
+  if (c1Stat && !c2Stat) return c1Stat;
+  if (c2Stat && !c1Stat) return c2Stat;
+  return c1Stat || c2Stat || getResolvedPartGeometryStat(statsMap, normalizedId);
+};
+
 export const useMapSectionPartRelations = ({
   sectionsSource,
   partOfSitesSource,
@@ -17,20 +46,20 @@ export const useMapSectionPartRelations = ({
   const partGeometryStatsById = ref(new Map());
   const sectionGeometryStatsById = ref(new Map());
 
-  const getPartGeometryStatById = (partId) =>
-    getResolvedPartGeometryStat(partGeometryStatsById.value, partId);
-  const getSectionGeometryStatById = (sectionId) =>
-    getResolvedPartGeometryStat(sectionGeometryStatsById.value, sectionId);
+  const getPartGeometryStatById = (partId, contractPackage = "") =>
+    resolveScopedGeometryStat(partGeometryStatsById.value, partId, contractPackage);
+  const getSectionGeometryStatById = (sectionId, contractPackage = "") =>
+    resolveScopedGeometryStat(sectionGeometryStatsById.value, sectionId, contractPackage);
 
-  const resolvePartHighlightGeometry = (partId) => {
-    const partGeometryStat = getPartGeometryStatById(partId);
+  const resolvePartHighlightGeometry = (partId, contractPackage = "") => {
+    const partGeometryStat = getPartGeometryStatById(partId, contractPackage);
     if (!partGeometryStat) return undefined;
     const geometry = partGeometryStat.geometry;
     return geometry ? geometry.clone() : null;
   };
 
-  const resolveSectionHighlightGeometry = (sectionId) => {
-    const sectionGeometryStat = getSectionGeometryStatById(sectionId);
+  const resolveSectionHighlightGeometry = (sectionId, contractPackage = "") => {
+    const sectionGeometryStat = getSectionGeometryStatById(sectionId, contractPackage);
     if (!sectionGeometryStat) return undefined;
     const geometry = sectionGeometryStat.geometry;
     return geometry ? geometry.clone() : null;
@@ -56,7 +85,10 @@ export const useMapSectionPartRelations = ({
       partFeatures.length > 0
         ? buildResolvedPartGeometryStats({
             features: partFeatures,
-            resolvePartId: (feature, index) => resolvePartOfSiteMeta(feature, index).partId,
+            resolvePartId: (feature, index) => {
+              const partMeta = resolvePartOfSiteMeta(feature, index);
+              return buildScopedKey(partMeta.partId, partMeta.contractPackage);
+            },
           })
         : new Map();
     partGeometryStatsById.value = nextPartGeometryStats;
@@ -65,7 +97,10 @@ export const useMapSectionPartRelations = ({
       sectionFeatures.length > 0
         ? buildResolvedPartGeometryStats({
             features: sectionFeatures,
-            resolvePartId: (feature, index) => resolveSectionMeta(feature, index).sectionId,
+            resolvePartId: (feature, index) => {
+              const sectionMeta = resolveSectionMeta(feature, index);
+              return buildScopedKey(sectionMeta.sectionId, sectionMeta.contractPackage);
+            },
           })
         : new Map();
     sectionGeometryStatsById.value = nextSectionGeometryStats;
@@ -82,48 +117,79 @@ export const useMapSectionPartRelations = ({
       return;
     }
 
-    const sectionById = new Map();
+    const sectionByScopedId = new Map();
     const sectionToPartIds = new Map();
-    const fallbackSectionIds = new Set();
+    const fallbackSectionScopedIds = new Set();
     const partToSectionIds = new Map();
 
-    const ensureSectionBinding = (sectionId, partId) => {
-      const normalizedSectionId = String(sectionId || "").trim();
-      const normalizedPartId = String(partId || "").trim();
-      if (!normalizedSectionId || !normalizedPartId) return;
-      if (!sectionById.has(normalizedSectionId.toLowerCase())) return;
-      if (!sectionToPartIds.has(normalizedSectionId)) {
-        sectionToPartIds.set(normalizedSectionId, new Set());
+    const ensureSectionBinding = ({
+      sectionScopedId,
+      sectionId,
+      partScopedId,
+      partId,
+    } = {}) => {
+      const normalizedSectionScopedId = normalizeText(sectionScopedId);
+      const normalizedSectionId = normalizeText(sectionId);
+      const normalizedPartScopedId = normalizeText(partScopedId);
+      const normalizedPartId = normalizeText(partId);
+      if (
+        !normalizedSectionScopedId ||
+        !normalizedSectionId ||
+        !normalizedPartScopedId ||
+        !normalizedPartId
+      ) {
+        return;
       }
-      sectionToPartIds.get(normalizedSectionId).add(normalizedPartId);
-      if (!partToSectionIds.has(normalizedPartId)) {
-        partToSectionIds.set(normalizedPartId, new Set());
+      if (!sectionByScopedId.has(normalizedSectionScopedId)) return;
+      if (!sectionToPartIds.has(normalizedSectionScopedId)) {
+        sectionToPartIds.set(normalizedSectionScopedId, new Set());
       }
-      partToSectionIds.get(normalizedPartId).add(normalizedSectionId);
+      sectionToPartIds.get(normalizedSectionScopedId).add(normalizedPartId);
+      if (!partToSectionIds.has(normalizedPartScopedId)) {
+        partToSectionIds.set(normalizedPartScopedId, new Set());
+      }
+      partToSectionIds.get(normalizedPartScopedId).add(normalizedSectionId);
     };
 
     sectionFeatures.forEach((feature, index) => {
       const sectionMeta = resolveSectionMeta(feature, index);
-      sectionById.set(sectionMeta.sectionId.toLowerCase(), {
+      const sectionScopedId = buildScopedKey(
+        sectionMeta.sectionId,
+        sectionMeta.contractPackage
+      );
+      if (!sectionScopedId) return;
+      const relatedPartIds = (sectionMeta.relatedPartIds || [])
+        .map((partId) => normalizeText(partId))
+        .filter(Boolean);
+
+      sectionByScopedId.set(sectionScopedId, {
         sectionId: sectionMeta.sectionId,
+        contractPackage: normalizeContractPackage(sectionMeta.contractPackage),
         feature,
       });
-      sectionToPartIds.set(sectionMeta.sectionId, new Set(sectionMeta.relatedPartIds));
-      if (sectionMeta.relatedPartIds.length === 0) {
-        fallbackSectionIds.add(sectionMeta.sectionId.toLowerCase());
+      sectionToPartIds.set(sectionScopedId, new Set(relatedPartIds));
+      if (relatedPartIds.length === 0) {
+        fallbackSectionScopedIds.add(sectionScopedId);
       }
     });
 
     // Seed reverse mapping from explicit section -> part relationships.
-    sectionToPartIds.forEach((partIds, sectionId) => {
+    sectionToPartIds.forEach((partIds, sectionScopedId) => {
       if (!(partIds instanceof Set) || partIds.size === 0) return;
+      const sectionRecord = sectionByScopedId.get(sectionScopedId);
+      if (!sectionRecord) return;
       partIds.forEach((partId) => {
-        const normalizedPartId = String(partId || "").trim();
+        const normalizedPartId = normalizeText(partId);
         if (!normalizedPartId) return;
-        if (!partToSectionIds.has(normalizedPartId)) {
-          partToSectionIds.set(normalizedPartId, new Set());
+        const partScopedId = buildScopedKey(
+          normalizedPartId,
+          sectionRecord.contractPackage
+        );
+        if (!partScopedId) return;
+        if (!partToSectionIds.has(partScopedId)) {
+          partToSectionIds.set(partScopedId, new Set());
         }
-        partToSectionIds.get(normalizedPartId).add(sectionId);
+        partToSectionIds.get(partScopedId).add(sectionRecord.sectionId);
       });
     });
 
@@ -134,52 +200,92 @@ export const useMapSectionPartRelations = ({
       // Ignore previous auto-generated bindings as explicit input.
       if (bindingSource === "auto") return;
       const partMeta = resolvePartOfSiteMeta(feature, index);
+      const partScopedId = buildScopedKey(partMeta.partId, partMeta.contractPackage);
+      if (!partScopedId) return;
       const explicitSectionIds = normalizeIdCollection(
         feature.get("sectionIds") || feature.get("relatedSectionIds")
       );
       const sectionIdCandidates = partMeta.sectionId
         ? [partMeta.sectionId, ...explicitSectionIds]
         : explicitSectionIds;
-      sectionIdCandidates.forEach((sectionId) => ensureSectionBinding(sectionId, partMeta.partId));
+      sectionIdCandidates.forEach((sectionId) => {
+        const sectionScopedId = buildScopedKey(sectionId, partMeta.contractPackage);
+        const sectionRecord = sectionByScopedId.get(sectionScopedId);
+        if (!sectionRecord) return;
+        ensureSectionBinding({
+          sectionScopedId,
+          sectionId: sectionRecord.sectionId,
+          partScopedId,
+          partId: partMeta.partId,
+        });
+      });
     });
 
     partFeatures.forEach((feature, index) => {
       const partMeta = resolvePartOfSiteMeta(feature, index);
       const normalizedPartId = partMeta.partId;
-      const existing = partToSectionIds.get(normalizedPartId);
+      const normalizedPartScopedId = buildScopedKey(
+        normalizedPartId,
+        partMeta.contractPackage
+      );
+      if (!normalizedPartScopedId) return;
+      const existing = partToSectionIds.get(normalizedPartScopedId);
       if (existing && existing.size > 0) return;
       const partGeometry =
-        getResolvedPartGeometryStat(nextPartGeometryStats, normalizedPartId)?.geometry ||
+        getPartGeometryStatById(normalizedPartId, partMeta.contractPackage)?.geometry ||
         feature.getGeometry();
       if (!partGeometry) return;
       sectionFeatures.forEach((sectionFeature, sectionIndex) => {
         const sectionMeta = resolveSectionMeta(sectionFeature, sectionIndex);
-        if (!fallbackSectionIds.has(sectionMeta.sectionId.toLowerCase())) return;
+        const normalizedSectionScopedId = buildScopedKey(
+          sectionMeta.sectionId,
+          sectionMeta.contractPackage
+        );
+        if (!fallbackSectionScopedIds.has(normalizedSectionScopedId)) return;
+        if (
+          normalizeContractPackage(sectionMeta.contractPackage) !==
+          normalizeContractPackage(partMeta.contractPackage)
+        ) {
+          return;
+        }
         const sectionGeometry =
-          getSectionGeometryStatById(sectionMeta.sectionId)?.geometry ||
+          getSectionGeometryStatById(
+            sectionMeta.sectionId,
+            sectionMeta.contractPackage
+          )?.geometry ||
           sectionFeature.getGeometry();
         if (!sectionGeometry) return;
         if (!geometriesOverlapByArea(partGeometry, sectionGeometry)) return;
         const overlapArea = getGeometriesIntersectionArea(partGeometry, sectionGeometry);
         if (overlapArea < minOverlapArea) return;
-        ensureSectionBinding(sectionMeta.sectionId, normalizedPartId);
+        ensureSectionBinding({
+          sectionScopedId: normalizedSectionScopedId,
+          sectionId: sectionMeta.sectionId,
+          partScopedId: normalizedPartScopedId,
+          partId: normalizedPartId,
+        });
       });
     });
 
     sectionFeatures.forEach((feature, index) => {
       const sectionMeta = resolveSectionMeta(feature, index);
+      const sectionScopedId = buildScopedKey(
+        sectionMeta.sectionId,
+        sectionMeta.contractPackage
+      );
       const relatedIds = Array.from(
-        sectionToPartIds.get(sectionMeta.sectionId) || []
-      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        sectionToPartIds.get(sectionScopedId) || []
+      ).sort(normalizeNaturalSort);
       feature.set("relatedPartIds", relatedIds);
       feature.set("partCount", relatedIds.length);
     });
 
     partFeatures.forEach((feature, index) => {
       const partMeta = resolvePartOfSiteMeta(feature, index);
+      const partScopedId = buildScopedKey(partMeta.partId, partMeta.contractPackage);
       const sectionIds = Array.from(
-        partToSectionIds.get(partMeta.partId) || []
-      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        partToSectionIds.get(partScopedId) || []
+      ).sort(normalizeNaturalSort);
       feature.set("sectionIds", sectionIds);
       feature.set("sectionId", sectionIds[0] || "");
       feature.set("sectionBindingSource", "auto");

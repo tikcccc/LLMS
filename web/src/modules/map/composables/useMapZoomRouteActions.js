@@ -138,7 +138,9 @@ export const useMapZoomRouteActions = ({
     ) {
       uiStore.ensureMapSelectedId("partOfSites", meta.partId);
     }
-    const geometry = getPartGeometryStatById(meta.partId)?.geometry || feature.getGeometry();
+    const geometry =
+      getPartGeometryStatById(meta.partId, meta.contractPackage)?.geometry ||
+      feature.getGeometry();
     if (!geometry) return;
     const extent = geometry.getExtent();
     mapRef.value.getView().fit(extent, {

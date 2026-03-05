@@ -18,10 +18,14 @@ const resolveSmallestAreaIdAtCoordinate = ({
     const rawId = resolveId(meta);
     const resolvedId = String(rawId || "").trim();
     if (!resolvedId) return;
-    const key = resolvedId.toLowerCase();
+    const contractPackage =
+      String(meta?.contractPackage || "").trim().toUpperCase() === "C1"
+        ? "C1"
+        : "C2";
+    const key = `${contractPackage}:${resolvedId.toLowerCase()}`;
     if (dedupe.has(key)) return;
 
-    const stat = resolveGeometryStat(resolvedId);
+    const stat = resolveGeometryStat(resolvedId, contractPackage);
     const geometry = stat?.geometry || feature.getGeometry();
     if (!geometry || typeof geometry.intersectsCoordinate !== "function") return;
     if (!geometry.intersectsCoordinate(clickPoint)) return;

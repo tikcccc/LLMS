@@ -78,6 +78,8 @@ export const useMapHighlights = ({
     if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
     return normalized;
   };
+  const normalizeContractPackage = (value) =>
+    normalizeValue(value).toUpperCase() === "C1" ? "C1" : "C2";
 
   const isSelectedInFilter = (mode, selectedIds = [], id) => {
     if (mode !== "custom") return true;
@@ -135,23 +137,28 @@ export const useMapHighlights = ({
     normalizePartOfSitesId(feature?.getId?.()) ||
     `part_of_site_${String(index + 1).padStart(5, "0")}`;
 
-  const getPartOfSitesFeaturesById = (id) => {
+  const getPartOfSitesFeaturesById = (id, contractPackage = uiStore.activeContract) => {
     const normalized = normalizePartOfSitesId(id).toLowerCase();
+    const scopedContract = normalizeContractPackage(contractPackage);
     if (!normalized || !partOfSitesSource) return [];
     return partOfSitesSource.getFeatures().filter((feature, index) => {
       const refId = getPartOfSitesFeatureId(feature, index).toLowerCase();
-      return refId === normalized;
+      const featureContract = normalizeContractPackage(feature?.get("contractPackage"));
+      return refId === normalized && featureContract === scopedContract;
     });
   };
 
   const resolvePartOfSitesHighlightTargets = (overrideFeature, selectedId) => {
     if (overrideFeature) {
       const overrideId = getPartOfSitesFeatureId(overrideFeature);
-      const linked = getPartOfSitesFeaturesById(overrideId);
+      const linked = getPartOfSitesFeaturesById(
+        overrideId,
+        overrideFeature?.get("contractPackage")
+      );
       if (linked.length > 0) return linked;
       return [overrideFeature];
     }
-    return getPartOfSitesFeaturesById(selectedId);
+    return getPartOfSitesFeaturesById(selectedId, uiStore.activeContract);
   };
   const getSectionFeatureId = (feature, index = 0) =>
     normalizeSectionId(feature?.get("sectionLotId")) ||
@@ -161,22 +168,27 @@ export const useMapHighlights = ({
     normalizeSectionId(feature?.getId?.()) ||
     `section_${String(index + 1).padStart(5, "0")}`;
 
-  const getSectionFeaturesById = (id) => {
+  const getSectionFeaturesById = (id, contractPackage = uiStore.activeContract) => {
     const normalized = normalizeSectionId(id).toLowerCase();
+    const scopedContract = normalizeContractPackage(contractPackage);
     if (!normalized || !sectionsSource) return [];
     return sectionsSource.getFeatures().filter((feature, index) => {
       const refId = getSectionFeatureId(feature, index).toLowerCase();
-      return refId === normalized;
+      const featureContract = normalizeContractPackage(feature?.get("contractPackage"));
+      return refId === normalized && featureContract === scopedContract;
     });
   };
   const resolveSectionHighlightTargets = (overrideFeature, selectedId) => {
     if (overrideFeature) {
       const overrideId = getSectionFeatureId(overrideFeature);
-      const linked = getSectionFeaturesById(overrideId);
+      const linked = getSectionFeaturesById(
+        overrideId,
+        overrideFeature?.get("contractPackage")
+      );
       if (linked.length > 0) return linked;
       return [overrideFeature];
     }
-    return getSectionFeaturesById(selectedId);
+    return getSectionFeaturesById(selectedId, uiStore.activeContract);
   };
 
   const refreshHighlights = () => {
@@ -208,7 +220,7 @@ export const useMapHighlights = ({
       : [];
     const resolvedPartGeometryResult =
       typeof resolvePartOfSitesHighlightGeometry === "function"
-        ? resolvePartOfSitesHighlightGeometry(partOfSiteId, partOfSiteFeatures)
+        ? resolvePartOfSitesHighlightGeometry(partOfSiteId, uiStore.activeContract)
         : undefined;
     if (resolvedPartGeometryResult && partOfSiteFeatures.length > 0) {
       const partHighlight = cloneFeature(partOfSiteFeatures[0]);
@@ -228,7 +240,7 @@ export const useMapHighlights = ({
       : [];
     const resolvedSectionGeometryResult =
       typeof resolveSectionHighlightGeometry === "function"
-        ? resolveSectionHighlightGeometry(sectionId, sectionFeatures)
+        ? resolveSectionHighlightGeometry(sectionId, uiStore.activeContract)
         : undefined;
     if (resolvedSectionGeometryResult && sectionFeatures.length > 0) {
       const sectionHighlight = cloneFeature(sectionFeatures[0]);

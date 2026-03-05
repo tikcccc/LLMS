@@ -96,7 +96,10 @@ export const useMapSelectionDetails = ({
     const geometry = feature.getGeometry();
     const rawArea =
       geometry && typeof geometry.getArea === "function" ? Math.abs(geometry.getArea()) : 0;
-    const partGeometryStat = getPartGeometryStatById(meta.partId);
+    const partGeometryStat = getPartGeometryStatById(
+      meta.partId,
+      meta.contractPackage
+    );
     const effectiveArea =
       Number.isFinite(partGeometryStat?.area) && partGeometryStat.area >= 0
         ? partGeometryStat.area
@@ -138,7 +141,10 @@ export const useMapSelectionDetails = ({
     const geometry = feature.getGeometry();
     const rawArea =
       geometry && typeof geometry.getArea === "function" ? Math.abs(geometry.getArea()) : 0;
-    const sectionGeometryStat = getSectionGeometryStatById(meta.sectionId);
+    const sectionGeometryStat = getSectionGeometryStatById(
+      meta.sectionId,
+      meta.contractPackage
+    );
     const effectiveArea =
       Number.isFinite(sectionGeometryStat?.area) && sectionGeometryStat.area >= 0
         ? sectionGeometryStat.area
