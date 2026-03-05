@@ -191,6 +191,8 @@ watch(
   grid-template-columns: auto 1fr auto;
   gap: 16px;
   align-items: center;
+  position: relative;
+  z-index: 220;
   padding: 16px 24px;
   background: #ffffff;
   border-bottom: 1px solid var(--border);
@@ -290,7 +292,7 @@ watch(
   border: 1px solid var(--border);
   background: #ffffff;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
-  z-index: 30;
+  z-index: 260;
 }
 
 .top-nav-group.open .top-nav-submenu {

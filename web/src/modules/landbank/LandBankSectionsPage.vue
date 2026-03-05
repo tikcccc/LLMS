@@ -70,9 +70,27 @@
           {{ formatArea(row.area) }}
         </template>
       </el-table-column>
-      <el-table-column label="Related Parts" width="120" align="center">
+      <el-table-column label="Related Parts" min-width="220">
         <template #default="{ row }">
-          {{ row.partCount }}
+          <span v-if="relatedPartNames(row).length === 0">
+            {{ row.partCount > 0 ? `${row.partCount} related parts` : "—" }}
+          </span>
+          <el-popover v-else trigger="hover" placement="top-start" :width="320">
+            <template #reference>
+              <button type="button" class="related-parts-trigger">
+                <span>{{ relatedPartSummary(row) }}</span>
+                <span class="related-count-pill">{{ relatedPartNames(row).length }}</span>
+              </button>
+            </template>
+            <div class="related-parts-popover">
+              <div class="popover-title">
+                {{ relatedPartNames(row).length }} related parts
+              </div>
+              <ul class="popover-list">
+                <li v-for="partId in relatedPartNames(row)" :key="partId">{{ partId }}</li>
+              </ul>
+            </div>
+          </el-popover>
         </template>
       </el-table-column>
       <el-table-column label="Actions" width="170" align="right" fixed="right">
@@ -224,6 +242,38 @@ const pickCompletionDateFromFeatureCollection = (payload = {}) => {
   }
   return "";
 };
+const normalizeRelatedPartIds = (value) => {
+  const sourceValues = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[;,|]/)
+      : [];
+  return sourceValues
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+};
+const pickRelatedPartIdsFromFeatureCollection = (payload = {}) => {
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  const partIdSet = new Set();
+
+  for (const feature of features) {
+    const properties = feature?.properties || {};
+    const candidates = [
+      properties.relatedPartIds,
+      properties.related_part_ids,
+      properties.relatedParts,
+      properties.related_parts,
+      properties.partIds,
+      properties.part_ids,
+    ];
+
+    candidates.forEach((candidate) => {
+      normalizeRelatedPartIds(candidate).forEach((partId) => partIdSet.add(partId));
+    });
+  }
+
+  return Array.from(partIdSet).sort(compareNatural);
+};
 
 const fetchJsonOrThrow = async (url, label) => {
   const response = await fetch(url, { cache: "no-cache" });
@@ -268,6 +318,7 @@ const loadSections = async () => {
         const fileUrl = String(item?.file || "").trim();
         let baseCompletionDate = "";
         let baseArea = null;
+        let relatedPartIds = [];
 
         if (fileUrl) {
           try {
@@ -277,10 +328,18 @@ const loadSections = async () => {
             );
             baseCompletionDate = pickCompletionDateFromFeatureCollection(featureCollection);
             baseArea = normalizeAreaNumber(featureCollectionAreaSqm(featureCollection));
+            relatedPartIds = pickRelatedPartIdsFromFeatureCollection(featureCollection);
           } catch (error) {
             console.warn("[sections] feature file load failed", sectionId, error);
           }
         }
+
+        const normalizedPartCount =
+          relatedPartIds.length > 0
+            ? relatedPartIds.length
+            : Number.isFinite(partCount) && partCount >= 0
+              ? partCount
+              : 0;
 
         collected.push(
           applySectionOverridesToRow({
@@ -299,7 +358,8 @@ const loadSections = async () => {
             systemId: buildSectionSystemId(groupLabel, sectionId),
             featureCount:
               Number.isFinite(featureCount) && featureCount >= 0 ? featureCount : 0,
-            partCount: Number.isFinite(partCount) && partCount >= 0 ? partCount : 0,
+            partCount: normalizedPartCount,
+            relatedPartIds,
             geometryTypes,
             sourceDxf: String(item?.sourceDxf || "").trim(),
             generatedAt,
@@ -330,6 +390,25 @@ const groupOptions = computed(() => {
   return ["All", ...options];
 });
 
+const relatedPartNames = (row) =>
+  (Array.isArray(row?.relatedPartIds) ? row.relatedPartIds : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+const relatedPartText = (row) => {
+  const names = relatedPartNames(row);
+  if (names.length > 0) return names.join(", ");
+  const fallbackCount = Number(row?.partCount);
+  return Number.isFinite(fallbackCount) && fallbackCount > 0
+    ? `${fallbackCount} related parts`
+    : "—";
+};
+const relatedPartSummary = (row) => {
+  const names = relatedPartNames(row);
+  if (!names.length) return "—";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
+};
+
 const filteredRows = computed(() =>
   rows.value.filter((row) => {
     if (groupFilter.value !== "All" && row.groupLabel !== groupFilter.value) return false;
@@ -344,6 +423,7 @@ const filteredRows = computed(() =>
         row.area,
         row.contractPackage,
         row.partCount,
+        relatedPartText(row),
       ],
       searchQuery.value
     );
@@ -465,6 +545,56 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.related-parts-trigger {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.related-count-pill {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  background: #e6f4f1;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.related-parts-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popover-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.popover-list {
+  margin: 0;
+  padding-left: 16px;
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: #334155;
 }
 
 .mono {

@@ -104,7 +104,8 @@
           <el-popover v-else trigger="hover" placement="top-start" :width="360">
             <template #reference>
               <button type="button" class="related-worklots-trigger">
-                {{ relatedWorkLotSummary(row) }}
+                <span>{{ relatedWorkLotSummary(row) }}</span>
+                <span class="related-count-pill">{{ relatedWorkLotNames(row).length }}</span>
               </button>
             </template>
             <div class="related-worklots-popover">
@@ -497,9 +498,26 @@ onMounted(() => {
   font: inherit;
   padding: 0;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 2px;
+}
+
+.related-count-pill {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  background: #e6f4f1;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
 }
 
 .related-worklots-popover {

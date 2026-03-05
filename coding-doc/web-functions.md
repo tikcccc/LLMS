@@ -131,6 +131,7 @@
 - 表格清單 + 進度顯示 + 關聯 work lot 提示
 - 含 `Contract Package (C1/C2)` 欄位
 - 搜尋 + Contract Package（`All / C1 / C2`）+ 狀態篩選
+- `Related Work Lots` 欄位顯示摘要 + 數量統計，hover 可展開完整 work lot 名單
 - 編輯 Site Boundary（dialog，含 `Contract Package` 下拉）
 - 「View on Map」跳轉
 - JSON 交換：
@@ -166,7 +167,7 @@
 - Contract Package（可編修）
 - Completion Date（可編修）
 - Area（可編修）
-- Related Parts
+- Related Parts（摘要 + 數量統計，hover 可展開完整 part 清單）
 - `Edit`（dialog）可維護 `contractPackage`、`completionDate` 與 `area`，寫入前端持久化 overrides
 - 「View on Map」跳轉（`?sectionId=`）
 
