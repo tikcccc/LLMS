@@ -186,7 +186,7 @@
 
 - 角色切換（`AppHeader`）
 - 重置 demo 資料（清 localStorage 後 reload）
-- Topbar 導覽框架（整站路由按鈕位於 `AppHeader`）
+- Topbar 導覽框架（整站路由按鈕位於 `AppHeader`；`Work Lots / Site Boundaries / Part of Sites / Sections` 以 `Land Lists` 下拉群組呈現，支援 click 展開，桌機提供 hover 輔助）
 - Topbar 通知中心（鈴鐺）：
 - 未讀數 badge
 - 右側抽屜（mobile 為底部 sheet）

@@ -6,7 +6,53 @@
 
     <nav class="top-nav" aria-label="Primary navigation">
       <button
-        v-for="item in topNavItems"
+        v-for="item in primaryTopNavItems"
+        :key="item.path"
+        type="button"
+        class="top-nav-item"
+        :class="{ active: isActive(item.path) }"
+        @click="go(item.path)"
+      >
+        {{ item.label }}
+      </button>
+
+      <div
+        ref="landListsGroupRef"
+        class="top-nav-group"
+        :class="{ open: landListsOpen, active: isLandListsActive }"
+      >
+        <button
+          type="button"
+          class="top-nav-item top-nav-group-trigger"
+          :class="{ active: isLandListsActive || landListsOpen }"
+          aria-haspopup="menu"
+          :aria-expanded="String(landListsOpen)"
+          @click="toggleLandLists"
+          @keydown.esc.prevent="closeLandLists"
+        >
+          <span>Land Lists</span>
+          <svg class="top-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <div class="top-nav-submenu" role="menu" aria-label="Land Lists submenu">
+          <button
+            v-for="item in landListNavItems"
+            :key="item.path"
+            type="button"
+            class="top-nav-submenu-item"
+            :class="{ active: isActive(item.path) }"
+            role="menuitem"
+            @click="go(item.path)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+
+      <button
+        v-for="item in trailingTopNavItems"
         :key="item.path"
         type="button"
         class="top-nav-item"
@@ -43,13 +89,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useNotificationStore } from "../stores/useNotificationStore";
 import { ROLE_OPTIONS } from "../shared/utils/role";
-import { TOP_NAV_ITEMS } from "../shared/config/navigation";
+import { LAND_LIST_NAV_ITEMS, TOP_NAV_ITEMS } from "../shared/config/navigation";
 import NotificationCenterDrawer from "./NotificationCenterDrawer.vue";
 
 const authStore = useAuthStore();
@@ -58,7 +104,12 @@ const route = useRoute();
 const router = useRouter();
 const roleOptions = ROLE_OPTIONS;
 const topNavItems = TOP_NAV_ITEMS;
+const landListNavItems = LAND_LIST_NAV_ITEMS;
+const landListsGroupRef = ref(null);
+const landListsOpen = ref(false);
 const showNotificationCenter = ref(false);
+const primaryTopNavItems = computed(() => topNavItems.slice(0, 2));
+const trailingTopNavItems = computed(() => topNavItems.slice(2));
 
 const selectedRole = computed({
   get: () => authStore.role,
@@ -66,12 +117,31 @@ const selectedRole = computed({
 });
 const unreadCount = computed(() => notificationStore.unreadCount);
 const unreadBadgeText = computed(() => (unreadCount.value > 99 ? "99+" : String(unreadCount.value)));
+const isLandListsActive = computed(() =>
+  landListNavItems.some((item) => isActive(item.path))
+);
 
 const isActive = (path) => route.path.startsWith(path);
 const go = (path) => {
+  closeLandLists();
   if (route.path === path) return;
   router.push(path);
 };
+
+const closeLandLists = () => {
+  landListsOpen.value = false;
+};
+
+const toggleLandLists = () => {
+  landListsOpen.value = !landListsOpen.value;
+};
+
+const handleDocumentPointerDown = (event) => {
+  const groupEl = landListsGroupRef.value;
+  if (!groupEl || groupEl.contains(event.target)) return;
+  closeLandLists();
+};
+
 const openNotificationCenter = () => {
   showNotificationCenter.value = true;
 };
@@ -100,7 +170,19 @@ const resetDemoData = () => {
 
 onMounted(() => {
   notificationStore.refreshNotifications();
+  document.addEventListener("pointerdown", handleDocumentPointerDown);
 });
+
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", handleDocumentPointerDown);
+});
+
+watch(
+  () => route.path,
+  () => {
+    closeLandLists();
+  }
+);
 </script>
 
 <style scoped>
@@ -135,8 +217,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  overflow-x: auto;
+  overflow-x: visible;
   padding-bottom: 2px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .top-nav::-webkit-scrollbar {
@@ -169,6 +253,76 @@ onMounted(() => {
 .top-nav-item.active {
   border-color: rgba(15, 118, 110, 0.45);
   background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+
+.top-nav-group {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.top-nav-group-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-nav-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.top-nav-group.open .top-nav-chevron {
+  transform: rotate(180deg);
+}
+
+.top-nav-submenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+  z-index: 30;
+}
+
+.top-nav-group.open .top-nav-submenu {
+  display: flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .top-nav-group:hover .top-nav-submenu {
+    display: flex;
+  }
+}
+
+.top-nav-submenu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.top-nav-submenu-item:hover {
+  background: #f1f5f9;
+  color: #0f766e;
+}
+
+.top-nav-submenu-item.active {
+  background: #e6f4f1;
   color: #0f766e;
 }
 
@@ -232,12 +386,20 @@ onMounted(() => {
   .top-nav {
     order: 3;
     width: 100%;
+    overflow-x: auto;
   }
 
   .actions {
     justify-self: start;
     flex-wrap: wrap;
     order: 2;
+  }
+
+  .top-nav-submenu {
+    position: static;
+    margin-top: 6px;
+    box-shadow: none;
+    border: 1px solid var(--border);
   }
 }
 
