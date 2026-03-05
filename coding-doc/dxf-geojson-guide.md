@@ -183,14 +183,14 @@ PART 10（10B）特例口徑（2026-03-04 更新）：
 
 `part-*/index.json` 需記錄每個 part 的檔案路徑、feature 數量、geometry 類型和來源 DXF，方便後續批次驗證與前端按需載入。
 
-### 6.2 Section 聚合命令（全量 SECTION-1 ~ SECTION-13）
+### 6.2 Section 聚合命令（全量 C2 SECTION-1~13 + C1 SECTION-1~5）
 
 用途：把既有 Part of Sites GeoJSON 聚合成 Sections GeoJSON，不重跑 DXF 轉檔。  
 腳本：`scripts/build_sections_geojson.py`
 
 預設行為：
 
-1. 依合約映射一次生成 `SECTION-1` 至 `SECTION-13`。  
+1. 依合約映射一次生成 C2 `SECTION-1` 至 `SECTION-13`，以及 C1 `SECTION-1` 至 `SECTION-5`。  
 2. 每個 section 輸出單一 `MultiPolygon` feature（`SECTION-11/12` 目前為空 placeholder，feature 數為 0）。  
 3. 預設清理：
 - 移除非面（point/line）碎片
@@ -198,7 +198,7 @@ PART 10（10B）特例口徑（2026-03-04 更新）：
 - `--min-area` 預設 `1.0`，先後兩輪剔除小碎片（union 後與最終輸出前）
 - `--min-hole-area` 預設 `10`，剔除小於門檻的微小洞（避免地圖上呈現碎線/碎點）
 - `--overlap-sliver-area` 預設 `20`，清理 section 之間的微小重疊（later section wins），避免分叉線/重疊邊
-- `SECTION-10` 會做固定 hole 校正：強制確認 `10B` 最大 interior hole 存在於 `SECTION-10`（不移除其他既有 holes）
+- `SECTION-10`（C2）會做固定 hole 校正：強制確認 `10B` 最大 interior hole 存在於 `SECTION-10`（不移除其他既有 holes）
 - 會在 final 幾何做「連續重複點去重」與 ring 清洗，降低 near-zero edge / 尖刺造成的視覺分叉線
 - `SECTION-10` hole 校正後會再跑一次 overlap sliver 清理，避免 override 後把微重疊帶回
 - `--simplify-tolerance` 預設 `0.05`，保拓撲簡化外框
@@ -214,7 +214,7 @@ python scripts/build_sections_geojson.py
 
 - `--part-root`：Part of Sites 資料根目錄（預設 `web/public/data/geojson/part-of-sites`）
 - `--output-root`：Sections 輸出根目錄（預設 `web/public/data/geojson/sections`）
-- `--sections`：只生成指定 section（例如 `SECTION-1,SECTION-2`）
+- `--sections`：只生成指定 section（例如 `SECTION-1,SECTION-2` 或 `C1:SECTION-1`）
 - 預設會保留並繼承 Part of Sites 的 interior holes
 - `--drop-holes`：需要強制移除 holes 時使用
 - `--min-area`：剔除小於此面積的碎片 polygon（單位 m²）
@@ -238,6 +238,13 @@ web/public/data/geojson/sections/
   section-13/
     index.json
     SECTION-13.geojson
+  section-c1-1/
+    index.json
+    SECTION-1.geojson
+  ...
+  section-c1-5/
+    index.json
+    SECTION-5.geojson
 ```
 
 Section feature（有幾何時）properties 固定包含：
@@ -248,6 +255,7 @@ Section feature（有幾何時）properties 固定包含：
 - `sectionSystemId`
 - `relatedPartIds`
 - `partCount`
+- `contractPackage`（`C1` 或 `C2`）
 
 Map 端重疊處理（`/map`）：
 
@@ -255,7 +263,7 @@ Map 端重疊處理（`/map`）：
 - 優先序：內含/高覆蓋率小幾何優先；其餘重疊由較小面積優先；最後以 ID 自然序穩定化。
 - 因此轉檔輸出的原始幾何可保留真實重疊關係，互斥顯示與互斥點擊由地圖引擎在執行時決定。
 
-預設合約映射：
+預設合約映射（C2）：
 
 - `SECTION-1` -> `1A,1B,1C,1D,1E,1F,1G,1H,1I`
 - `SECTION-2` -> `2A,2B,2C`
@@ -270,6 +278,14 @@ Map 端重疊處理（`/map`）：
 - `SECTION-11` -> 無 part 映射（Drawing Nos. STP2/C2/63/3000~3414；目前空 placeholder）
 - `SECTION-12` -> 無 part 映射（landscape softworks；目前空 placeholder）
 - `SECTION-13` -> `13A,13B,13C`
+
+預設合約映射（C1）：
+
+- `SECTION-1` -> `A1,A2,A6,A11`
+- `SECTION-2` -> `A9,A12`
+- `SECTION-3` -> `A3,A4,A5`
+- `SECTION-4` -> `B1`
+- `SECTION-5` -> `A7,A8,A10`
 
 ## 7) 轉換品質建議
 

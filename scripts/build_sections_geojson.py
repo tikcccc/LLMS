@@ -1214,14 +1214,20 @@ def cleanup_section_overlap_slivers(
 
     MultiPolygon, _, mapping, shape, _, make_valid = _require_shapely()
 
-    payloads_by_id: dict[str, dict] = {}
-    geometries_by_id: dict[str, object] = {}
-    sequence_ids: List[str] = []
+    payloads_by_key: dict[str, dict] = {}
+    geometries_by_key: dict[str, object] = {}
+    meta_by_key: dict[str, dict] = {}
+    sequence_keys: List[str] = []
 
     for record in section_records:
         section_id = normalize_space(record.get("id"))
+        section_slug = normalize_space(record.get("slug"))
+        contract_package = normalize_contract_package(record.get("contractPackage"), "C2")
+        record_key = normalize_space(record.get("recordKey")) or (
+            f"{contract_package}:{section_id}:{section_slug or section_id}"
+        )
         section_file = record.get("filePath")
-        if not section_id or not isinstance(section_file, Path):
+        if not section_id or not record_key or not isinstance(section_file, Path):
             continue
         if int(record.get("featureCount", 0)) <= 0:
             continue
@@ -1245,20 +1251,36 @@ def cleanup_section_overlap_slivers(
         if not parts:
             continue
 
-        sequence_ids.append(section_id)
-        payloads_by_id[section_id] = payload
-        geometries_by_id[section_id] = make_valid(MultiPolygon(parts))
+        sequence_keys.append(record_key)
+        payloads_by_key[record_key] = payload
+        geometries_by_key[record_key] = make_valid(MultiPolygon(parts))
+        meta_by_key[record_key] = {
+            "sectionId": section_id,
+            "contractPackage": contract_package,
+            "filePath": section_file,
+        }
 
     trimmed = 0
-    for index, section_id in enumerate(sequence_ids):
-        current_geom = geometries_by_id.get(section_id)
+    for index, section_key in enumerate(sequence_keys):
+        current_geom = geometries_by_key.get(section_key)
         if current_geom is None:
             continue
+        current_meta = meta_by_key.get(section_key) or {}
+        current_contract = normalize_contract_package(current_meta.get("contractPackage"), "C2")
+        current_section_id = normalize_space(current_meta.get("sectionId")) or section_key
 
-        for prev_id in sequence_ids[:index]:
-            previous_geom = geometries_by_id.get(prev_id)
+        for prev_key in sequence_keys[:index]:
+            previous_geom = geometries_by_key.get(prev_key)
             if previous_geom is None:
                 continue
+            previous_meta = meta_by_key.get(prev_key) or {}
+            previous_contract = normalize_contract_package(
+                previous_meta.get("contractPackage"),
+                "C2",
+            )
+            if previous_contract != current_contract:
+                continue
+            previous_section_id = normalize_space(previous_meta.get("sectionId")) or prev_key
 
             try:
                 overlap_geom = make_valid(previous_geom.intersection(current_geom))
@@ -1294,16 +1316,17 @@ def cleanup_section_overlap_slivers(
             if abs(float(previous_geom.area) - float(new_previous.area)) <= 1e-9:
                 continue
 
-            geometries_by_id[prev_id] = new_previous
+            geometries_by_key[prev_key] = new_previous
             trimmed += 1
             print(
-                f"[CLEAN] trimmed overlap area={overlap_area:.3f} from {prev_id} "
-                f"(overlapped by {section_id})"
+                f"[CLEAN] trimmed overlap area={overlap_area:.3f} from "
+                f"{previous_contract}:{previous_section_id} "
+                f"(overlapped by {current_contract}:{current_section_id})"
             )
 
-    for section_id in sequence_ids:
-        payload = payloads_by_id.get(section_id)
-        geometry = geometries_by_id.get(section_id)
+    for section_key in sequence_keys:
+        payload = payloads_by_key.get(section_key)
+        geometry = geometries_by_key.get(section_key)
         if payload is None or geometry is None:
             continue
         geometry = _dedupe_geometry_vertices(
@@ -1316,17 +1339,39 @@ def cleanup_section_overlap_slivers(
             continue
         features[0]["geometry"] = mapping(geometry)
 
-    for record in section_records:
-        section_id = normalize_space(record.get("id"))
-        section_file = record.get("filePath")
-        if not section_id or not isinstance(section_file, Path):
-            continue
-        payload = payloads_by_id.get(section_id)
-        if payload is None:
+    for section_key in sequence_keys:
+        meta = meta_by_key.get(section_key) or {}
+        section_file = meta.get("filePath")
+        payload = payloads_by_key.get(section_key)
+        if not isinstance(section_file, Path) or payload is None:
             continue
         write_json(section_file, payload)
 
     return trimmed
+
+
+def is_selected_section(section_def: dict, selected_sections: set[str]) -> bool:
+    if not selected_sections:
+        return True
+    section_id = normalize_space(section_def.get("id")).upper()
+    section_slug = normalize_space(section_def.get("slug")).upper()
+    contract_package = normalize_contract_package(section_def.get("contractPackage"), "C2")
+    section_key = f"{contract_package}:{section_id}"
+    group_label = normalize_space(section_def.get("group")).upper()
+
+    return (
+        section_id in selected_sections
+        or section_slug in selected_sections
+        or section_key in selected_sections
+        or group_label in selected_sections
+    )
+
+
+def build_section_record_key(contract_package: str, section_id: str, section_slug: str) -> str:
+    normalized_package = normalize_contract_package(contract_package, "C2")
+    normalized_id = normalize_space(section_id).upper() or "UNKNOWN"
+    normalized_slug = normalize_space(section_slug).lower() or slugify(normalized_id)
+    return f"{normalized_package}:{normalized_id}:{normalized_slug}"
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1347,13 +1392,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"[ERROR] part-root not found: {part_root}", file=sys.stderr)
         return 2
 
-    section_defs = CONTRACT_SECTION_DEFINITIONS
-    if selected_sections:
-        section_defs = [
-            item
-            for item in CONTRACT_SECTION_DEFINITIONS
-            if normalize_space(item.get("id")).upper() in selected_sections
-        ]
+    section_defs = [item for item in ALL_SECTION_DEFINITIONS if is_selected_section(item, selected_sections)]
     if not section_defs:
         print("[ERROR] no section definitions matched --sections", file=sys.stderr)
         return 2
@@ -1375,6 +1414,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         section_label = normalize_space(section_def.get("label")) or section_id
         section_group = normalize_space(section_def.get("group")) or section_id
         section_slug = normalize_space(section_def.get("slug")) or slugify(section_id)
+        contract_package = normalize_contract_package(section_def.get("contractPackage"), "C2")
         section_description = normalize_space(section_def.get("description"))
         section_note = normalize_space(section_def.get("note"))
         source_note = normalize_space(section_def.get("sourceNote"))
@@ -1386,7 +1426,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         geometries, missing_parts, source_files = collect_part_polygon_geometries(part_lookup, part_ids)
         if missing_parts:
             missing_text = ",".join(sorted(set(missing_parts)))
-            print(f"[WARN] {section_id} missing part files: {missing_text}", file=sys.stderr)
+            print(f"[WARN] {contract_package}:{section_id} missing part files: {missing_text}", file=sys.stderr)
 
         feature_count = 0
         geometry_types: List[str] = []
@@ -1404,13 +1444,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                     simplify_tolerance=simplify_tolerance,
                 )
             except Exception as exc:
-                print(f"[ERROR] {section_id} geometry build failed: {exc}", file=sys.stderr)
+                print(f"[ERROR] {contract_package}:{section_id} geometry build failed: {exc}", file=sys.stderr)
                 return 2
 
             feature = build_section_feature(
                 section_id=section_id,
                 section_label=section_label,
                 section_group=section_group,
+                contract_package=contract_package,
                 section_description=section_description,
                 section_note=section_note,
                 related_part_ids=part_ids,
@@ -1428,7 +1469,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             if not allow_empty_sections:
                 print(
-                    f"[ERROR] {section_id} has no geometries and empty sections are disabled",
+                    f"[ERROR] {contract_package}:{section_id} has no geometries and empty sections are disabled",
                     file=sys.stderr,
                 )
                 return 2
@@ -1446,6 +1487,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "geometryTypes": geometry_types,
             "partCount": len(part_ids),
             "sourceDxf": source_summary,
+            "contractPackage": contract_package,
         }
         if section_note:
             item["note"] = section_note
@@ -1467,6 +1509,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "slug": section_slug,
                 "index": f"/data/geojson/sections/{section_slug}/index.json",
                 "itemCount": 1,
+                "contractPackage": contract_package,
             }
         )
         section_records.append(
@@ -1474,6 +1517,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "id": section_id,
                 "slug": section_slug,
                 "featureCount": feature_count,
+                "contractPackage": contract_package,
+                "recordKey": build_section_record_key(contract_package, section_id, section_slug),
                 "filePath": section_geojson_file,
             }
         )
@@ -1481,11 +1526,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         total_features += feature_count
         if feature_count > 0:
             print(
-                f"[DONE] {section_id} parts={len(part_ids)} polygons={polygon_count} "
-                f"holes={hole_count} area={area:.3f}"
+                f"[DONE] {contract_package}:{section_id} parts={len(part_ids)} "
+                f"polygons={polygon_count} holes={hole_count} area={area:.3f}"
             )
         else:
-            print(f"[DONE] {section_id} parts={len(part_ids)} features=0 (empty placeholder)")
+            print(
+                f"[DONE] {contract_package}:{section_id} parts={len(part_ids)} "
+                "features=0 (empty placeholder)"
+            )
 
     trimmed_count = cleanup_section_overlap_slivers(
         section_records=section_records,
