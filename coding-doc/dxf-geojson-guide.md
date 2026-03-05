@@ -1,6 +1,6 @@
 # DXF to GeoJSON Guide
 
-最後更新：2026-03-04  
+最後更新：2026-03-05  
 範圍：`scripts/dxf_to_geojson.py`、`scripts/dxf_to_site_boundary_geojson.py`、`scripts/build_part_of_sites_geojson.py`、`scripts/build_sections_geojson.py`
 
 ## 1) 目的
@@ -197,6 +197,8 @@ PART 10（10B）特例口徑（2026-03-04 更新）：
 - `--min-hole-area` 預設 `10`，剔除小於門檻的微小洞（避免地圖上呈現碎線/碎點）
 - `--overlap-sliver-area` 預設 `20`，清理 section 之間的微小重疊（later section wins），避免分叉線/重疊邊
 - `SECTION-10` 會做固定 hole 校正：強制確認 `10B` 最大 interior hole 存在於 `SECTION-10`（不移除其他既有 holes）
+- 會在 final 幾何做「連續重複點去重」與 ring 清洗，降低 near-zero edge / 尖刺造成的視覺分叉線
+- `SECTION-10` hole 校正後會再跑一次 overlap sliver 清理，避免 override 後把微重疊帶回
 - `--simplify-tolerance` 預設 `0.05`，保拓撲簡化外框
 - 針對外框做去尖刺（A→B→A 回折）與短邊/共線點清理，避免多餘線段與點殘留
 

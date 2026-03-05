@@ -544,6 +544,87 @@ def _normalize_geometry_rings(
     return make_valid(MultiPolygon(final_parts))
 
 
+def _dedupe_ring_points(
+    ring_coords: Sequence[Sequence[float]],
+    tolerance: float = 0.001,
+) -> List[Tuple[float, float]]:
+    if len(ring_coords) < 4:
+        return []
+
+    deduped: List[Tuple[float, float]] = []
+    for coord in ring_coords:
+        point = _xy_tuple(coord)
+        if deduped and _distance_xy(deduped[-1], point) <= tolerance:
+            continue
+        deduped.append(point)
+
+    if len(deduped) < 3:
+        return []
+
+    if _distance_xy(deduped[0], deduped[-1]) > tolerance:
+        deduped.append(deduped[0])
+    else:
+        deduped[-1] = deduped[0]
+
+    if len(deduped) < 4:
+        return []
+    return deduped
+
+
+def _dedupe_geometry_vertices(
+    geom,
+    keep_holes: bool,
+    min_area: float,
+):
+    MultiPolygon, Polygon, _, _, unary_union, make_valid = _require_shapely()
+    parts = [
+        part
+        for part in _extract_polygon_parts(make_valid(geom))
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not parts:
+        return make_valid(geom)
+
+    deduped_parts: List[object] = []
+    for polygon in parts:
+        shell = _dedupe_ring_points(getattr(polygon, "exterior").coords)
+        if not shell:
+            continue
+
+        holes: List[List[Tuple[float, float]]] = []
+        if keep_holes:
+            for interior in getattr(polygon, "interiors", []):
+                hole = _dedupe_ring_points(interior.coords)
+                if not hole:
+                    continue
+                if _ring_area(hole) <= 0:
+                    continue
+                holes.append(hole)
+
+        candidate = make_valid(Polygon(shell, holes))
+        for part in _extract_polygon_parts(candidate):
+            area = float(part.area)
+            if area <= 0:
+                continue
+            if min_area > 0 and area < min_area:
+                continue
+            deduped_parts.append(part)
+
+    if not deduped_parts:
+        return make_valid(MultiPolygon(parts))
+
+    unioned = make_valid(unary_union(deduped_parts))
+    final_parts = [
+        part
+        for part in _extract_polygon_parts(unioned)
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not final_parts:
+        return make_valid(MultiPolygon(parts))
+
+    return make_valid(MultiPolygon(final_parts))
+
+
 def resolve_item_file_to_path(part_root: Path, item_file: str) -> Path:
     token = normalize_space(item_file)
     if not token:
@@ -1035,6 +1116,11 @@ def apply_section_10_hole_override(
         return False
 
     final_geom = make_valid(MultiPolygon(merged_parts))
+    final_geom = _dedupe_geometry_vertices(
+        final_geom,
+        keep_holes=True,
+        min_area=min_area,
+    )
     final_geom = _normalize_geometry_rings(
         final_geom,
         keep_holes=True,
@@ -1155,6 +1241,11 @@ def cleanup_section_overlap_slivers(
         geometry = geometries_by_id.get(section_id)
         if payload is None or geometry is None:
             continue
+        geometry = _dedupe_geometry_vertices(
+            geometry,
+            keep_holes=True,
+            min_area=min_area,
+        )
         features = payload.get("features")
         if not isinstance(features, list) or not features:
             continue
