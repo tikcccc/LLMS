@@ -10,13 +10,22 @@ const normalizeText = (value) => {
   return String(value).trim();
 };
 
+const hasStandaloneContractToken = (text, token) =>
+  new RegExp(`(^|[^A-Z0-9])${token}([^A-Z0-9]|$)`).test(text);
+
 const detectContractPackageFromText = (value) => {
   const normalized = normalizeText(value).toUpperCase();
   if (!normalized) return "";
-  if (normalized === CONTRACT_PACKAGE.C1 || /\bC1\b/.test(normalized)) {
+  if (
+    normalized === CONTRACT_PACKAGE.C1 ||
+    hasStandaloneContractToken(normalized, CONTRACT_PACKAGE.C1)
+  ) {
     return CONTRACT_PACKAGE.C1;
   }
-  if (normalized === CONTRACT_PACKAGE.C2 || /\bC2\b/.test(normalized)) {
+  if (
+    normalized === CONTRACT_PACKAGE.C2 ||
+    hasStandaloneContractToken(normalized, CONTRACT_PACKAGE.C2)
+  ) {
     return CONTRACT_PACKAGE.C2;
   }
   return "";

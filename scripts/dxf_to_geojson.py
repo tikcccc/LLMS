@@ -17,6 +17,9 @@ import os
 import sys
 from typing import Iterable, List, Optional, Tuple
 
+ORIGIN_COORD_TOLERANCE = 1e-9
+TRAILING_ORIGIN_CLOSURE_TOLERANCE = 1e-3
+
 
 def _require(pkg: str):
     try:
@@ -65,6 +68,42 @@ def _close_if_near(coords: List[Tuple[float, float]], tolerance: float):
     x1, y1 = coords[-1]
     dist = math.hypot(x1 - x0, y1 - y0)
     return dist <= tolerance
+
+
+def _is_origin_point(point: Tuple[float, float], tolerance: float = ORIGIN_COORD_TOLERANCE) -> bool:
+    return abs(point[0]) <= tolerance and abs(point[1]) <= tolerance
+
+
+def _trim_trailing_origin_artifacts(
+    coords: List[Tuple[float, float]],
+    closure_tolerance: float = TRAILING_ORIGIN_CLOSURE_TOLERANCE,
+) -> List[Tuple[float, float]]:
+    """Drop trailing (0,0) vertex artifacts when they break an otherwise closed ring."""
+    if len(coords) < 3:
+        return coords
+    if not _is_origin_point(coords[-1]):
+        return coords
+
+    tail_count = 0
+    for point in reversed(coords):
+        if _is_origin_point(point):
+            tail_count += 1
+            continue
+        break
+    if tail_count <= 0:
+        return coords
+
+    trimmed = coords[:-tail_count]
+    if len(trimmed) < 3:
+        return coords
+
+    x0, y0 = trimmed[0]
+    x1, y1 = trimmed[-1]
+    gap = math.hypot(x1 - x0, y1 - y0)
+    if gap <= closure_tolerance:
+        return trimmed
+
+    return coords
 
 
 def _flatten_with_path(entity, distance: float):
@@ -276,6 +315,8 @@ def convert(
 
         points, closed = flattened
         points = _snap_coords(points, snap)
+        if not closed:
+            points = _trim_trailing_origin_artifacts(points)
         if not closed and _close_if_near(points, close_tolerance):
             closed = True
         if len(points) < 2:

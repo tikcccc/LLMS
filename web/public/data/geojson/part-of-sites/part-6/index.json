@@ -1,0 +1,1 @@
+{"dataset": "part-of-sites", "group": "PART 6", "crs": "EPSG:2326", "generatedAt": "2026-03-05", "items": [{"id": "6A", "file": "/data/geojson/part-of-sites/part-6/6A.geojson", "featureCount": 1, "geometryTypes": ["Polygon"], "contractPackage": "C2", "sourceDxf": "dxf_drawings/C2_DXF/PART 6/6A.dxf"}]}

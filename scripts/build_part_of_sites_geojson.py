@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from dxf_to_geojson import convert
 
 
-DEFAULT_INPUT_ROOT = "dxf_drawings/Processed Part of sites"
+DEFAULT_INPUT_ROOT = "dxf_drawings"
 DEFAULT_OUTPUT_ROOT = "web/public/data/geojson/part-of-sites"
 DEFAULT_CRS = "EPSG:2326"
 DEFAULT_DATASET = "part-of-sites"
@@ -216,6 +216,23 @@ def normalize_part_base_name(name: str) -> str:
     return re.sub(r"\(\s*\d+\s*\)$", "", text).strip()
 
 
+def detect_contract_package_from_text(value: str) -> str:
+    text = normalize_space(value).upper()
+    if re.search(r"(^|[^A-Z0-9])C1([^A-Z0-9]|$)", text):
+        return "C1"
+    if re.search(r"(^|[^A-Z0-9])C2([^A-Z0-9]|$)", text):
+        return "C2"
+    return ""
+
+
+def resolve_contract_package_from_sources(source_paths: Sequence[str]) -> str:
+    for source_path in source_paths:
+        detected = detect_contract_package_from_text(source_path)
+        if detected:
+            return detected
+    return "C2"
+
+
 def natural_key(value: str) -> Tuple[Tuple[int, object], ...]:
     parts = re.split(r"(\d+)", value)
     key: List[Tuple[int, object]] = []
@@ -253,6 +270,7 @@ def enrich_geojson(
     group_label: str,
     source_dxf_name: str,
     source_dxf_names: Optional[List[str]] = None,
+    contract_package: Optional[str] = None,
 ) -> tuple[int, list[str]]:
     payload = json.loads(output_geojson.read_text(encoding="utf-8"))
     features = payload.get("features")
@@ -270,6 +288,8 @@ def enrich_geojson(
         properties["partId"] = part_id
         properties["partGroup"] = group_label
         properties["sourceDxf"] = source_dxf_name
+        if contract_package:
+            properties["contractPackage"] = contract_package
         if source_dxf_names and len(source_dxf_names) > 1:
             properties["sourceDxfs"] = source_dxf_names
 
@@ -365,6 +385,32 @@ def discover_part_dxf_map(group_dir: Path) -> Dict[str, List[Path]]:
             continue
         by_part.setdefault(part_id, []).append(dxf_file)
     return by_part
+
+
+def discover_group_dirs(input_root: Path) -> list[Path]:
+    direct_group_dirs = [
+        path
+        for path in input_root.iterdir()
+        if path.is_dir() and path.name.upper().startswith("PART")
+    ]
+    if direct_group_dirs:
+        return sorted(
+            direct_group_dirs,
+            key=lambda path: natural_key(normalize_group_label(path.name)),
+        )
+
+    nested_group_dirs = [
+        path
+        for path in input_root.rglob("*")
+        if path.is_dir() and path.name.upper().startswith("PART")
+    ]
+    return sorted(
+        nested_group_dirs,
+        key=lambda path: (
+            natural_key(normalize_group_label(path.name)),
+            natural_key(path.parent.as_posix()),
+        ),
+    )
 
 
 def _close_linestring_to_polygon_geometry(
@@ -1079,21 +1125,24 @@ def convert_group(
         finally:
             if temp_cleanup_dir:
                 shutil.rmtree(temp_cleanup_dir, ignore_errors=True)
+        source_paths = [to_rel_path(path, workspace_root) for path in variant_files]
+        contract_package = resolve_contract_package_from_sources(source_paths)
         feature_count, geometry_types = enrich_geojson(
             output_geojson=output_file,
             part_id=part_id,
             group_label=group_label,
             source_dxf_name=source_dxf_name,
             source_dxf_names=[path.name for path in variant_files],
+            contract_package=contract_package,
         )
 
         web_path = f"/data/geojson/part-of-sites/{group_slug}/{part_id}.geojson"
-        source_paths = [to_rel_path(path, workspace_root) for path in variant_files]
         item = {
             "id": part_id,
             "file": web_path,
             "featureCount": feature_count,
             "geometryTypes": geometry_types,
+            "contractPackage": contract_package,
             "sourceDxf": source_paths[0],
         }
         if len(source_paths) > 1:
@@ -1202,12 +1251,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         target_crs = args.target_crs
         index_crs = args.target_crs
 
-    group_dirs = [
-        path
-        for path in input_root.iterdir()
-        if path.is_dir() and path.name.upper().startswith("PART")
-    ]
-    group_dirs.sort(key=lambda path: natural_key(normalize_group_label(path.name)))
+    group_dirs = discover_group_dirs(input_root)
 
     if not group_dirs:
         print(f"[ERROR] no PART folders found under: {input_root}", file=sys.stderr)

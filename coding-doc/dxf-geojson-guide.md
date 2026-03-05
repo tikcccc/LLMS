@@ -146,7 +146,7 @@ web/public/data/geojson/part-of-sites/
 python scripts/build_part_of_sites_geojson.py
 ```
 
-預設會掃描 `dxf_drawings/Processed Part of sites/PART *`，輸出到 `web/public/data/geojson/part-of-sites/`，並重建：
+預設會掃描 `dxf_drawings/` 下的 `PART *` 目錄（包含 `C1_DXF/PART *`、`C2_DXF/PART *`），輸出到 `web/public/data/geojson/part-of-sites/`，並重建：
 
 - 根索引：`web/public/data/geojson/part-of-sites/index.json`
 - 各組索引：`web/public/data/geojson/part-of-sites/part-*/index.json`
@@ -155,6 +155,8 @@ python scripts/build_part_of_sites_geojson.py
 常用選項：
 
 - `--groups "PART 2,PART 7"`：只重建指定 group
+- `--input-root dxf_drawings/C1_DXF`：只重建 C1 的 Part of Sites
+- `--input-root dxf_drawings/C2_DXF`：只重建 C2 的 Part of Sites
 - `--polygonize`：若來源是開放線段，啟用線轉面
 - `--close-tolerance/--snap-tolerance/--bridge-tolerance`：修補近端點斷裂
 - `--no-topology-clean`：關閉預設的拓撲清洗（預設會啟用）

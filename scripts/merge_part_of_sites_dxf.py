@@ -3,9 +3,9 @@
 Merge multiple DXF files into a single DXF for manual CAD cleanup.
 
 Default behavior is tailored for this repository:
-- Input folder: dxf_drawings/Processed Part of sites
+- Input folder: dxf_drawings/C2_DXF
 - Input pattern: *.dxf
-- Output file: dxf_drawings/Processed Part of sites/merged_part_of_sites.dxf
+- Output file: dxf_drawings/C2_DXF/merged_part_of_sites.dxf
 
 Key options:
 - Coordinate alignment: world / insbase
@@ -16,8 +16,8 @@ Examples:
   python3 scripts/merge_part_of_sites_dxf.py
 
   python3 scripts/merge_part_of_sites_dxf.py \
-    --input-dir "dxf_drawings/Processed Part of sites" \
-    --output "dxf_drawings/Processed Part of sites/merged_part_of_sites.dxf" \
+    --input-dir "dxf_drawings/C2_DXF" \
+    --output "dxf_drawings/C2_DXF/merged_part_of_sites.dxf" \
     --align-mode insbase \
     --unit-strategy keep-values
 
@@ -75,7 +75,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Merge DXF files into one DXF.")
     parser.add_argument(
         "--input-dir",
-        default="dxf_drawings/Processed Part of sites",
+        default="dxf_drawings/C2_DXF",
         help="Folder that contains DXF files.",
     )
     parser.add_argument(
@@ -85,7 +85,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        default="dxf_drawings/Processed Part of sites/merged_part_of_sites.dxf",
+        default="dxf_drawings/C2_DXF/merged_part_of_sites.dxf",
         help="Output merged DXF path.",
     )
     parser.add_argument(
