@@ -86,6 +86,34 @@
           {{ formatArea(row.area) }}
         </template>
       </el-table-column>
+      <el-table-column label="Related Sections" min-width="220">
+        <template #default="{ row }">
+          <span v-if="relatedSectionNames(row).length === 0">
+            {{ row.sectionCount > 0 ? `${row.sectionCount} related sections` : "—" }}
+          </span>
+          <el-popover v-else trigger="hover" placement="top-start" :width="320">
+            <template #reference>
+              <button type="button" class="related-sections-trigger">
+                <span>{{ relatedSectionSummary(row) }}</span>
+                <span class="related-count-pill">{{ relatedSectionNames(row).length }}</span>
+              </button>
+            </template>
+            <div class="related-sections-popover">
+              <div class="popover-title">
+                {{ relatedSectionNames(row).length }} related sections
+              </div>
+              <ul class="popover-list">
+                <li
+                  v-for="sectionId in relatedSectionNames(row)"
+                  :key="sectionId"
+                >
+                  {{ sectionId }}
+                </li>
+              </ul>
+            </div>
+          </el-popover>
+        </template>
+      </el-table-column>
       <el-table-column label="Actions" width="170" align="right" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
@@ -126,6 +154,7 @@ import {
   PART_OF_SITES_CACHE_TTL_MS,
   PART_OF_SITES_GEOJSON_INDEX_URL,
   PART_OF_SITES_INDEX_CONCURRENCY,
+  SECTIONS_GEOJSON_INDEX_URL,
   STATIC_JSON_FETCH_CACHE_MODE,
 } from "../../shared/config/mapApi";
 import {
@@ -182,6 +211,8 @@ const normalizeToken = (value, fallback) => {
 
 const buildPartOfSitesSystemId = (groupLabel, partId) =>
   `POS-${normalizeToken(groupLabel, "PART")}-${normalizeToken(partId, "UNK")}-001`;
+const SECTION_RELATION_INDEX_CONCURRENCY = 4;
+const SECTION_RELATION_FILE_CONCURRENCY = 6;
 
 const formatArea = (area) => {
   const value = Number(area);
@@ -204,6 +235,28 @@ const normalizeAreaNumber = (value) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed;
+};
+const normalizePartIdText = (value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
+  return normalized;
+};
+const normalizeSectionIdText = (value) => String(value || "").trim();
+const normalizeRelatedIdCollection = (value) => {
+  const sourceValues = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[;,|]/)
+      : [value];
+  const dedupe = new Set();
+  sourceValues.forEach((item) => {
+    if (item === null || item === undefined) return;
+    const normalized = String(item).trim();
+    if (!normalized) return;
+    dedupe.add(normalized);
+  });
+  return Array.from(dedupe);
 };
 const resolveContractPackageValue = (values = []) =>
   resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
@@ -253,6 +306,68 @@ const pickAccessDateFromFeatureCollection = (payload = {}) => {
   }
   return "";
 };
+const pickSectionIdsFromPartFeatureCollection = (payload = {}) => {
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  const sectionIdSet = new Set();
+
+  for (const feature of features) {
+    const properties = feature?.properties || {};
+    const candidates = [
+      properties.sectionIds,
+      properties.relatedSectionIds,
+      properties.related_sections,
+      properties.sectionId,
+      properties.section_id,
+    ];
+    candidates.forEach((candidate) => {
+      normalizeRelatedIdCollection(candidate).forEach((sectionId) => {
+        const normalized = normalizeSectionIdText(sectionId);
+        if (normalized) sectionIdSet.add(normalized);
+      });
+    });
+  }
+
+  return Array.from(sectionIdSet).sort(compareNatural);
+};
+const pickRelatedPartIdsFromSectionFeatureCollection = (payload = {}) => {
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  const partIdSet = new Set();
+
+  for (const feature of features) {
+    const properties = feature?.properties || {};
+    const candidates = [
+      properties.relatedPartIds,
+      properties.relatedPartLotIds,
+      properties.related_part_ids,
+      properties.relatedParts,
+      properties.partIds,
+      properties.part_id,
+    ];
+    candidates.forEach((candidate) => {
+      normalizeRelatedIdCollection(candidate).forEach((partId) => {
+        const normalized = normalizePartIdText(partId);
+        if (normalized) partIdSet.add(normalized);
+      });
+    });
+  }
+
+  return Array.from(partIdSet);
+};
+const resolveSectionIdFromFeatureCollection = (payload = {}, fallback = "") => {
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  for (const feature of features) {
+    const properties = feature?.properties || {};
+    const sectionId = normalizeSectionIdText(
+      properties.sectionId ||
+        properties.section_id ||
+        properties.sectionLotId ||
+        properties.refId ||
+        properties.id
+    );
+    if (sectionId) return sectionId;
+  }
+  return normalizeSectionIdText(fallback);
+};
 
 const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
   try {
@@ -269,16 +384,104 @@ const fetchJsonOrThrow = async (url, label, { forceRefresh = false } = {}) => {
     throw new Error(`${label} load failed (${error?.message || "unknown error"})`);
   }
 };
+const buildPartToSectionMap = async ({ forceRefresh = false } = {}) => {
+  try {
+    const sectionRootIndex = await fetchJsonOrThrow(
+      SECTIONS_GEOJSON_INDEX_URL,
+      "Sections index",
+      { forceRefresh }
+    );
+    const sectionGroups = Array.isArray(sectionRootIndex?.groups) ? sectionRootIndex.groups : [];
+    const sectionGroupItems = await mapWithConcurrency(
+      sectionGroups,
+      async (sectionGroupMeta, sectionGroupIndex) => {
+        const normalizedGroupMeta = sectionGroupMeta || {};
+        const groupLabel =
+          String(normalizedGroupMeta.id || "").trim() || `SECTION ${sectionGroupIndex + 1}`;
+        const groupIndexUrl = String(normalizedGroupMeta.index || "").trim();
+        if (!groupIndexUrl) return [];
+        const groupIndexData = await fetchJsonOrThrow(
+          groupIndexUrl,
+          `Section group index (${groupLabel})`,
+          { forceRefresh }
+        );
+        const items = Array.isArray(groupIndexData?.items) ? groupIndexData.items : [];
+        return items.map((item) => ({
+          item: item || {},
+        }));
+      },
+      { concurrency: SECTION_RELATION_INDEX_CONCURRENCY }
+    );
+
+    const mappingTasks = sectionGroupItems.flat().filter((record) => {
+      const sectionFileUrl = String(record?.item?.file || "").trim();
+      return Boolean(sectionFileUrl);
+    });
+    const mappingEntries = await mapWithConcurrency(
+      mappingTasks,
+      async (record, itemIndex) => {
+        const sectionFileUrl = String(record?.item?.file || "").trim();
+        if (!sectionFileUrl) return null;
+        const sectionIdHint =
+          normalizeSectionIdText(record?.item?.id) ||
+          `SECTION_${String(itemIndex + 1).padStart(3, "0")}`;
+        try {
+          const sectionFeatureCollection = await fetchJsonOrThrow(
+            sectionFileUrl,
+            `Section GeoJSON (${sectionIdHint})`,
+            { forceRefresh }
+          );
+          const sectionId =
+            resolveSectionIdFromFeatureCollection(sectionFeatureCollection, sectionIdHint) ||
+            sectionIdHint;
+          const relatedPartIds =
+            pickRelatedPartIdsFromSectionFeatureCollection(sectionFeatureCollection);
+          return { sectionId, relatedPartIds };
+        } catch (error) {
+          console.warn("[part-of-sites] related sections load failed", sectionIdHint, error);
+          return null;
+        }
+      },
+      { concurrency: SECTION_RELATION_FILE_CONCURRENCY }
+    );
+
+    const partToSectionMap = new Map();
+    mappingEntries.filter(Boolean).forEach((entry) => {
+      const sectionId = normalizeSectionIdText(entry.sectionId);
+      if (!sectionId) return;
+      entry.relatedPartIds.forEach((partId) => {
+        const normalizedPartId = normalizePartIdText(partId);
+        if (!normalizedPartId) return;
+        const key = normalizedPartId.toLowerCase();
+        if (!partToSectionMap.has(key)) {
+          partToSectionMap.set(key, new Set());
+        }
+        partToSectionMap.get(key).add(sectionId);
+      });
+    });
+
+    return new Map(
+      Array.from(partToSectionMap.entries()).map(([partKey, sectionIdSet]) => [
+        partKey,
+        Array.from(sectionIdSet).sort(compareNatural),
+      ])
+    );
+  } catch (error) {
+    console.warn("[part-of-sites] related sections map build failed", error);
+    return new Map();
+  }
+};
 
 const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
   loading.value = true;
   loadError.value = "";
   try {
-    const rootIndex = await fetchJsonOrThrow(
-      PART_OF_SITES_GEOJSON_INDEX_URL,
-      "Part of Sites index",
-      { forceRefresh }
-    );
+    const [rootIndex, partToSectionMap] = await Promise.all([
+      fetchJsonOrThrow(PART_OF_SITES_GEOJSON_INDEX_URL, "Part of Sites index", {
+        forceRefresh,
+      }),
+      buildPartToSectionMap({ forceRefresh }),
+    ]);
     const groups = Array.isArray(rootIndex?.groups) ? rootIndex.groups : [];
     const rootGeneratedAt = String(rootIndex?.generatedAt || "").trim();
     const groupedRows = await mapWithConcurrency(
@@ -308,6 +511,7 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
             const fileUrl = String(item?.file || "").trim();
             let baseAccessDate = "";
             let baseArea = null;
+            let relatedSectionIds = [];
 
             if (fileUrl) {
               try {
@@ -318,6 +522,7 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
                 );
                 baseAccessDate = pickAccessDateFromFeatureCollection(featureCollection);
                 baseArea = normalizeAreaNumber(featureCollectionAreaSqm(featureCollection));
+                relatedSectionIds = pickSectionIdsFromPartFeatureCollection(featureCollection);
               } catch (error) {
                 console.warn("[part-of-sites] feature file load failed", partId, error);
               }
@@ -332,6 +537,18 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
               rootGroupLabel,
             ]);
             const groupLabel = resolvePartGroupLabel(partId, rootGroupLabel) || rootGroupLabel;
+            const partKey = normalizePartIdText(partId).toLowerCase();
+            const mappedSectionIds = Array.isArray(partToSectionMap.get(partKey))
+              ? partToSectionMap.get(partKey)
+              : [];
+            const mergedSectionIds = Array.from(
+              new Set([
+                ...relatedSectionIds.map((sectionId) => normalizeSectionIdText(sectionId)),
+                ...mappedSectionIds.map((sectionId) => normalizeSectionIdText(sectionId)),
+              ])
+            )
+              .filter(Boolean)
+              .sort(compareNatural);
             return applyPartOverridesToRow({
               key: `${groupLabel}:${partId}`,
               partId,
@@ -345,6 +562,8 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
               generatedAt,
               baseAccessDate,
               baseArea,
+              relatedSectionIds: mergedSectionIds,
+              sectionCount: mergedSectionIds.length,
             });
           },
           { concurrency: PART_OF_SITES_FILE_CONCURRENCY }
@@ -375,6 +594,24 @@ const groupOptions = computed(() => {
   );
   return ["All", ...options];
 });
+const relatedSectionNames = (row) =>
+  (Array.isArray(row?.relatedSectionIds) ? row.relatedSectionIds : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+const relatedSectionText = (row) => {
+  const names = relatedSectionNames(row);
+  if (names.length > 0) return names.join(", ");
+  const fallbackCount = Number(row?.sectionCount);
+  return Number.isFinite(fallbackCount) && fallbackCount > 0
+    ? `${fallbackCount} related sections`
+    : "—";
+};
+const relatedSectionSummary = (row) => {
+  const names = relatedSectionNames(row);
+  if (!names.length) return "—";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
+};
 
 const filteredRows = computed(() =>
   rows.value.filter((row) => {
@@ -389,6 +626,7 @@ const filteredRows = computed(() =>
         row.accessDate,
         row.area,
         row.contractPackage,
+        relatedSectionText(row),
       ],
       searchQuery.value
     );
@@ -572,6 +810,56 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.related-sections-trigger {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.related-count-pill {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  background: #e6f4f1;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.related-sections-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popover-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.popover-list {
+  margin: 0;
+  padding-left: 16px;
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: #334155;
 }
 
 .mono {

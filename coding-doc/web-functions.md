@@ -154,6 +154,7 @@
 - Contract Package（可編修）
 - Access Date（可編修）
 - Area（可編修）
+- Related Sections（摘要 + 數量統計，hover 可展開完整 section 清單）
 - 匯出：
 - JSON（支援「已勾選列」或「目前篩選結果」）
 - Report（Excel / PDF，支援「已勾選列」或「目前篩選結果」）
