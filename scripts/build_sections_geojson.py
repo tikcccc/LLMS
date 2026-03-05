@@ -441,6 +441,42 @@ def _normalize_polygon_shells(polygons: Iterable[object]) -> List[object]:
     return normalized
 
 
+def _normalize_polygon_rings(
+    polygons: Iterable[object],
+    keep_holes: bool,
+    min_area: float,
+) -> List[object]:
+    _, Polygon, _, _, _, make_valid = _require_shapely()
+    normalized: List[object] = []
+
+    for polygon in polygons:
+        shell_coords = getattr(polygon, "exterior").coords
+        cleaned_shell = _clean_ring_points(shell_coords)
+        if not cleaned_shell:
+            continue
+
+        cleaned_holes: List[List[Tuple[float, float]]] = []
+        if keep_holes:
+            for interior in getattr(polygon, "interiors", []):
+                cleaned_hole = _clean_ring_points(interior.coords)
+                if not cleaned_hole:
+                    continue
+                if _ring_area(cleaned_hole) <= 0:
+                    continue
+                cleaned_holes.append(cleaned_hole)
+
+        candidate = make_valid(Polygon(cleaned_shell, cleaned_holes))
+        for part in _extract_polygon_parts(candidate):
+            area = float(part.area)
+            if area <= 0:
+                continue
+            if min_area > 0 and area < min_area:
+                continue
+            normalized.append(part)
+
+    return normalized
+
+
 def _filter_small_holes(
     polygons: Iterable[object],
     min_hole_area: float,
@@ -472,6 +508,40 @@ def _filter_small_holes(
             cleaned.append(part)
 
     return cleaned
+
+
+def _normalize_geometry_rings(
+    geom,
+    keep_holes: bool,
+    min_area: float,
+):
+    MultiPolygon, _, _, _, unary_union, make_valid = _require_shapely()
+    source_parts = [
+        part
+        for part in _extract_polygon_parts(make_valid(geom))
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not source_parts:
+        return make_valid(geom)
+
+    ring_cleaned_parts = _normalize_polygon_rings(
+        source_parts,
+        keep_holes=keep_holes,
+        min_area=min_area,
+    )
+    if not ring_cleaned_parts:
+        return make_valid(MultiPolygon(source_parts))
+
+    ring_cleaned_union = make_valid(unary_union(ring_cleaned_parts))
+    final_parts = [
+        part
+        for part in _extract_polygon_parts(ring_cleaned_union)
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not final_parts:
+        return make_valid(MultiPolygon(source_parts))
+
+    return make_valid(MultiPolygon(final_parts))
 
 
 def resolve_item_file_to_path(part_root: Path, item_file: str) -> Path:
@@ -726,6 +796,23 @@ def build_section_geometry(
         if not multi_parts:
             raise ValueError("No polygon geometry after tiny-hole dissolve.")
 
+    ring_cleaned_parts = _normalize_polygon_rings(
+        multi_parts,
+        keep_holes=keep_holes,
+        min_area=min_area,
+    )
+    if not ring_cleaned_parts:
+        raise ValueError("No polygon geometry after ring cleanup.")
+
+    ring_cleaned_union = make_valid(unary_union(ring_cleaned_parts))
+    multi_parts = [
+        part
+        for part in _extract_polygon_parts(ring_cleaned_union)
+        if float(part.area) > 0 and (min_area <= 0 or float(part.area) >= min_area)
+    ]
+    if not multi_parts:
+        raise ValueError("No polygon geometry after ring cleanup dissolve.")
+
     normalized = MultiPolygon(multi_parts)
     total_holes = sum(len(part.interiors) for part in multi_parts)
     total_area = float(normalized.area)
@@ -948,6 +1035,11 @@ def apply_section_10_hole_override(
         return False
 
     final_geom = make_valid(MultiPolygon(merged_parts))
+    final_geom = _normalize_geometry_rings(
+        final_geom,
+        keep_holes=True,
+        min_area=min_area,
+    )
     features[0]["geometry"] = mapping(final_geom)
     write_json(section_file, payload)
 
@@ -1247,12 +1339,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     if trimmed_count > 0:
         print(f"[DONE] overlap-sliver-cleanup trimmed={trimmed_count}")
 
-    if apply_section_10_hole_override(
+    override_applied = apply_section_10_hole_override(
         part_lookup=part_lookup,
         section_records=section_records,
         min_area=min_area,
-    ):
+    )
+    if override_applied:
         print("[DONE] SECTION-10 hole override applied")
+        post_override_trimmed = cleanup_section_overlap_slivers(
+            section_records=section_records,
+            min_area=min_area,
+            overlap_sliver_area=overlap_sliver_area,
+        )
+        if post_override_trimmed > 0:
+            print(
+                "[DONE] overlap-sliver-cleanup after SECTION-10 override "
+                f"trimmed={post_override_trimmed}"
+            )
 
     root_index = {
         "dataset": "sections",

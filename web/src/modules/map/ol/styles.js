@@ -68,6 +68,9 @@ export function highlightPartOfSitesStyle() {
 const sectionStroke = new Stroke({
   color: "rgba(30, 64, 175, 0.92)",
   width: 2.5,
+  lineJoin: "round",
+  lineCap: "round",
+  miterLimit: 2,
 });
 const sectionFill = new Fill({ color: "rgba(59, 130, 246, 0.12)" });
 const sectionBaseStyle = new Style({
@@ -82,6 +85,9 @@ export function sectionStyle() {
 const sectionHighlightStroke = new Stroke({
   color: "rgba(30, 64, 175, 1)",
   width: 4.2,
+  lineJoin: "round",
+  lineCap: "round",
+  miterLimit: 2,
 });
 const sectionHighlightFill = new Fill({ color: "rgba(59, 130, 246, 0.2)" });
 const sectionHighlightStyle = new Style({
