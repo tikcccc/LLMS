@@ -145,11 +145,9 @@
 
 - 從 `/data/geojson/part-of-sites/index.json` + 各 group index 載入 part 清單
 - group index 採有限併發載入，並套用前端記憶體 TTL 快取以降低重複請求
-- 搜尋 + group + Contract Package（`All / C1 / C2`）篩選
-- Group 顯示會以 `Part ID` 數字前綴標準化（例如 `3A -> PART 3`），避免來源索引合併群組（如 `PART 3456`）造成誤導
+- 搜尋 + Contract Package（`All / C1 / C2`）篩選
 - 表格檢視：
 - Part ID
-- Group
 - System ID（以既有規則顯示）
 - Contract Package（可編修）
 - Access Date（可編修）

@@ -14,14 +14,6 @@
             clearable
             style="width: 220px"
           />
-          <el-select v-model="groupFilter" size="small" style="width: 190px">
-            <el-option
-              v-for="option in groupOptions"
-              :key="option"
-              :label="option"
-              :value="option"
-            />
-          </el-select>
           <el-select v-model="contractFilter" size="small" style="width: 130px">
             <el-option
               v-for="option in contractOptions"
@@ -73,7 +65,6 @@
     >
       <el-table-column type="selection" width="46" fixed="left" />
       <el-table-column prop="partId" label="Part ID" width="120" fixed="left" />
-      <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
       <el-table-column prop="contractPackage" label="Contract" width="110" />
       <el-table-column label="Access Date" width="130">
@@ -187,7 +178,6 @@ const loading = ref(false);
 const loadError = ref("");
 const rows = ref([]);
 const searchQuery = ref("");
-const groupFilter = ref("All");
 const contractFilter = ref("ALL");
 const showEditDialog = ref(false);
 const selectedRows = ref([]);
@@ -588,12 +578,6 @@ const loadPartOfSites = async ({ forceRefresh = false } = {}) => {
   }
 };
 
-const groupOptions = computed(() => {
-  const options = Array.from(new Set(rows.value.map((row) => row.groupLabel))).sort(
-    compareNatural
-  );
-  return ["All", ...options];
-});
 const relatedSectionNames = (row) =>
   (Array.isArray(row?.relatedSectionIds) ? row.relatedSectionIds : [])
     .map((item) => String(item || "").trim())
@@ -615,13 +599,11 @@ const relatedSectionSummary = (row) => {
 
 const filteredRows = computed(() =>
   rows.value.filter((row) => {
-    if (groupFilter.value !== "All" && row.groupLabel !== groupFilter.value) return false;
     const rowContract = resolveContractPackageValue(row.contractPackage);
     if (contractFilter.value !== "ALL" && rowContract !== contractFilter.value) return false;
     return fuzzyMatchAny(
       [
         row.partId,
-        row.groupLabel,
         row.systemId,
         row.accessDate,
         row.area,
