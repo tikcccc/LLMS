@@ -59,7 +59,6 @@ export const useMapSidePanelFilters = ({ props, emit }) => {
 
   const showBasemapProxy = createBooleanFilterProxy("showBasemap", true);
   const showLabelsProxy = createBooleanFilterProxy("showLabels", true);
-  const showIntLandProxy = createBooleanFilterProxy("showIntLand", false);
   const showPartOfSitesProxy = createBooleanFilterProxy("showPartOfSites", false);
   const showPartOfSitesC1Proxy = createBooleanFilterProxy("showPartOfSitesC1", true);
   const showPartOfSitesC2Proxy = createBooleanFilterProxy("showPartOfSitesC2", true);
@@ -282,7 +281,6 @@ export const useMapSidePanelFilters = ({ props, emit }) => {
     sectionSearchProxy,
     showBasemapProxy,
     showLabelsProxy,
-    showIntLandProxy,
     showPartOfSitesProxy,
     showPartOfSitesC1Proxy,
     showPartOfSitesC2Proxy,

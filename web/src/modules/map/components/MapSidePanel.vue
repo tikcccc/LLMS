@@ -61,7 +61,6 @@
           v-model:layer-filter-keyword="layerFilterKeyword"
           v-model:show-global-c1="showGlobalC1Proxy"
           v-model:show-global-c2="showGlobalC2Proxy"
-          v-model:show-int-land="showIntLandProxy"
           v-model:show-part-of-sites="showPartOfSitesProxy"
           v-model:show-part-of-sites-c1="showPartOfSitesC1Proxy"
           v-model:show-part-of-sites-c2="showPartOfSitesC2Proxy"
@@ -238,7 +237,6 @@ const {
   sectionSearchProxy,
   showBasemapProxy,
   showLabelsProxy,
-  showIntLandProxy,
   showPartOfSitesProxy,
   showPartOfSitesC1Proxy,
   showPartOfSitesC2Proxy,

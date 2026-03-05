@@ -38,13 +38,11 @@
 
 - 地圖顯示：
 - HK80 底圖 + EN 標籤
-- Drawing Layer（`int-land.geojson`）
 - Part of Sites Layer（`/data/geojson/part-of-sites/index.json` -> `part-*/<part>.geojson`）
 - Sections Layer（`/data/geojson/sections/index.json` -> `section-*/<section>.geojson`）
 - Site Boundary / Work Lot 向量圖層
 - 圖層開關：
 - Basemap/Labels
-- Drawing Layer（整層單一開關）
 - Part of Sites（part 級多選白名單，支援多組 PART，例如 `1/2/7/8/9/11/13/3456`）
 - Sections（section 級多選白名單）
 - Site Boundary（lot 級多選白名單）
@@ -76,7 +74,7 @@
 - Sections 幾何變更會快照到 localStorage（`ND_LLM_V1_sections`），重新整理後可延續
 - Draw 模式選擇 `Part of Sites` 時提供 `Export GeoJSON` 匯出目前地圖圖徵
 - Draw 模式選擇 `Section` 時提供 `Export Sections` 匯出目前地圖圖徵
-- 編輯目標支援 Work Lot / Site Boundary / Part of Sites / Section；不支援 Drawing Layer 的 CAD 實體級操作（線段、block）
+- 編輯目標支援 Work Lot / Site Boundary / Part of Sites / Section（Drawing Layer 目前於前端隱藏）
 - 詳情抽屜：
 - Work Lot 詳情、關聯 site boundary、編輯/刪除
 - Site Boundary 詳情、進度、關聯 work lot 篩選

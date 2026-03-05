@@ -116,7 +116,8 @@ export const useMapLayerVisibility = ({
   }) => {
     if (basemapLayer) basemapLayer.setVisible(uiStore.showBasemap);
     if (labelLayer) labelLayer.setVisible(uiStore.showLabels);
-    intLandLayer.setVisible(uiStore.showIntLand);
+    // Drawing Layer is intentionally hidden from map rendering.
+    intLandLayer.setVisible(false);
     partOfSitesLayer.setVisible(uiStore.showPartOfSites);
     sectionsLayer.setVisible(uiStore.showSections);
     siteBoundaryLayer.setVisible(uiStore.showSiteBoundary);

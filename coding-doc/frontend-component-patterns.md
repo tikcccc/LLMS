@@ -118,7 +118,7 @@
 - `Work Lot`、`Site Boundary` 採 lot 級 checkbox 白名單，`Part of Sites` 採 part 級 checkbox 白名單，`Sections` 採 section 級 checkbox 白名單
 - `Work Lot`、`Site Boundary`、`Part of Sites`、`Sections` 每個圖層區塊都需提供 C1/C2 phase 子開關，且與主開關保持父子聯動
 - 若提供跨圖層 phase 總控（Global C1/C2），其操作需一次輸出多鍵 patch（四組圖層的 C1/C2），避免逐鍵事件被中途重算覆蓋
-- `Drawing Layer` 保持整層單一開關，不展開 lot 級項目
+- `Drawing Layer` 目前在前端 Layers 分頁維持隱藏，不提供開關
 - lot 勾選只影響地圖顯示，不影響側欄清單與 scope 結果資料集
 - Scope Results 建議維持「Section -> Part of Sites -> Site Boundary -> Work Lot」的呈現順序，方便先看 section 範圍再下鑽
 

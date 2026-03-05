@@ -129,6 +129,7 @@ export const useUiStore = defineStore("ui", {
       if (typeof this.showIntLand !== "boolean") {
         this.showIntLand = false;
       }
+      this.showIntLand = false;
       if (typeof this.showPartOfSites !== "boolean") {
         this.showPartOfSites = false;
       }
@@ -301,6 +302,10 @@ export const useUiStore = defineStore("ui", {
           this.showSectionsC1 = true;
           this.showSectionsC2 = true;
         }
+        return;
+      }
+      if (layerKey === "showIntLand") {
+        this.showIntLand = false;
         return;
       }
       this[layerKey] = normalized;

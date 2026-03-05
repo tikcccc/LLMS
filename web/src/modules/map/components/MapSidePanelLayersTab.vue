@@ -48,16 +48,6 @@
     <section class="layer-block">
       <div class="layer-block-head">
         <div class="layer-title-wrap">
-          <div class="layer-title">Drawing Layer</div>
-          <div class="layer-subtitle">Single full-layer toggle</div>
-        </div>
-        <el-switch :model-value="showIntLand" @update:model-value="emit('update:showIntLand', $event)" />
-      </div>
-    </section>
-
-    <section class="layer-block">
-      <div class="layer-block-head">
-        <div class="layer-title-wrap">
           <div class="layer-title">Part of Sites</div>
           <div class="layer-subtitle">
             {{ partOfSitesSelectedCount }}/{{ partOfSitesTotal }} selected
@@ -461,7 +451,6 @@ defineProps({
   layerFilterKeyword: { type: String, default: "" },
   showGlobalC1: { type: Boolean, default: true },
   showGlobalC2: { type: Boolean, default: true },
-  showIntLand: { type: Boolean, default: false },
   showPartOfSites: { type: Boolean, default: false },
   showPartOfSitesC1: { type: Boolean, default: true },
   showPartOfSitesC2: { type: Boolean, default: true },
@@ -506,7 +495,6 @@ const emit = defineEmits([
   "update:layerFilterKeyword",
   "update:showGlobalC1",
   "update:showGlobalC2",
-  "update:showIntLand",
   "update:showPartOfSites",
   "update:showPartOfSitesC1",
   "update:showPartOfSitesC2",
