@@ -14,14 +14,6 @@
             clearable
             style="width: 220px"
           />
-          <el-select v-model="groupFilter" size="small" style="width: 190px">
-            <el-option
-              v-for="option in groupOptions"
-              :key="option"
-              :label="option"
-              :value="option"
-            />
-          </el-select>
           <el-select v-model="contractFilter" size="small" style="width: 130px">
             <el-option
               v-for="option in contractOptions"
@@ -73,7 +65,6 @@
     >
       <el-table-column type="selection" width="46" fixed="left" />
       <el-table-column prop="sectionId" label="Section ID" width="120" fixed="left" />
-      <el-table-column prop="groupLabel" label="Group" min-width="140" />
       <el-table-column prop="systemId" label="System ID" min-width="220" />
       <el-table-column prop="contractPackage" label="Contract" width="110" />
       <el-table-column label="Completion Date" width="140">
@@ -170,7 +161,6 @@ const loading = ref(false);
 const loadError = ref("");
 const rows = ref([]);
 const searchQuery = ref("");
-const groupFilter = ref("All");
 const contractFilter = ref("ALL");
 const showEditDialog = ref(false);
 const selectedRows = ref([]);
@@ -409,13 +399,6 @@ const loadSections = async () => {
   }
 };
 
-const groupOptions = computed(() => {
-  const options = Array.from(new Set(rows.value.map((row) => row.groupLabel))).sort(
-    compareNatural
-  );
-  return ["All", ...options];
-});
-
 const relatedPartNames = (row) =>
   (Array.isArray(row?.relatedPartIds) ? row.relatedPartIds : [])
     .map((item) => String(item || "").trim())
@@ -437,13 +420,11 @@ const relatedPartSummary = (row) => {
 
 const filteredRows = computed(() =>
   rows.value.filter((row) => {
-    if (groupFilter.value !== "All" && row.groupLabel !== groupFilter.value) return false;
     const rowContract = resolveContractPackageValue(row.contractPackage);
     if (contractFilter.value !== "ALL" && rowContract !== contractFilter.value) return false;
     return fuzzyMatchAny(
       [
         row.sectionId,
-        row.groupLabel,
         row.systemId,
         row.completionDate,
         row.area,

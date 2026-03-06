@@ -1,6 +1,6 @@
 # Web Functions
 
-最後更新：2026-03-05  
+最後更新：2026-03-06  
 範圍：依 `web/` 現有程式實作整理的前端 demo 功能目錄
 
 ## 1) 產品功能總覽
@@ -164,10 +164,9 @@
 ## `/landbank/sections` Sections 清單
 
 - 從 `/data/geojson/sections/index.json` + 各 group index 載入 section 清單
-- 搜尋 + group + Contract Package（`All / C1 / C2`）篩選
+- 搜尋 + Contract Package（`All / C1 / C2`）篩選
 - 表格檢視：
 - Section ID
-- Group
 - System ID（以既有規則顯示）
 - Contract Package（可編修）
 - Completion Date（可編修）
