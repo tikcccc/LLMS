@@ -28,11 +28,13 @@ export const useMapFeatureNormalization = ({ partOfSitesStore, sectionsStore }) 
     {
       showC1 = true,
       showC2 = true,
+      showC3 = true,
     } = {}
   ) => {
     const normalized = normalizeContractPackageValue(contractPackage, CONTRACT_PACKAGE.C2);
     if (normalized === CONTRACT_PACKAGE.C1) return !!showC1;
-    return !!showC2;
+    if (normalized === CONTRACT_PACKAGE.C2) return !!showC2;
+    return !!showC3;
   };
 
   const getPartAttributeOverride = (partId, contractPackage = "") => {

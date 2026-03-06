@@ -12,19 +12,15 @@ export const useMapContractPackageHelpers = ({
   const toContractPackageVisibilityKey = (group, packageValue) => {
     const normalized = normalizeContractPackageValue(packageValue);
     if (group === "workLot") {
-      return normalized === contractPackage.C1 ? "showWorkLotsC1" : "showWorkLotsC2";
+      return `showWorkLots${normalized}`;
     }
     if (group === "siteBoundary") {
-      return normalized === contractPackage.C1
-        ? "showSiteBoundaryC1"
-        : "showSiteBoundaryC2";
+      return `showSiteBoundary${normalized}`;
     }
     if (group === "partOfSites") {
-      return normalized === contractPackage.C1
-        ? "showPartOfSitesC1"
-        : "showPartOfSitesC2";
+      return `showPartOfSites${normalized}`;
     }
-    return normalized === contractPackage.C1 ? "showSectionsC1" : "showSectionsC2";
+    return `showSections${normalized}`;
   };
 
   const ensureContractPackageVisible = (group, packageValue) => {

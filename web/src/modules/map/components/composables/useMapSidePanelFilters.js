@@ -1,4 +1,8 @@
 import { computed, ref } from "vue";
+import {
+  CONTRACT_PACKAGE_VALUES,
+  normalizeContractPackage,
+} from "../../../../shared/utils/contractPackage";
 import { siteBoundaryStatusStyle } from "../../utils/siteBoundaryStatusStyle";
 
 const normalizeIdList = (value) => {
@@ -53,13 +57,16 @@ export const useMapSidePanelFilters = ({ props, emit }) => {
   const showBasemapProxy = createBooleanFilterProxy("showBasemap", true);
   const showLabelsProxy = createBooleanFilterProxy("showLabels", true);
   const activeContractProxy = computed({
-    get: () => {
-      const value = String(props.layerFilterState?.activeContract || "").trim().toUpperCase();
-      return value === "C1" ? "C1" : "C2";
-    },
+    get: () =>
+      normalizeContractPackage(props.layerFilterState?.activeContract, {
+        fallback: CONTRACT_PACKAGE_VALUES[0],
+      }),
     set: (value) => {
-      const normalized = String(value || "").trim().toUpperCase();
-      patchLayerFilterState({ activeContract: normalized === "C1" ? "C1" : "C2" });
+      const normalized = normalizeContractPackage(value);
+      const nextValue = CONTRACT_PACKAGE_VALUES.includes(normalized)
+        ? normalized
+        : CONTRACT_PACKAGE_VALUES[0];
+      patchLayerFilterState({ activeContract: nextValue });
     },
   });
   const showPartOfSitesProxy = createBooleanFilterProxy("showPartOfSites", false);

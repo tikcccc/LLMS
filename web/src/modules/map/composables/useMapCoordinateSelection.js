@@ -1,3 +1,8 @@
+import {
+  CONTRACT_PACKAGE_VALUES,
+  normalizeContractPackage,
+} from "../../../shared/utils/contractPackage";
+
 const resolveSmallestAreaIdAtCoordinate = ({
   source,
   resolveMeta,
@@ -16,18 +21,16 @@ const resolveSmallestAreaIdAtCoordinate = ({
   const clickPoint = [x, y];
   const activeContractRaw =
     typeof resolveActiveContract === "function" ? resolveActiveContract() : "";
-  const activeContract = String(activeContractRaw || "").trim().toUpperCase();
-  const scopedActiveContract =
-    activeContract === "C1" || activeContract === "C2" ? activeContract : "";
+  const normalizedActiveContract = String(activeContractRaw || "").trim().toUpperCase();
+  const scopedActiveContract = CONTRACT_PACKAGE_VALUES.includes(normalizedActiveContract)
+    ? normalizedActiveContract
+    : "";
   source.getFeatures().forEach((feature, index) => {
     const meta = resolveMeta(feature, index);
     const rawId = resolveId(meta);
     const resolvedId = String(rawId || "").trim();
     if (!resolvedId) return;
-    const contractPackage =
-      String(meta?.contractPackage || "").trim().toUpperCase() === "C1"
-        ? "C1"
-        : "C2";
+    const contractPackage = normalizeContractPackage(meta?.contractPackage || "");
     if (scopedActiveContract && contractPackage !== scopedActiveContract) return;
     const key = `${contractPackage}:${resolvedId.toLowerCase()}`;
     if (dedupe.has(key)) return;

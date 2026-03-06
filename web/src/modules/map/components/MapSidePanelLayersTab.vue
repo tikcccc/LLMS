@@ -22,7 +22,9 @@
       <div class="layer-block-head">
         <div class="layer-title-wrap">
           <div class="layer-title">Contract Workspace</div>
-          <div class="layer-subtitle">Switch map data between C1 and C2</div>
+          <div class="layer-subtitle">
+            Switch map data between {{ CONTRACT_PACKAGE_VALUES.join(", ") }}
+          </div>
         </div>
         <div class="layer-actions">
           <el-radio-group
@@ -30,8 +32,13 @@
             size="small"
             @update:model-value="emit('update:activeContract', $event)"
           >
-            <el-radio-button :label="'C1'">C1</el-radio-button>
-            <el-radio-button :label="'C2'">C2</el-radio-button>
+            <el-radio-button
+              v-for="item in CONTRACT_PACKAGE_VALUES"
+              :key="item"
+              :label="item"
+            >
+              {{ item }}
+            </el-radio-button>
           </el-radio-group>
         </div>
       </div>
@@ -373,11 +380,13 @@
 </template>
 
 <script setup>
+import { CONTRACT_PACKAGE_VALUES } from "../../../shared/utils/contractPackage";
+
 defineProps({
   showBasemap: { type: Boolean, default: true },
   showLabels: { type: Boolean, default: true },
   layerFilterKeyword: { type: String, default: "" },
-  activeContract: { type: String, default: "C2" },
+  activeContract: { type: String, default: "C1" },
   showPartOfSites: { type: Boolean, default: false },
   showSections: { type: Boolean, default: false },
   showSiteBoundary: { type: Boolean, default: true },

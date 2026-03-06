@@ -1,4 +1,5 @@
 import { findSiteBoundaryIdsForGeometry } from "../utils/siteBoundaryMatch";
+import { normalizeContractPackage } from "../../../shared/utils/contractPackage";
 
 export const useMapFeatureRelations = ({
   format,
@@ -10,9 +11,6 @@ export const useMapFeatureRelations = ({
   getPartOfSitesFeatureById,
   getSectionFeatureById,
 }) => {
-  const normalizeContractPackage = (value) =>
-    String(value || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
-
   const resolveRelatedSiteBoundaryIdsByGeometryObject = (
     geometryObject,
     { contractPackage = "" } = {}

@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import { normalizeContractPackage } from "../../../shared/utils/contractPackage";
 import {
   buildSelectedPartOfSiteRelatedSections,
   buildSelectedSectionRelatedPartOfSites,
@@ -43,17 +44,16 @@ export const useMapSelectionDetails = ({
     const normalizedBoundaryId = String(feature.getId() ?? id);
     const relatedWorkLotIds = workLotStore.workLots
       .filter((lot) => {
-        const normalizedContractPackage =
+        const normalizedContractPackage = normalizeContractPackage(
           resolveContractPackageValue([
             lot.contractPackage,
             lot.contract_package,
             lot.phase,
             lot.package,
             lot.contractNo,
-          ]) === "C1"
-            ? "C1"
-            : "C2";
-        const normalizedActiveContract = uiStore.activeContract === "C1" ? "C1" : "C2";
+          ])
+        );
+        const normalizedActiveContract = normalizeContractPackage(uiStore.activeContract);
         if (normalizedContractPackage !== normalizedActiveContract) return false;
         const relatedIds = Array.isArray(lot.relatedSiteBoundaryIds)
           ? lot.relatedSiteBoundaryIds
@@ -66,7 +66,7 @@ export const useMapSelectionDetails = ({
       .map((lot) => String(lot.id));
     return {
       id: normalizedBoundaryId,
-      contractPackage: feature.get("contractPackage") || "C2",
+      contractPackage: normalizeContractPackage(feature.get("contractPackage")),
       name: feature.get("name") ?? "",
       layer: feature.get("layer") ?? "—",
       entity: feature.get("entity") ?? "Polygon",

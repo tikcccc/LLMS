@@ -1,3 +1,8 @@
+import {
+  normalizeContractPackage,
+  resolveContractPackage,
+} from "../../../shared/utils/contractPackage";
+
 const naturalCompare = (left, right) =>
   String(left ?? "").localeCompare(String(right ?? ""), undefined, { numeric: true });
 
@@ -28,18 +33,13 @@ export const buildSelectedWorkLotRelatedSites = ({
             : Array.isArray(fallback)
               ? fallback
               : [];
-  const scopedContract =
-    String(
-      selectedWorkLot?.contractPackage ??
-        selectedWorkLot?.contract_package ??
-        selectedWorkLot?.phase ??
-        selectedWorkLot?.package ??
-        selectedWorkLot?.contractNo
-    )
-      .trim()
-      .toUpperCase() === "C1"
-      ? "C1"
-      : "C2";
+  const scopedContract = normalizeContractPackage(
+    selectedWorkLot?.contractPackage ??
+      selectedWorkLot?.contract_package ??
+      selectedWorkLot?.phase ??
+      selectedWorkLot?.package ??
+      selectedWorkLot?.contractNo
+  );
 
   const relatedSiteBoundaryIds = resolveIdsWithFallback(
     resolveIdsByGeometry(selectedWorkLot.geometry, {
@@ -83,7 +83,7 @@ export const buildSelectedSiteBoundaryRelatedWorkLots = ({
   if (!siteBoundaryId) return [];
 
   const normalizedSiteBoundaryId = String(siteBoundaryId).toLowerCase();
-  const normalizedActiveContract = String(activeContract || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+  const normalizedActiveContract = normalizeContractPackage(activeContract);
   return [...workLots]
     .filter((lot) => {
       const contractPackage =
@@ -95,8 +95,14 @@ export const buildSelectedSiteBoundaryRelatedWorkLots = ({
               lot?.package,
               lot?.contractNo,
             ])
-          : String(lot?.contractPackage || "").trim().toUpperCase();
-      const normalizedContract = contractPackage === "C1" ? "C1" : "C2";
+          : resolveContractPackage([
+              lot?.contractPackage,
+              lot?.contract_package,
+              lot?.phase,
+              lot?.package,
+              lot?.contractNo,
+            ]);
+      const normalizedContract = normalizeContractPackage(contractPackage);
       if (normalizedContract !== normalizedActiveContract) return false;
       const relatedIds = Array.isArray(lot?.relatedSiteBoundaryIds)
         ? lot.relatedSiteBoundaryIds
@@ -164,12 +170,10 @@ export const buildSelectedPartOfSiteRelatedSections = ({
     });
   } else if (typeof resolveSectionMeta === "function") {
     const normalizedPartId = String(partId).toLowerCase();
-    const normalizedActiveContract =
-      String(activeContract || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+    const normalizedActiveContract = normalizeContractPackage(activeContract);
     sectionFeatures.forEach((feature, index) => {
       const meta = resolveSectionMeta(feature, index);
-      const normalizedContract =
-        String(meta?.contractPackage || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+      const normalizedContract = normalizeContractPackage(meta?.contractPackage);
       if (normalizedContract !== normalizedActiveContract) return;
       const relatedPartIds = (meta?.relatedPartIds || []).map((value) => String(value).toLowerCase());
       if (!relatedPartIds.includes(normalizedPartId)) return;
@@ -235,12 +239,10 @@ export const buildSelectedSectionRelatedPartOfSites = ({
     });
   } else if (typeof resolvePartOfSiteMeta === "function") {
     const normalizedSectionId = String(sectionId).toLowerCase();
-    const normalizedActiveContract =
-      String(activeContract || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+    const normalizedActiveContract = normalizeContractPackage(activeContract);
     partOfSitesFeatures.forEach((feature, index) => {
       const meta = resolvePartOfSiteMeta(feature, index);
-      const normalizedContract =
-        String(meta?.contractPackage || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+      const normalizedContract = normalizeContractPackage(meta?.contractPackage);
       if (normalizedContract !== normalizedActiveContract) return;
       const sectionIds = (meta?.sectionIds || []).map((value) => String(value).toLowerCase());
       if (!sectionIds.includes(normalizedSectionId)) return;

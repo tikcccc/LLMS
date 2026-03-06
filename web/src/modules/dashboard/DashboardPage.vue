@@ -11,8 +11,13 @@
         <div class="filter-item">
           <span class="filter-label">Contract Package</span>
           <el-radio-group v-model="contractPackageFilter" size="small">
-            <el-radio-button label="C1">C1</el-radio-button>
-            <el-radio-button label="C2">C2</el-radio-button>
+            <el-radio-button
+              v-for="item in CONTRACT_PACKAGE_VALUES"
+              :key="item"
+              :label="item"
+            >
+              {{ item }}
+            </el-radio-button>
           </el-radio-group>
         </div>
         <div class="filter-item">
@@ -241,7 +246,10 @@ import { useDashboardMetrics } from "./useDashboardMetrics";
 import { useRouter } from "vue-router";
 import TimeText from "../../components/TimeText.vue";
 import { workStatusStyle } from "../map/utils/statusStyle";
-import { CONTRACT_PACKAGE } from "../../shared/utils/contractPackage";
+import {
+  CONTRACT_PACKAGE,
+  CONTRACT_PACKAGE_VALUES,
+} from "../../shared/utils/contractPackage";
 
 Chart.register(
   DoughnutController,

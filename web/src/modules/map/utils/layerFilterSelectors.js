@@ -1,3 +1,5 @@
+import { normalizeContractPackage } from "../../../shared/utils/contractPackage";
+
 const naturalCompare = (left, right) =>
   String(left ?? "").localeCompare(String(right ?? ""), undefined, { numeric: true });
 
@@ -23,8 +25,7 @@ const resolvePackageValue = (resolver, values = []) => {
   return String(values || "").trim();
 };
 
-const normalizeContractValue = (value) =>
-  String(value || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+const normalizeContractValue = (value) => normalizeContractPackage(value);
 
 const isActiveContractMatch = (value, activeContract = "C1") =>
   normalizeContractValue(value) === normalizeContractValue(activeContract);

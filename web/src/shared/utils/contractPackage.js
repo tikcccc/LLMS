@@ -1,9 +1,14 @@
 export const CONTRACT_PACKAGE = {
   C1: "C1",
   C2: "C2",
+  C3: "C3",
 };
 
-export const CONTRACT_PACKAGE_VALUES = [CONTRACT_PACKAGE.C1, CONTRACT_PACKAGE.C2];
+export const CONTRACT_PACKAGE_VALUES = [
+  CONTRACT_PACKAGE.C1,
+  CONTRACT_PACKAGE.C2,
+  CONTRACT_PACKAGE.C3,
+];
 
 const normalizeText = (value) => {
   if (value === null || value === undefined) return "";
@@ -16,17 +21,10 @@ const hasStandaloneContractToken = (text, token) =>
 const detectContractPackageFromText = (value) => {
   const normalized = normalizeText(value).toUpperCase();
   if (!normalized) return "";
-  if (
-    normalized === CONTRACT_PACKAGE.C1 ||
-    hasStandaloneContractToken(normalized, CONTRACT_PACKAGE.C1)
-  ) {
-    return CONTRACT_PACKAGE.C1;
-  }
-  if (
-    normalized === CONTRACT_PACKAGE.C2 ||
-    hasStandaloneContractToken(normalized, CONTRACT_PACKAGE.C2)
-  ) {
-    return CONTRACT_PACKAGE.C2;
+  for (const token of CONTRACT_PACKAGE_VALUES) {
+    if (normalized === token || hasStandaloneContractToken(normalized, token)) {
+      return token;
+    }
   }
   return "";
 };

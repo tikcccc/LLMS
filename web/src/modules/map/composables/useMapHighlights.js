@@ -10,6 +10,7 @@ import {
   normalizeWorkLotCategory,
   WORK_LOT_CATEGORY,
 } from "../../../shared/utils/worklot";
+import { normalizeContractPackage } from "../../../shared/utils/contractPackage";
 
 export const useMapHighlights = ({
   createWorkFeature,
@@ -78,9 +79,6 @@ export const useMapHighlights = ({
     if (/^\d+[a-z]$/i.test(normalized)) return normalized.toUpperCase();
     return normalized;
   };
-  const normalizeContractPackage = (value) =>
-    normalizeValue(value).toUpperCase() === "C1" ? "C1" : "C2";
-
   const isSelectedInFilter = (mode, selectedIds = [], id) => {
     if (mode !== "custom") return true;
     const normalized = String(id || "").trim().toLowerCase();

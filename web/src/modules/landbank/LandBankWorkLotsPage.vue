@@ -213,6 +213,7 @@ import {
 } from "../../shared/utils/workLotEdit";
 import {
   CONTRACT_PACKAGE,
+  CONTRACT_PACKAGE_VALUES,
   normalizeContractPackage,
 } from "../../shared/utils/contractPackage";
 
@@ -238,8 +239,7 @@ const FLOAT_THRESHOLD_MONTHS = 3;
 
 const contractOptions = [
   { label: "All Contracts", value: "ALL" },
-  { label: CONTRACT_PACKAGE.C1, value: CONTRACT_PACKAGE.C1 },
-  { label: CONTRACT_PACKAGE.C2, value: CONTRACT_PACKAGE.C2 },
+  ...CONTRACT_PACKAGE_VALUES.map((value) => ({ label: value, value })),
 ];
 const statusOptions = ["All", ...WORK_LOT_STATUSES];
 const categoryOptions = ["All", ...WORK_LOT_CATEGORIES.map((item) => item.value)];

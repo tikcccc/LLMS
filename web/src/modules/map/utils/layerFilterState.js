@@ -32,6 +32,9 @@ export const applyLayerFilterStateToUiStore = (uiStore, nextState = {}) => {
   if (typeof nextState.showPartOfSitesC2 === "boolean") {
     uiStore.setLayerVisibility("showPartOfSitesC2", nextState.showPartOfSitesC2);
   }
+  if (typeof nextState.showPartOfSitesC3 === "boolean") {
+    uiStore.setLayerVisibility("showPartOfSitesC3", nextState.showPartOfSitesC3);
+  }
   if (typeof nextState.showSections === "boolean") {
     uiStore.setLayerVisibility("showSections", nextState.showSections);
   }
@@ -40,6 +43,9 @@ export const applyLayerFilterStateToUiStore = (uiStore, nextState = {}) => {
   }
   if (typeof nextState.showSectionsC2 === "boolean") {
     uiStore.setLayerVisibility("showSectionsC2", nextState.showSectionsC2);
+  }
+  if (typeof nextState.showSectionsC3 === "boolean") {
+    uiStore.setLayerVisibility("showSectionsC3", nextState.showSectionsC3);
   }
   if (typeof nextState.showSiteBoundary === "boolean") {
     uiStore.setLayerVisibility("showSiteBoundary", nextState.showSiteBoundary);
@@ -50,6 +56,9 @@ export const applyLayerFilterStateToUiStore = (uiStore, nextState = {}) => {
   if (typeof nextState.showSiteBoundaryC2 === "boolean") {
     uiStore.setLayerVisibility("showSiteBoundaryC2", nextState.showSiteBoundaryC2);
   }
+  if (typeof nextState.showSiteBoundaryC3 === "boolean") {
+    uiStore.setLayerVisibility("showSiteBoundaryC3", nextState.showSiteBoundaryC3);
+  }
   if (typeof nextState.showWorkLots === "boolean") {
     uiStore.setLayerVisibility("showWorkLots", nextState.showWorkLots);
   }
@@ -58,6 +67,9 @@ export const applyLayerFilterStateToUiStore = (uiStore, nextState = {}) => {
   }
   if (typeof nextState.showWorkLotsC2 === "boolean") {
     uiStore.setLayerVisibility("showWorkLotsC2", nextState.showWorkLotsC2);
+  }
+  if (typeof nextState.showWorkLotsC3 === "boolean") {
+    uiStore.setLayerVisibility("showWorkLotsC3", nextState.showWorkLotsC3);
   }
 
   if (Object.prototype.hasOwnProperty.call(nextState, "workLotFilterMode")) {
@@ -117,15 +129,19 @@ export const buildLayerFilterStateFromUiStore = (uiStore) => {
     showPartOfSites: uiStore.showPartOfSites,
     showPartOfSitesC1: uiStore.showPartOfSitesC1,
     showPartOfSitesC2: uiStore.showPartOfSitesC2,
+    showPartOfSitesC3: uiStore.showPartOfSitesC3,
     showSections: uiStore.showSections,
     showSectionsC1: uiStore.showSectionsC1,
     showSectionsC2: uiStore.showSectionsC2,
+    showSectionsC3: uiStore.showSectionsC3,
     showSiteBoundary: uiStore.showSiteBoundary,
     showSiteBoundaryC1: uiStore.showSiteBoundaryC1,
     showSiteBoundaryC2: uiStore.showSiteBoundaryC2,
+    showSiteBoundaryC3: uiStore.showSiteBoundaryC3,
     showWorkLots: uiStore.showWorkLots,
     showWorkLotsC1: uiStore.showWorkLotsC1,
     showWorkLotsC2: uiStore.showWorkLotsC2,
+    showWorkLotsC3: uiStore.showWorkLotsC3,
     workLotFilterMode: uiStore.workLotFilterMode,
     workLotSelectedIds: [...uiStore.workLotSelectedIds],
     siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,

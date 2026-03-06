@@ -18,6 +18,14 @@ export const useMapFocusState = ({
   focusTargetActions = {},
 }) => {
   const normalizeFocusToken = (value) => String(value || "").trim().toLowerCase();
+  const isContractVisible = (group, packageValue) => {
+    const resolved = resolveContractPackageValue(packageValue);
+    if (group === "workLot") return !!uiStore[`showWorkLots${resolved}`];
+    if (group === "siteBoundary") return !!uiStore[`showSiteBoundary${resolved}`];
+    if (group === "partOfSites") return !!uiStore[`showPartOfSites${resolved}`];
+    if (group === "section") return !!uiStore[`showSections${resolved}`];
+    return false;
+  };
 
   const activeMapFocus = ref(null);
   const focusMapTarget = computed(() =>
@@ -32,18 +40,22 @@ export const useMapFocusState = ({
     showWorkLots: uiStore.showWorkLots,
     showWorkLotsC1: uiStore.showWorkLotsC1,
     showWorkLotsC2: uiStore.showWorkLotsC2,
+    showWorkLotsC3: uiStore.showWorkLotsC3,
     showWorkLotsBusiness: uiStore.showWorkLotsBusiness,
     showWorkLotsDomestic: uiStore.showWorkLotsDomestic,
     showWorkLotsGovernment: uiStore.showWorkLotsGovernment,
     showSiteBoundary: uiStore.showSiteBoundary,
     showSiteBoundaryC1: uiStore.showSiteBoundaryC1,
     showSiteBoundaryC2: uiStore.showSiteBoundaryC2,
+    showSiteBoundaryC3: uiStore.showSiteBoundaryC3,
     showPartOfSites: uiStore.showPartOfSites,
     showPartOfSitesC1: uiStore.showPartOfSitesC1,
     showPartOfSitesC2: uiStore.showPartOfSitesC2,
+    showPartOfSitesC3: uiStore.showPartOfSitesC3,
     showSections: uiStore.showSections,
     showSectionsC1: uiStore.showSectionsC1,
     showSectionsC2: uiStore.showSectionsC2,
+    showSectionsC3: uiStore.showSectionsC3,
     workLotFilterMode: uiStore.workLotFilterMode,
     workLotSelectedIds: [...uiStore.workLotSelectedIds],
     siteBoundaryFilterMode: uiStore.siteBoundaryFilterMode,
@@ -194,10 +206,7 @@ export const useMapFocusState = ({
         lot.package,
         lot.contractNo,
       ]);
-      if (
-        (resolvedPackage === contractPackage.C1 && !uiStore.showWorkLotsC1) ||
-        (resolvedPackage === contractPackage.C2 && !uiStore.showWorkLotsC2)
-      ) {
+      if (!isContractVisible("workLot", resolvedPackage)) {
         return false;
       }
       const category = normalizeWorkLotCategory(lot.category ?? lot.type);
@@ -228,8 +237,7 @@ export const useMapFocusState = ({
         feature.get("contractNo"),
         feature.get("layer"),
       ]);
-      if (resolvedPackage === contractPackage.C1) return uiStore.showSiteBoundaryC1;
-      return uiStore.showSiteBoundaryC2;
+      return isContractVisible("siteBoundary", resolvedPackage);
     }
 
     if (group === "partOfSites") {
@@ -242,8 +250,7 @@ export const useMapFocusState = ({
       const feature = findPartOfSitesFeatureById(id);
       if (!feature) return false;
       const meta = resolvePartOfSiteMeta(feature);
-      if (meta.contractPackage === contractPackage.C1) return uiStore.showPartOfSitesC1;
-      return uiStore.showPartOfSitesC2;
+      return isContractVisible("partOfSites", meta.contractPackage);
     }
 
     if (group === "section") {
@@ -254,8 +261,7 @@ export const useMapFocusState = ({
       const feature = findSectionFeatureById(id);
       if (!feature) return false;
       const meta = resolveSectionMeta(feature);
-      if (meta.contractPackage === contractPackage.C1) return uiStore.showSectionsC1;
-      return uiStore.showSectionsC2;
+      return isContractVisible("section", meta.contractPackage);
     }
 
     return false;

@@ -182,6 +182,7 @@ import {
 } from "../../shared/utils/siteBoundaryEdit";
 import {
   CONTRACT_PACKAGE,
+  CONTRACT_PACKAGE_VALUES,
   normalizeContractPackage,
 } from "../../shared/utils/contractPackage";
 import {
@@ -206,8 +207,7 @@ const reportFormatOptions = REPORT_FORMAT_OPTIONS;
 
 const contractOptions = [
   { label: "All Contracts", value: "ALL" },
-  { label: CONTRACT_PACKAGE.C1, value: CONTRACT_PACKAGE.C1 },
-  { label: CONTRACT_PACKAGE.C2, value: CONTRACT_PACKAGE.C2 },
+  ...CONTRACT_PACKAGE_VALUES.map((value) => ({ label: value, value })),
 ];
 const statusOptions = [
   { label: "All", value: "All" },

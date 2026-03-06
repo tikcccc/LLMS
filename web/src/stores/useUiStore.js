@@ -1,13 +1,25 @@
 import { defineStore } from "pinia";
 import {
   CONTRACT_PACKAGE,
+  CONTRACT_PACKAGE_VALUES,
   normalizeContractPackage,
 } from "../shared/utils/contractPackage";
 
-const MAP_FILTER_SCHEMA_VERSION = 4;
+const MAP_FILTER_SCHEMA_VERSION = 5;
 const DEFAULT_ACTIVE_CONTRACT = CONTRACT_PACKAGE.C1;
 const FILTER_MODE_ALL = "all";
 const FILTER_MODE_CUSTOM = "custom";
+const CONTRACT_LAYER_GROUPS = [
+  "showPartOfSites",
+  "showSections",
+  "showSiteBoundary",
+  "showWorkLots",
+];
+const CONTRACT_LAYER_VISIBILITY_KEYS = Object.fromEntries(
+  CONTRACT_LAYER_GROUPS.flatMap((groupKey) =>
+    CONTRACT_PACKAGE_VALUES.map((packageCode) => [`${groupKey}${packageCode}`, packageCode])
+  )
+);
 
 const FILTER_GROUP_MAP = {
   workLot: {
@@ -49,19 +61,18 @@ const resolveActiveContractValue = (value) =>
 
 const buildPhaseVisibilityByContract = (activeContract) => {
   const resolved = resolveActiveContractValue(activeContract);
-  const isC1 = resolved === CONTRACT_PACKAGE.C1;
-  return {
-    activeContract: resolved,
-    showPartOfSitesC1: isC1,
-    showPartOfSitesC2: !isC1,
-    showSectionsC1: isC1,
-    showSectionsC2: !isC1,
-    showSiteBoundaryC1: isC1,
-    showSiteBoundaryC2: !isC1,
-    showWorkLotsC1: isC1,
-    showWorkLotsC2: !isC1,
-  };
+  return CONTRACT_LAYER_GROUPS.reduce(
+    (state, groupKey) => {
+      CONTRACT_PACKAGE_VALUES.forEach((packageCode) => {
+        state[`${groupKey}${packageCode}`] = resolved === packageCode;
+      });
+      return state;
+    },
+    { activeContract: resolved }
+  );
 };
+
+const buildDefaultPhaseVisibilityState = () => buildPhaseVisibilityByContract(DEFAULT_ACTIVE_CONTRACT);
 
 export const useUiStore = defineStore("ui", {
   state: () => ({
@@ -70,19 +81,11 @@ export const useUiStore = defineStore("ui", {
     showBasemap: true,
     showLabels: true,
     showIntLand: false,
-    activeContract: DEFAULT_ACTIVE_CONTRACT,
+    ...buildDefaultPhaseVisibilityState(),
     showPartOfSites: false,
-    showPartOfSitesC1: true,
-    showPartOfSitesC2: false,
     showSections: false,
-    showSectionsC1: true,
-    showSectionsC2: false,
     showSiteBoundary: true,
-    showSiteBoundaryC1: true,
-    showSiteBoundaryC2: false,
     showWorkLots: true,
-    showWorkLotsC1: true,
-    showWorkLotsC2: false,
     showWorkLotsBusiness: true,
     showWorkLotsDomestic: true,
     showWorkLotsGovernment: true,
@@ -103,15 +106,7 @@ export const useUiStore = defineStore("ui", {
   actions: {
     applyActiveContractPhaseVisibility(activeContract = this.activeContract) {
       const phaseVisibility = buildPhaseVisibilityByContract(activeContract);
-      this.activeContract = phaseVisibility.activeContract;
-      this.showPartOfSitesC1 = phaseVisibility.showPartOfSitesC1;
-      this.showPartOfSitesC2 = phaseVisibility.showPartOfSitesC2;
-      this.showSectionsC1 = phaseVisibility.showSectionsC1;
-      this.showSectionsC2 = phaseVisibility.showSectionsC2;
-      this.showSiteBoundaryC1 = phaseVisibility.showSiteBoundaryC1;
-      this.showSiteBoundaryC2 = phaseVisibility.showSiteBoundaryC2;
-      this.showWorkLotsC1 = phaseVisibility.showWorkLotsC1;
-      this.showWorkLotsC2 = phaseVisibility.showWorkLotsC2;
+      Object.assign(this, phaseVisibility);
     },
     setActiveContract(activeContract) {
       this.applyActiveContractPhaseVisibility(activeContract);
@@ -123,19 +118,11 @@ export const useUiStore = defineStore("ui", {
         this.showBasemap = true;
         this.showLabels = true;
         this.showIntLand = false;
-        this.activeContract = DEFAULT_ACTIVE_CONTRACT;
+        Object.assign(this, buildDefaultPhaseVisibilityState());
         this.showPartOfSites = false;
-        this.showPartOfSitesC1 = true;
-        this.showPartOfSitesC2 = false;
         this.showSections = false;
-        this.showSectionsC1 = true;
-        this.showSectionsC2 = false;
         this.showSiteBoundary = true;
-        this.showSiteBoundaryC1 = true;
-        this.showSiteBoundaryC2 = false;
         this.showWorkLots = true;
-        this.showWorkLotsC1 = true;
-        this.showWorkLotsC2 = false;
         this.showWorkLotsBusiness = true;
         this.showWorkLotsDomestic = true;
         this.showWorkLotsGovernment = true;
@@ -175,6 +162,14 @@ export const useUiStore = defineStore("ui", {
       if (typeof this.showSiteBoundary !== "boolean") {
         this.showSiteBoundary = true;
       }
+      CONTRACT_LAYER_GROUPS.forEach((groupKey) => {
+        CONTRACT_PACKAGE_VALUES.forEach((packageCode) => {
+          const visibilityKey = `${groupKey}${packageCode}`;
+          if (typeof this[visibilityKey] !== "boolean") {
+            this[visibilityKey] = packageCode === DEFAULT_ACTIVE_CONTRACT;
+          }
+        });
+      });
       this.applyActiveContractPhaseVisibility(this.activeContract);
       if (
         !this.showWorkLotsBusiness &&
@@ -254,29 +249,15 @@ export const useUiStore = defineStore("ui", {
     },
     setLayerVisibility(layerKey, value) {
       const normalized = !!value;
-      if (
-        layerKey === "showPartOfSitesC1" ||
-        layerKey === "showSectionsC1" ||
-        layerKey === "showSiteBoundaryC1" ||
-        layerKey === "showWorkLotsC1"
-      ) {
+      const packageCode = CONTRACT_LAYER_VISIBILITY_KEYS[layerKey];
+      if (packageCode) {
         if (normalized) {
-          this.setActiveContract(CONTRACT_PACKAGE.C1);
-        } else if (this.activeContract === CONTRACT_PACKAGE.C1) {
-          this.setActiveContract(CONTRACT_PACKAGE.C2);
-        }
-        return;
-      }
-      if (
-        layerKey === "showPartOfSitesC2" ||
-        layerKey === "showSectionsC2" ||
-        layerKey === "showSiteBoundaryC2" ||
-        layerKey === "showWorkLotsC2"
-      ) {
-        if (normalized) {
-          this.setActiveContract(CONTRACT_PACKAGE.C2);
-        } else if (this.activeContract === CONTRACT_PACKAGE.C2) {
-          this.setActiveContract(CONTRACT_PACKAGE.C1);
+          this.setActiveContract(packageCode);
+        } else if (this.activeContract === packageCode) {
+          const fallbackPackage =
+            CONTRACT_PACKAGE_VALUES.find((value) => value !== packageCode) ||
+            DEFAULT_ACTIVE_CONTRACT;
+          this.setActiveContract(fallbackPackage);
         }
         return;
       }

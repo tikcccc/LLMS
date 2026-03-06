@@ -6,6 +6,7 @@ import {
   parseSiteBoundaryGeojson,
 } from "../shared/utils/siteBoundary";
 
+const SITE_BOUNDARY_STORE_VERSION = 2;
 const sourceRefKey = (value) => String(value || "").trim().toLowerCase();
 const hasPolygonGeometry = (geometry) =>
   !!geometry &&
@@ -46,6 +47,7 @@ const mergeSiteBoundaryRecord = (base, existing = null, index = 0, existingIds =
 
 export const useSiteBoundaryStore = defineStore("siteBoundaries", {
   state: () => ({
+    storeVersion: SITE_BOUNDARY_STORE_VERSION,
     siteBoundaries: [],
     loaded: false,
     loading: false,
@@ -59,6 +61,10 @@ export const useSiteBoundaryStore = defineStore("siteBoundaries", {
   },
   actions: {
     normalizeLegacySiteBoundaries() {
+      if (Number(this.storeVersion) !== SITE_BOUNDARY_STORE_VERSION) {
+        this.storeVersion = SITE_BOUNDARY_STORE_VERSION;
+        this.loaded = false;
+      }
       const existingIds = new Set();
       this.siteBoundaries = this.siteBoundaries.map((boundary, index) =>
         normalizeSiteBoundary(

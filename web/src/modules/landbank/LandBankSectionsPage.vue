@@ -148,6 +148,7 @@ import {
 } from "../../shared/utils/reportExport";
 import {
   CONTRACT_PACKAGE,
+  CONTRACT_PACKAGE_VALUES,
   resolveContractPackage,
   toContractPhaseScopedId,
 } from "../../shared/utils/contractPackage";
@@ -211,8 +212,7 @@ const resolveContractPackageValue = (values = []) =>
   resolveContractPackage(values, { fallback: CONTRACT_PACKAGE.C2 });
 const contractOptions = [
   { label: "All Contracts", value: "ALL" },
-  { label: CONTRACT_PACKAGE.C1, value: CONTRACT_PACKAGE.C1 },
-  { label: CONTRACT_PACKAGE.C2, value: CONTRACT_PACKAGE.C2 },
+  ...CONTRACT_PACKAGE_VALUES.map((value) => ({ label: value, value })),
 ];
 const resolveSectionAttributeOverride = (sectionId, contractPackage = "") => {
   const normalizedSectionId = String(sectionId || "").trim();

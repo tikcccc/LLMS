@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { normalizeSectionsGeojson } from "../shared/utils/sectionsGeojson";
 import {
   CONTRACT_PACKAGE,
+  CONTRACT_PACKAGE_VALUES,
   normalizeContractPackage,
   toContractPhaseScopedId,
 } from "../shared/utils/contractPackage";
@@ -42,7 +43,7 @@ const parseScopedSectionKey = (rawKey) => {
     };
   }
   const [head, ...tail] = normalized.split(":");
-  if (tail.length > 0 && /^c[12]$/i.test(String(head || "").trim())) {
+  if (tail.length > 0 && /^c[123]$/i.test(String(head || "").trim())) {
     return {
       sectionId: tail.join(":").trim(),
       contractPackage: String(head).trim().toUpperCase(),
@@ -108,10 +109,14 @@ const resolveSectionAttributeOverride = (overrides = {}, sectionId, contractPack
   }
   const legacyKey = normalizedSectionId.toLowerCase();
   if (legacyKey in overrides) return overrides[legacyKey];
-  const c2Key = buildSectionAttributeKey(normalizedSectionId, CONTRACT_PACKAGE.C2);
-  if (c2Key && overrides[c2Key]) return overrides[c2Key];
-  const c1Key = buildSectionAttributeKey(normalizedSectionId, CONTRACT_PACKAGE.C1);
-  if (c1Key && overrides[c1Key]) return overrides[c1Key];
+  for (const packageCode of [
+    CONTRACT_PACKAGE.C2,
+    CONTRACT_PACKAGE.C1,
+    CONTRACT_PACKAGE.C3,
+  ]) {
+    const scopedKey = buildSectionAttributeKey(normalizedSectionId, packageCode);
+    if (scopedKey && overrides[scopedKey]) return overrides[scopedKey];
+  }
   return null;
 };
 const hasSectionAttributeValue = (record = {}) =>
@@ -214,7 +219,7 @@ export const useSectionsStore = defineStore("sections", {
           changed = true;
         }
       } else {
-        [CONTRACT_PACKAGE.C1, CONTRACT_PACKAGE.C2].forEach((packageCode) => {
+        CONTRACT_PACKAGE_VALUES.forEach((packageCode) => {
           const scopedKey = buildSectionAttributeKey(normalizedSectionId, packageCode);
           if (scopedKey && scopedKey in next) {
             delete next[scopedKey];

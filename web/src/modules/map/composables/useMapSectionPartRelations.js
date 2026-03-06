@@ -1,5 +1,9 @@
 import { ref } from "vue";
 import {
+  CONTRACT_PACKAGE_VALUES,
+  normalizeContractPackage,
+} from "../../../shared/utils/contractPackage";
+import {
   buildResolvedPartGeometryStats,
   getGeometriesIntersectionArea,
   geometriesOverlapByArea,
@@ -7,8 +11,6 @@ import {
 } from "../utils/partGeometryResolution";
 
 const normalizeText = (value) => String(value || "").trim();
-const normalizeContractPackage = (value) =>
-  normalizeText(value).toUpperCase() === "C1" ? "C1" : "C2";
 const buildScopedKey = (id, contractPackage = "C2") => {
   const normalizedId = normalizeText(id);
   if (!normalizedId) return "";
@@ -62,17 +64,16 @@ const resolveScopedGeometryStat = (statsMap, id, contractPackage = "") => {
   const normalizedId = normalizeText(id);
   if (!normalizedId || !(statsMap instanceof Map)) return null;
   const normalizedContract = normalizeText(contractPackage).toUpperCase();
-  if (normalizedContract === "C1" || normalizedContract === "C2") {
+  if (CONTRACT_PACKAGE_VALUES.includes(normalizedContract)) {
     return getResolvedPartGeometryStat(
       statsMap,
       buildScopedKey(normalizedId, normalizedContract)
     );
   }
-  const c1Stat = getResolvedPartGeometryStat(statsMap, buildScopedKey(normalizedId, "C1"));
-  const c2Stat = getResolvedPartGeometryStat(statsMap, buildScopedKey(normalizedId, "C2"));
-  if (c1Stat && !c2Stat) return c1Stat;
-  if (c2Stat && !c1Stat) return c2Stat;
-  return c1Stat || c2Stat || getResolvedPartGeometryStat(statsMap, normalizedId);
+  const fallbackStats = CONTRACT_PACKAGE_VALUES
+    .map((packageCode) => getResolvedPartGeometryStat(statsMap, buildScopedKey(normalizedId, packageCode)))
+    .filter(Boolean);
+  return fallbackStats[0] || getResolvedPartGeometryStat(statsMap, normalizedId);
 };
 
 export const useMapSectionPartRelations = ({

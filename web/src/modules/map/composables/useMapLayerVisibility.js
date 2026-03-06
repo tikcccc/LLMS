@@ -19,6 +19,7 @@ export const useMapLayerVisibility = ({
       !isContractPackageVisible(contractPackage, {
         showC1: uiStore.showWorkLotsC1,
         showC2: uiStore.showWorkLotsC2,
+        showC3: uiStore.showWorkLotsC3,
       })
     ) {
       return false;
@@ -44,6 +45,7 @@ export const useMapLayerVisibility = ({
       !isContractPackageVisible(contractPackage, {
         showC1: uiStore.showSiteBoundaryC1,
         showC2: uiStore.showSiteBoundaryC2,
+        showC3: uiStore.showSiteBoundaryC3,
       })
     ) {
       return false;
@@ -63,6 +65,7 @@ export const useMapLayerVisibility = ({
       !isContractPackageVisible(contractPackage, {
         showC1: uiStore.showPartOfSitesC1,
         showC2: uiStore.showPartOfSitesC2,
+        showC3: uiStore.showPartOfSitesC3,
       })
     ) {
       return false;
@@ -82,6 +85,7 @@ export const useMapLayerVisibility = ({
       !isContractPackageVisible(contractPackage, {
         showC1: uiStore.showSectionsC1,
         showC2: uiStore.showSectionsC2,
+        showC3: uiStore.showSectionsC3,
       })
     ) {
       return false;
