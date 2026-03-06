@@ -1,6 +1,6 @@
 # Web Architecture
 
-最後更新：2026-03-05  
+最後更新：2026-03-06  
 範圍：`web/` 前端 demo 應用
 
 ## 1) 文件目標
@@ -63,9 +63,9 @@
 ### 4.3 Domain State 層（Pinia）
 
 - `src/stores/useAuthStore.js`：角色狀態與角色名稱
-- `src/stores/useUiStore.js`：地圖工具狀態、選取狀態、圖層顯示、`activeContract`（C1/C2 workspace）與 lot 級白名單篩選狀態
+- `src/stores/useUiStore.js`：地圖工具狀態、選取狀態、圖層顯示、`activeContract`（`C1/C2/C3` workspace）與 lot 級白名單篩選狀態
 - `src/stores/useWorkLotStore.js`：Work Lot 集合生命週期（增刪改替換 + ID 正規化）
-- `src/stores/useSiteBoundaryStore.js`：Site Boundary 載入/合併/幾何補全/增刪改
+- `src/stores/useSiteBoundaryStore.js`：Site Boundary 載入/合併/幾何補全/增刪改，以及 persisted store version 升級後的靜態 GeoJSON 重同步
 - `src/stores/usePartOfSitesStore.js`：Part of Sites 地圖編輯快照（FeatureCollection）與屬性 overrides（`accessDate`、`area`）持久化
 - `src/stores/useSectionsStore.js`：Sections 地圖編輯快照（FeatureCollection）與屬性 overrides（`completionDate`、`area`）持久化
 
@@ -88,7 +88,7 @@
 
 - `useMapCore.js`：地圖實例、底圖/標籤圖層初始化
 - `useMapLayers.js`：圖層總裝配（向量 source/layer 管理、feature 生成、filter 刷新）；內部再委派：
-- `useMapLayerVisibility.js`：圖層顯示/filter 樣式判定與可見性更新（依 `activeContract` 對應的單一 phase）
+- `useMapLayerVisibility.js`：圖層顯示/filter 樣式判定與可見性更新（依 `activeContract` 對應的單一 contract package）
 - `useMapLayerDataIO.js`：地圖資料 I/O（GeoJSON 載入、Part/Section 快照 build/persist/export）
 - `useMapFeatureNormalization.js`：Part/Section feature 正規化與 `contractPackage` 欄位補齊
 - `useMapSiteBoundarySourceState.js`：Site Boundary source/state 同步與快取重建

@@ -1,6 +1,6 @@
 # Web PM Business Alignment
 
-最後更新：2026-03-05  
+最後更新：2026-03-06  
 狀態：啟用中（作為功能需求提出與開發對齊基線）
 
 ## 1) 文件用途
@@ -40,7 +40,7 @@
 | `access date` 到期提醒（Web in-app） | 地圖與清單已有逾期視覺語意（基於 `dueDate` / `plannedHandoverDate`） | 是否新增 `accessDate` 與專屬到期規則，並明確呈現到期原因 |
 | Topbar 鈴鐺通知中心（Web in-app） | 已支援通知抽屜（`All / Alert / Task / System`）、未讀管理、一鍵跳轉 Map/清單 | 通知是否覆蓋核心風險、分類是否可理解、是否保留 email 擴展位 |
 | `part of site` / `section of works` 時程管理 | 現有可維護日期欄位（assess/handover/completion/float） | 是否補齊結構欄位與映射規則，避免把不同時程語意混在單一欄位 |
-| `site/work lot/part/section` C1/C2 分層作業（不對照） | 現有已改為 `Contract Workspace` 單一切換（C1/C2）；Dashboard 提供 C1/C2 篩選；清單頁提供 All/C1/C2 篩選 | 是否維持「地圖單 contract作業」與「清單全量盤點」並存口徑，且不把 Dashboard KPI 做跨 contract 混算 |
+| `site/work lot/part/section` contract package 分層作業（不對照） | 現有已改為 `Contract Workspace` 單一切換（`C1/C2/C3`）；Dashboard 提供 `C1/C2/C3` 篩選；清單頁提供 `All/C1/C2/C3` 篩選 | 是否維持「地圖單 contract 作業」與「清單全量盤點」並存口徑，且不把 Dashboard KPI 做跨 contract 混算 |
 | `part of site` 圖面修補與上圖 | 現有可透過 DXF 轉 GeoJSON 腳本與地圖圖層顯示達成 | 是否需要 CAD 級編輯（刪線段/刪 block/補線）；若不做，需定義前處理工具與責任人 |
 | 需要可交付資料給外部單位 | JSON 匯入匯出、Excel/PDF 報表 | 匯出欄位是否滿足業務口徑、格式是否可用 |
 | 多角色操作邊界清晰 | 前端角色切換、路由守衛、地圖編輯限制 | 是否新增越權操作、deny 行為是否明確 |
@@ -57,7 +57,7 @@
 6. 時程規則來源：是否來自合約條款、客戶表格或會議決議，起算日與計算公式為何。
 7. 通知渠道策略：Web in-app、Email 或雙軌；哪個階段啟用。
 8. 圖面品質與前處理：是否需先在 CAD/腳本完成刪線、去 block、補線閉合；哪些屬性（如 `part name`/`access date`）由人工補錄。
-9. 階段分層口徑：若有 C1/C2，需明確欄位命名、同一 ID 跨階段是否共用、以及圖層/匯出顯示規則。
+9. 階段分層口徑：若有 `C1/C2/C3` 等 contract package，需明確欄位命名、同一 ID 跨階段是否共用、以及圖層/匯出顯示規則。
 
 ## 6) 開發對齊流程（強制）
 
@@ -83,7 +83,7 @@
 6. 若涉及時程推導，驗收結果需明確列出「起算日、計算規則、覆核方式」。
 7. 若涉及提醒，需驗證 Web 呈現位置、觸發條件與關閉條件一致。
 8. 需求完成回報包含「業務價值是否成立」的結論。
-9. 若涉及 C1/C2，需驗證 map workspace 切換後只顯示單一 contract、Dashboard 僅允許 C1/C2（不含 All）、清單頁可用 All/C1/C2 盤點，且同一業務 ID 在不同 phase 仍可分開保存不互相覆蓋。
+9. 若涉及 contract package 分層，需驗證 map workspace 切換後只顯示單一 contract、Dashboard 僅允許 `C1/C2/C3`（不含 All）、清單頁可用 `All/C1/C2/C3` 盤點，且同一業務 ID 在不同 phase 仍可分開保存不互相覆蓋。
 
 ## 8) 文件聯動規則
 

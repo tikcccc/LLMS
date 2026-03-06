@@ -25,7 +25,7 @@
 - `% Land with Float < X Months`
 - Overdue Site Boundaries（含 aging bucket）
 - 篩選：
-- Contract Package：`C1 / C2`（不提供 All）
+- Contract Package：`C1 / C2 / C3`（不提供 All）
 - Date Range：`12M / YTD / ALL`
 - Float threshold（月）
 - 圖表：
@@ -48,7 +48,7 @@
 - Sections（section 級多選白名單）
 - Site Boundary（lot 級多選白名單）
 - Work Lots（lot 級多選白名單）
-- Layers 區提供「Contract Workspace（C1/C2）」單一切換（預設 `C1`；同一時間只顯示一個 contract）
+- Layers 區提供「Contract Workspace（C1/C2/C3）」單一切換（預設 `C1`；同一時間只顯示一個 contract）
 - `Part of Sites / Sections / Site Boundary / Work Lots` 的圖層、搜尋、Scope 結果、抽屜關聯均遵循目前 workspace 的 contract 過濾
 - 跨 contract 同名 ID（例如 `SECTION-1`）的命中規則採 `contractPackage + id`：點擊、高亮、Focus、查找 feature、面積計算都會依當前 contract 隔離
 - 跨圖層可同時勾選多個 lot，僅影響地圖可見性
@@ -97,7 +97,7 @@
 - Part of Sites map 資料載入採「group index + part 檔案」有限併發下載（避免多檔串行等待），並使用前端記憶體 TTL 快取與失敗時 stale fallback 降低重載延遲
 - Part of Sites map 載入時僅渲染 `Polygon/MultiPolygon`，非面幾何（例如 `LineString`）會在前端過濾，避免線段殘留干擾邊界顯示
 - Section 與 Part of Sites 已預留 `section (1) -> part (n)` 關聯欄位，支援由 geometry 與顯式欄位同步關聯；geometry fallback 使用「part 去重疊後有效幾何」做面積交集判斷
-- `section -> part` 與 `work lot -> site boundary` 關聯同步會做 contract 隔離：C1 只關聯 C1，C2 只關聯 C2
+- `section -> part` 與 `work lot -> site boundary` 關聯同步會做 contract 隔離：只關聯同一 `contractPackage`（例如 `C1 -> C1`、`C2 -> C2`、`C3 -> C3`）
 - Section 聚合邊界預設會繼承 Part of Sites 幾何中的 interior holes，並清理極小洞（`--min-hole-area`，預設 `10m²`）；同時會清理 section 間微小重疊（`--overlap-sliver-area`，預設 `20m²`）以避免分叉線；`SECTION-10` 另有固定 hole 校正（強制確認 `10B` 最大 hole 存在）且 override 後會再次做 sliver 清理；輸出前另做連續重複點去重與 ring 清洗，降低 near-zero edge 尖刺；可在轉檔時以 `--drop-holes` 關閉全部 holes
 - 搜尋與定位：
 - 側欄 Part of Sites 搜尋
@@ -113,10 +113,10 @@
 ## `/landbank/work-lots` Work Lots 清單
 
 - 表格清單與欄位資訊展示
-- 含 `Contract Package (C1/C2)` 欄位
+- 含 `Contract Package (C1/C2/C3)` 欄位
 - 關鍵字 fuzzy search
 - 篩選：
-- Contract Package：`All / C1 / C2`
+- Contract Package：`All / C1 / C2 / C3`
 - Status
 - Category
 - 列選取
@@ -133,8 +133,8 @@
 ## `/landbank/site-boundaries` Site Boundaries 清單
 
 - 表格清單 + 進度顯示 + 關聯 work lot 提示
-- 含 `Contract Package (C1/C2)` 欄位
-- 搜尋 + Contract Package（`All / C1 / C2`）+ 狀態篩選
+- 含 `Contract Package (C1/C2/C3)` 欄位
+- 搜尋 + Contract Package（`All / C1 / C2 / C3`）+ 狀態篩選
 - `Related Work Lots` 欄位顯示摘要 + 數量統計，hover 可展開完整 work lot 名單
 - 編輯 Site Boundary（dialog，含 `Contract Package` 下拉）
 - 「View on Map」跳轉
@@ -149,7 +149,7 @@
 
 - 從 `/data/geojson/part-of-sites/index.json` + 各 group index 載入 part 清單
 - group index 採有限併發載入，並套用前端記憶體 TTL 快取以降低重複請求
-- 搜尋 + Contract Package（`All / C1 / C2`）篩選
+- 搜尋 + Contract Package（`All / C1 / C2 / C3`）篩選
 - 表格檢視：
 - Part ID
 - System ID（以既有規則顯示）
@@ -166,7 +166,7 @@
 ## `/landbank/sections` Sections 清單
 
 - 從 `/data/geojson/sections/index.json` + 各 group index 載入 section 清單
-- 搜尋 + Contract Package（`All / C1 / C2`）篩選
+- 搜尋 + Contract Package（`All / C1 / C2 / C3`）篩選
 - 表格檢視：
 - Section ID
 - System ID（以既有規則顯示）
@@ -232,8 +232,8 @@
 - 類別/狀態 alias 正規化
 - 日期/文字/布林/數字正規化
 - 幾何與面積正規化
-- `contractPackage`（C1/C2）正規化（缺值時依來源線索推斷，預設回退 C2）
-- 四類實體編輯表單統一提供 `contractPackage` 下拉（`C1`/`C2`）
+- `contractPackage`（`C1`/`C2`/`C3`）正規化（缺值時依來源線索推斷，預設回退 `C2`）
+- 四類實體編輯表單統一提供 `contractPackage` 下拉（`C1`/`C2`/`C3`）
 - 時程欄位（現況）：
 - Work Lot：`assessDate`、`dueDate`、`completionDate`、`floatMonths`
 - Site Boundary：`assessDate`、`plannedHandoverDate`、`completionDate`
@@ -267,8 +267,8 @@
 - 尚無跨實體完整契約的 `partOfSite`/`sectionOfWorks` 時程模型（目前已支援 map feature 層級欄位與 `section -> parts` 關聯）
 - 無「`access date` 到期提醒」專屬規則（目前逾期語意基於 `dueDate`/`plannedHandoverDate`）
 - 尚無通知渠道策略配置（目前僅 Web in-app 通知中心，未接 email）
-- 已支援 map「Contract Workspace（C1/C2，預設 C1）」單一切換與四類實體 `contractPackage` 欄位（Work Lot / Site Boundary / Part / Section）
-- 已支援 phase-scoped 覆寫鍵（`C1/C2 + 業務 ID`）；同一業務 ID 可在不同 phase 分開編修，不互相覆蓋
+- 已支援 map「Contract Workspace（C1/C2/C3，預設 C1）」單一切換與四類實體 `contractPackage` 欄位（Work Lot / Site Boundary / Part / Section）
+- 已支援 phase-scoped 覆寫鍵（`C1/C2/C3 + 業務 ID`）；同一業務 ID 可在不同 phase 分開編修，不互相覆蓋
 
 ## 8) 近期業務需求對照（2026-03-02 ~ 2026-03-05）
 
@@ -281,7 +281,7 @@
 | `access date` 到期提醒在網站顯示（Demo） | 部分支援 | 已有地圖與清單逾期視覺語意，但不是以 `accessDate` 觸發 |
 | Topbar 鈴鐺通知中心（in-app） | 已支援 | 提供 `All / Alert / Task / System` 分類、已讀管理、`View on Map` / `Open List` 快速跳轉；目前未接 email |
 | `section of works` 對應 `sectional completion date` | 部分支援 | 已新增 Section layer、`completionDate` 欄位與 `section -> part` 關聯；合約 offset 規則仍待補 |
-| `site/work lot/part/section` 需拆 C1/C2 兩層 | 已支援（前端層） | Map Layers 已改為單一 `Contract Workspace` 切換（預設 C1；可切 C1/C2）；Dashboard 提供 `C1/C2` KPI 篩選；四個 landbank list 提供 `All/C1/C2` 篩選，並維持 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存） |
+| `site/work lot/part/section` 需拆 contract package 分層 | 已支援（前端層） | Map Layers 已改為單一 `Contract Workspace` 切換（預設 C1；可切 `C1/C2/C3`）；Dashboard 提供 `C1/C2/C3` KPI 篩選；四個 landbank list 提供 `All/C1/C2/C3` 篩選，並維持 phase-scoped 屬性覆寫（同 ID 跨 phase 可並存）；目前 `HKSTP No.5`、`HKSTP No.7` 已歸 `C3` |
 | 進度與風險圖像化（色彩/趨勢/KPI） | 已支援 | Dashboard + Map 已提供風險狀態與趨勢呈現 |
 
 ## 9) 建議補充的功能文件
