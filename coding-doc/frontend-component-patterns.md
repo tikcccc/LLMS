@@ -110,8 +110,9 @@
 - 行動端改為底部 sheet overlay，需保留地圖主要操作可達性。
 - 桌機側欄需提供整體收納/展開按鈕，縮起後仍可快速展開。
 - 滾動區域與固定區域分離，避免整面板難以操作
-- 桌機允許寬度調整（resize handle），高度跟隨地圖工作區
+- 桌機允許透過右側邊緣拖拉熱區調整寬度，但不應常駐顯示明顯 bar
 - 與 map overlay 的 z-index 關係需固定管理（mobile sheet > 地圖內容）
+- 清單型 tab root 容器必須是可收縮的 flex column（含 `min-height: 0`），讓搜尋列固定、結果清單留在內部捲動
 - Layers 分頁採資料驅動：`layerFilterState` + `layerFilterOptions`
 - `update:layerFilterState` 事件應只回傳「增量 patch」欄位，避免主開關與 C1/C2 子開關在同次更新互相覆蓋
 - 大量 lot 清單區塊需支援區段收合/展開，降低側欄資訊壓力。

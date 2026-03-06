@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="panel-tab-pane">
     <div class="panel-section">
       <el-input
         :model-value="searchQuery"

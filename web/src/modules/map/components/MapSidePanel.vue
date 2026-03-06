@@ -169,9 +169,7 @@
       aria-label="Resize side panel width"
       @pointerdown="startResize"
       @dblclick="resetPanelSize"
-    >
-      <span class="resize-handle-icon"></span>
-    </button>
+    ></button>
   </aside>
 </template>
 

@@ -63,7 +63,9 @@ export const useMapSidePanelLayout = ({ props, emit }) => {
 
   const panelStyle = computed(() => ({
     "--panel-width": `${
-      !isMobile.value && isDesktopCollapsed.value ? PANEL_COLLAPSED_WIDTH : panelWidth.value
+      !isMobile.value && isDesktopCollapsed.value
+        ? PANEL_COLLAPSED_WIDTH
+        : panelWidth.value
     }px`,
   }));
 
@@ -208,12 +210,11 @@ export const useMapSidePanelLayout = ({ props, emit }) => {
   onBeforeUnmount(() => {
     stopResize();
     if (typeof window === "undefined") return;
-    if (mobileQueryList) {
-      if (typeof mobileQueryList.removeEventListener === "function") {
-        mobileQueryList.removeEventListener("change", handleMobileMediaChange);
-      } else if (typeof mobileQueryList.removeListener === "function") {
-        mobileQueryList.removeListener(handleMobileMediaChange);
-      }
+    if (!mobileQueryList) return;
+    if (typeof mobileQueryList.removeEventListener === "function") {
+      mobileQueryList.removeEventListener("change", handleMobileMediaChange);
+    } else if (typeof mobileQueryList.removeListener === "function") {
+      mobileQueryList.removeListener(handleMobileMediaChange);
     }
     window.removeEventListener("resize", handleWindowResize);
   });
