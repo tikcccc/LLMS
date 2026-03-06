@@ -177,6 +177,14 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
             f"cleanup (default: {DEFAULT_TOPOLOGY_CLEAN_MIN_AREA})."
         ),
     )
+    parser.add_argument(
+        "--keep-non-polygon-features",
+        action="store_true",
+        help=(
+            "Keep non-polygon features (e.g. LineString) in output GeoJSON. "
+            "Default behavior strips them for frontend polygon-only consumption."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -319,6 +327,83 @@ def summarize_geojson(output_geojson: Path) -> tuple[int, list[str]]:
             if isinstance(geom_type, str) and geom_type:
                 geometry_types.add(geom_type)
     return len(features), sorted(geometry_types)
+
+
+def strip_non_polygon_features(output_geojson: Path) -> Optional[dict]:
+    payload = json.loads(output_geojson.read_text(encoding="utf-8"))
+    features = payload.get("features")
+    if not isinstance(features, list):
+        raise ValueError(f"Invalid GeoJSON (features must be list): {output_geojson}")
+
+    kept_features: list[dict] = []
+    removed_count = 0
+    removed_types: set[str] = set()
+    geometry_types: set[str] = set()
+
+    for feature in features:
+        if not isinstance(feature, dict):
+            removed_count += 1
+            removed_types.add("<invalid>")
+            continue
+
+        geometry = feature.get("geometry")
+        if not isinstance(geometry, dict):
+            removed_count += 1
+            removed_types.add("<missing>")
+            continue
+
+        geom_type = geometry.get("type")
+        if geom_type in ("Polygon", "MultiPolygon"):
+            kept_features.append(feature)
+            geometry_types.add(str(geom_type))
+            continue
+
+        removed_count += 1
+        removed_types.add(str(geom_type) if geom_type else "<unknown>")
+
+    if removed_count <= 0:
+        return None
+
+    payload["features"] = kept_features
+    output_geojson.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return {
+        "featureCount": len(kept_features),
+        "geometryTypes": sorted(geometry_types),
+        "removedCount": removed_count,
+        "removedTypes": sorted(removed_types),
+    }
+
+
+def apply_group_non_polygon_filter(
+    group_label: str,
+    group_output_dir: Path,
+    items: list[dict],
+    keep_non_polygon_features: bool,
+) -> list[str]:
+    if keep_non_polygon_features:
+        return []
+
+    messages: list[str] = []
+    item_by_id = {str(item.get("id", "")): item for item in items}
+    for geojson_file in sorted(group_output_dir.glob("*.geojson"), key=lambda path: natural_key(path.stem)):
+        part_id = geojson_file.stem
+        filter_stats = strip_non_polygon_features(geojson_file)
+        if filter_stats is None:
+            continue
+
+        item = item_by_id.get(part_id)
+        if item is not None:
+            item["featureCount"] = filter_stats["featureCount"]
+            item["geometryTypes"] = filter_stats["geometryTypes"]
+
+        removed_type_text = ",".join(filter_stats["removedTypes"]) if filter_stats["removedTypes"] else "<none>"
+        messages.append(
+            f"[{group_label}] {part_id} strip-non-polygon "
+            f"removed={filter_stats['removedCount']} removed-types={removed_type_text} "
+            f"remaining-features={filter_stats['featureCount']}"
+        )
+
+    return messages
 
 
 def _link_or_copy(src: Path, dst: Path) -> None:
@@ -1078,6 +1163,7 @@ def convert_group(
     enable_topology_clean: bool,
     topology_clean_grid: float,
     topology_clean_min_area: float,
+    keep_non_polygon_features: bool,
 ) -> tuple[str, str, list[dict]]:
     group_label = normalize_group_label(group_dir.name)
     group_slug = slugify_group(group_label)
@@ -1226,6 +1312,15 @@ def convert_group(
                 item["featureCount"] = feature_count
                 item["geometryTypes"] = geometry_types
 
+    non_polygon_filter_messages = apply_group_non_polygon_filter(
+        group_label=group_label,
+        group_output_dir=group_output_dir,
+        items=items,
+        keep_non_polygon_features=keep_non_polygon_features,
+    )
+    for message in non_polygon_filter_messages:
+        print(message)
+
     return group_label, group_slug, items
 
 
@@ -1290,6 +1385,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             enable_topology_clean=not args.no_topology_clean,
             topology_clean_grid=args.topology_clean_grid,
             topology_clean_min_area=args.topology_clean_min_area,
+            keep_non_polygon_features=args.keep_non_polygon_features,
         )
 
         group_index = {

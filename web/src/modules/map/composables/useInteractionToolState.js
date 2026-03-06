@@ -214,6 +214,21 @@ export const useInteractionToolState = ({
       return;
     }
 
+    if (uiStore.tool === "DELETE") {
+      const deletableLayers = [
+        siteBoundaryLayer,
+        sectionsLayer,
+        partOfSitesLayer,
+        ...(workLayers || []),
+      ].filter(Boolean);
+      if (deletableLayers.length === 0) return;
+      selectInteraction.value = new Select({ layers: deletableLayers, style: null });
+      selectInteraction.value.set("managed", true);
+      selectInteraction.value.on("select", handleDeleteSelect);
+      mapRef.value.addInteraction(selectInteraction.value);
+      return;
+    }
+
     const layerType = activeLayerType.value;
     if (!layerType) return;
     if (
@@ -287,12 +302,6 @@ export const useInteractionToolState = ({
       return;
     }
 
-    if (uiStore.tool === "DELETE") {
-      selectInteraction.value = new Select({ layers: targetLayers, style: null });
-      selectInteraction.value.set("managed", true);
-      selectInteraction.value.on("select", handleDeleteSelect);
-      mapRef.value.addInteraction(selectInteraction.value);
-    }
   };
 
   return {

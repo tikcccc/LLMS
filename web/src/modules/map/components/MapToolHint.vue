@@ -57,7 +57,7 @@ const hintDescription = computed(() => {
     case "MODIFY": 
       return `Drag vertices to edit • ESC to revert changes`;
     case "DELETE": 
-      return "Click a work lot to delete • ESC to cancel";
+      return "Click a map item to delete • ESC to cancel";
     default: 
       return "";
   }

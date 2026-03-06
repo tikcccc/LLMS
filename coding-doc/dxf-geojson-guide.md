@@ -162,6 +162,7 @@ python scripts/build_part_of_sites_geojson.py
 - `--no-topology-clean`：關閉預設的拓撲清洗（預設會啟用）
 - `--topology-clean-grid`：拓撲清洗時的精度格網（預設 `0.001` m）
 - `--topology-clean-min-area`：拓撲清洗後剔除小於指定面積的碎片（預設 `0`）
+- `--keep-non-polygon-features`：保留非面幾何（例如 `LineString`）；預設不帶此旗標時，最終輸出會移除非 `Polygon/MultiPolygon` feature（符合前端 polygon-only 載入需求）
 - `--variant-merge-align-mode`：同一 part 有多個 DXF（例如 `10C(1).dxf`、`10C(2).dxf`）時的對齊模式，預設 `insbase`
 - `--variant-merge-unit-strategy`：多 DXF 合併時的單位策略，預設 `keep-values`
 - `--variant-force-suspicious-scaling`：只在 `scale-values` 需要強制縮放時使用
@@ -173,7 +174,7 @@ PART 10（10B）特例口徑（2026-03-06 更新）：
 - `10b(hole).dxf` 為 `10B` 專用 void-cutout 來源：會從 10B 最終 polygon 幾何中扣除，作為 interior hole。
 - `10b(hole).dxf` 不會作為獨立 part 輸出（避免產生 `10B(HOLE)`），也不納入 `10B` 一般來源合併。
 - `10b(hole).dxf` 轉換 void 時會啟用 polygonize，確保 line-based 洞資料可被正確扣除。
-- 10B 的 line-based void heuristic 維持啟用，仍可由其他線資料推導內部 cutout。
+- 10B 的 line-based void heuristic 維持啟用，仍可由其他線資料推導內部 cutout；但預設最終輸出會移除 `LineString`（若需保留請加 `--keep-non-polygon-features`）。
 
 多檔合併規則（Part of Sites）：
 

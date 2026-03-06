@@ -57,18 +57,43 @@ export const useInteractionSelectionHandlers = ({
   const handleDeleteSelect = (event) => {
     const selected = event.selected[0];
     if (!selected) return;
-    const id = selected.getId();
-    const layerType = selected.get("layerType") || activeLayerType.value;
+    const rawLayerType = selected.get("layerType");
+    const layerType =
+      rawLayerType === "work" ||
+      rawLayerType === "siteBoundary" ||
+      rawLayerType === "partOfSites" ||
+      rawLayerType === "section"
+        ? rawLayerType
+        : activeLayerType.value;
     if (!layerType) return;
-    setHighlightFeature(layerType, selected);
-    const partId = getPartOfSitesIdFromFeature(selected);
-    const sectionId = getSectionIdFromFeature(selected);
-    const displayId =
+    const id = selected.getId();
+    const refId = selected.get("refId") || id;
+    const clickedCoordinate = event.mapBrowserEvent?.coordinate;
+    const resolvedPartId =
+      layerType === "partOfSites" && typeof resolvePartOfSitesIdAtCoordinate === "function"
+        ? normalizePartId(resolvePartOfSitesIdAtCoordinate(clickedCoordinate))
+        : "";
+    const resolvedSectionId =
+      layerType === "section" && typeof resolveSectionIdAtCoordinate === "function"
+        ? normalizeSectionId(resolveSectionIdAtCoordinate(clickedCoordinate))
+        : "";
+    const selectedId =
       layerType === "partOfSites"
-        ? partId || id
+        ? resolvedPartId || getPartOfSitesIdFromFeature(selected) || refId
         : layerType === "section"
-          ? sectionId || id
-          : id;
+          ? resolvedSectionId || getSectionIdFromFeature(selected) || refId
+          : refId;
+    if (layerType === "work") {
+      uiStore.selectWorkLot(selectedId);
+    } else if (layerType === "siteBoundary") {
+      uiStore.selectSiteBoundary(selectedId);
+    } else if (layerType === "partOfSites") {
+      uiStore.selectPartOfSite(selectedId);
+    } else if (layerType === "section") {
+      uiStore.selectSection(selectedId);
+    }
+    setHighlightFeature(layerType, selected);
+    const displayId = selectedId || id;
     const label =
       layerType === "siteBoundary"
         ? "site boundary"
@@ -80,7 +105,7 @@ export const useInteractionSelectionHandlers = ({
     ElMessageBox.confirm(`Delete ${label} ${displayId}?`, "Confirm", { type: "warning" })
       .then(() => {
         if (layerType === "siteBoundary") {
-          siteBoundaryStore.removeSiteBoundary(id);
+          siteBoundaryStore.removeSiteBoundary(displayId);
         } else if (layerType === "partOfSites") {
           partOfSitesSource?.removeFeature(selected);
           notifyPartOfSitesSourceChange();
@@ -88,12 +113,13 @@ export const useInteractionSelectionHandlers = ({
           sectionsSource?.removeFeature(selected);
           notifySectionsSourceChange();
         } else {
-          workLotStore.removeWorkLot(id);
+          workLotStore.removeWorkLot(displayId);
         }
         uiStore.clearSelection();
         clearHighlightOverride();
       })
       .catch(() => {
+        uiStore.clearSelection();
         clearHighlightOverride();
       })
       .finally(() => {
@@ -124,13 +150,31 @@ export const useInteractionSelectionHandlers = ({
       return;
     }
 
+    const resolveModifyRefId = (feature, type) =>
+      type === "partOfSites"
+        ? getPartOfSitesIdFromFeature(feature) || feature.get("refId") || feature.getId()
+        : type === "section"
+          ? getSectionIdFromFeature(feature) || feature.get("refId") || feature.getId()
+          : feature.get("refId") || feature.getId();
+    const refId = resolveModifyRefId(selected, layerType);
+
+    // Lock the first selected target during a modify session.
+    const lockedFeature = selectedModifyFeature.value;
+    if (lockedFeature) {
+      const lockedLayerType = lockedFeature.get("layerType");
+      const lockedRefId = resolveModifyRefId(lockedFeature, lockedLayerType);
+      const sameTarget =
+        String(lockedLayerType || "") === String(layerType || "") &&
+        String(lockedRefId || "").trim().toLowerCase() ===
+          String(refId || "").trim().toLowerCase();
+      if (!sameTarget) {
+        features.clear();
+        features.push(lockedFeature);
+        return;
+      }
+    }
+
     selectedModifyFeature.value = selected;
-    const refId =
-      layerType === "partOfSites"
-        ? getPartOfSitesIdFromFeature(selected) || selected.get("refId") || selected.getId()
-        : layerType === "section"
-          ? getSectionIdFromFeature(selected) || selected.get("refId") || selected.getId()
-          : selected.get("refId") || selected.getId();
     modifySelectedId.value = refId;
     if (layerType === "work") {
       uiStore.selectWorkLot(refId);

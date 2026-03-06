@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-03-05T10:31:30",
+  "generated_at": "2026-03-06T11:45:14",
   "root": "/home/tikhong/LLMS/coding-doc",
-  "count": 10,
+  "count": 11,
   "files": [
     {
       "file": "/home/tikhong/LLMS/coding-doc/dxf-geojson-guide.md",
@@ -54,6 +54,19 @@
         "7) 狀態色語意一致性",
         "8) 響應式設計標準",
         "9) 互動一致性"
+      ]
+    },
+    {
+      "file": "/home/tikhong/LLMS/coding-doc/geojson-performance-risk-plan.md",
+      "title": "GeoJSON 大點位資料風險與優化方案（DB / API / 前端）",
+      "purpose": "分析 DXF 轉 GeoJSON 後「單一 polygon 點位數很大」對未來後端化的影響，回答三個核心問題：",
+      "h2": [
+        "1) 目的",
+        "2) 現況基線（2026-03-06）",
+        "3) 風險判斷（未來接後端時）",
+        "4) 優化方案（建議採分層治理）",
+        "5) 建議執行順序（低風險落地）",
+        "6) 直接回答本次問題"
       ]
     },
     {

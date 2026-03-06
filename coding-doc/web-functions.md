@@ -71,7 +71,9 @@
 - 建立 Section（多邊形/圓）
 - 建立 Work Lot / Site Boundary 後若未在彈窗按 `Save`（含關閉彈窗），會自動取消該次草稿 polygon，不保留在地圖上
 - 幾何修改並儲存
+- Modify 模式採單一目標鎖定：選中第一個 lot/site/part/section 後，需先 `Save` 或 `Cancel` 才能切換到其他目標
 - 刪除要素（含確認）
+- Delete 模式點擊要刪除目標時，會先以與 Browse/Modify 一致的方式高亮對應 polygon，確認/取消後再清除選取態
 - Part of Sites 幾何變更會快照到 localStorage（`ND_LLM_V1_part_of_sites`），重新整理後可延續
 - Sections 幾何變更會快照到 localStorage（`ND_LLM_V1_sections`），重新整理後可延續
 - Draw 模式選擇 `Part of Sites` 時提供 `Export GeoJSON` 匯出目前地圖圖徵
