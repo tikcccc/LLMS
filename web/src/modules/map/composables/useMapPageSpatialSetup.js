@@ -55,6 +55,7 @@ export const useMapPageSpatialSetup = ({
       resolveSectionMeta,
       getPartGeometryStatById,
       getSectionGeometryStatById,
+      resolveActiveContract: () => uiStore.activeContract,
     });
 
   const {

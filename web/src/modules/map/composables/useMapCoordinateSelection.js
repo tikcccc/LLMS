@@ -3,6 +3,7 @@ const resolveSmallestAreaIdAtCoordinate = ({
   resolveMeta,
   resolveId,
   resolveGeometryStat,
+  resolveActiveContract,
   coordinate,
 }) => {
   if (!Array.isArray(coordinate) || coordinate.length < 2 || !source) return "";
@@ -13,6 +14,11 @@ const resolveSmallestAreaIdAtCoordinate = ({
   const dedupe = new Set();
   const candidates = [];
   const clickPoint = [x, y];
+  const activeContractRaw =
+    typeof resolveActiveContract === "function" ? resolveActiveContract() : "";
+  const activeContract = String(activeContractRaw || "").trim().toUpperCase();
+  const scopedActiveContract =
+    activeContract === "C1" || activeContract === "C2" ? activeContract : "";
   source.getFeatures().forEach((feature, index) => {
     const meta = resolveMeta(feature, index);
     const rawId = resolveId(meta);
@@ -22,6 +28,7 @@ const resolveSmallestAreaIdAtCoordinate = ({
       String(meta?.contractPackage || "").trim().toUpperCase() === "C1"
         ? "C1"
         : "C2";
+    if (scopedActiveContract && contractPackage !== scopedActiveContract) return;
     const key = `${contractPackage}:${resolvedId.toLowerCase()}`;
     if (dedupe.has(key)) return;
 
@@ -60,6 +67,7 @@ export const useMapCoordinateSelection = ({
   resolveSectionMeta,
   getPartGeometryStatById,
   getSectionGeometryStatById,
+  resolveActiveContract = () => "",
 }) => {
   const resolvePartSelectionByCoordinate = (coordinate) =>
     resolveSmallestAreaIdAtCoordinate({
@@ -67,6 +75,7 @@ export const useMapCoordinateSelection = ({
       resolveMeta: resolvePartOfSiteMeta,
       resolveId: (meta) => meta.partId,
       resolveGeometryStat: getPartGeometryStatById,
+      resolveActiveContract,
       coordinate,
     });
 
@@ -76,6 +85,7 @@ export const useMapCoordinateSelection = ({
       resolveMeta: resolveSectionMeta,
       resolveId: (meta) => meta.sectionId,
       resolveGeometryStat: getSectionGeometryStatById,
+      resolveActiveContract,
       coordinate,
     });
 

@@ -10,14 +10,28 @@ export const useMapFeatureRelations = ({
   getPartOfSitesFeatureById,
   getSectionFeatureById,
 }) => {
-  const resolveRelatedSiteBoundaryIdsByGeometryObject = (geometryObject) => {
+  const normalizeContractPackage = (value) =>
+    String(value || "").trim().toUpperCase() === "C1" ? "C1" : "C2";
+
+  const resolveRelatedSiteBoundaryIdsByGeometryObject = (
+    geometryObject,
+    { contractPackage = "" } = {}
+  ) => {
     if (!geometryObject || !siteBoundarySource) return [];
     try {
       const geometry = format.readGeometry(geometryObject, {
         dataProjection: projectionCode,
         featureProjection: projectionCode,
       });
-      return findSiteBoundaryIdsForGeometry(geometry, siteBoundarySource);
+      const relatedIds = findSiteBoundaryIdsForGeometry(geometry, siteBoundarySource);
+      const normalizedContract = String(contractPackage || "").trim();
+      if (!normalizedContract) return relatedIds;
+      const scopedContract = normalizeContractPackage(normalizedContract);
+      return relatedIds.filter((id) => {
+        const feature = getSiteBoundaryFeatureById(id, scopedContract);
+        if (!feature) return false;
+        return normalizeContractPackage(feature.get("contractPackage")) === scopedContract;
+      });
     } catch (error) {
       console.warn("[map] resolve related site boundaries for work lot failed", error);
       return [];
@@ -30,9 +44,16 @@ export const useMapFeatureRelations = ({
       return;
     }
     workLotStore.workLots.forEach((lot) => {
-      const autoRelatedIds = resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry).map(
-        (item) => String(item)
+      const scopedContract = normalizeContractPackage(
+        lot?.contractPackage ??
+          lot?.contract_package ??
+          lot?.phase ??
+          lot?.package ??
+          lot?.contractNo
       );
+      const autoRelatedIds = resolveRelatedSiteBoundaryIdsByGeometryObject(lot.geometry, {
+        contractPackage: scopedContract,
+      }).map((item) => String(item));
       const currentRelated = Array.isArray(lot.relatedSiteBoundaryIds)
         ? lot.relatedSiteBoundaryIds.map((item) => String(item))
         : [];
@@ -53,19 +74,31 @@ export const useMapFeatureRelations = ({
         ? fallbackIds
         : [];
 
-  const findSiteBoundaryFeatureById = (id) => {
+  const findSiteBoundaryFeatureById = (id, contractPackage = "") => {
     if (!id) return null;
-    return getSiteBoundaryFeatureById(id);
+    const normalizedContract = String(contractPackage || "").trim();
+    if (!normalizedContract) {
+      return getSiteBoundaryFeatureById(id);
+    }
+    return getSiteBoundaryFeatureById(id, normalizedContract);
   };
 
   const findPartOfSitesFeatureById = (id, contractPackage = "") => {
     if (!id) return null;
-    return getPartOfSitesFeatureById(id, contractPackage);
+    const normalizedContract = String(contractPackage || "").trim();
+    if (!normalizedContract) {
+      return getPartOfSitesFeatureById(id);
+    }
+    return getPartOfSitesFeatureById(id, normalizedContract);
   };
 
   const findSectionFeatureById = (id, contractPackage = "") => {
     if (!id) return null;
-    return getSectionFeatureById(id, contractPackage);
+    const normalizedContract = String(contractPackage || "").trim();
+    if (!normalizedContract) {
+      return getSectionFeatureById(id);
+    }
+    return getSectionFeatureById(id, normalizedContract);
   };
 
   return {

@@ -28,9 +28,23 @@ export const buildSelectedWorkLotRelatedSites = ({
             : Array.isArray(fallback)
               ? fallback
               : [];
+  const scopedContract =
+    String(
+      selectedWorkLot?.contractPackage ??
+        selectedWorkLot?.contract_package ??
+        selectedWorkLot?.phase ??
+        selectedWorkLot?.package ??
+        selectedWorkLot?.contractNo
+    )
+      .trim()
+      .toUpperCase() === "C1"
+      ? "C1"
+      : "C2";
 
   const relatedSiteBoundaryIds = resolveIdsWithFallback(
-    resolveIdsByGeometry(selectedWorkLot.geometry),
+    resolveIdsByGeometry(selectedWorkLot.geometry, {
+      contractPackage: scopedContract,
+    }),
     selectedWorkLot.relatedSiteBoundaryIds
   );
 
@@ -42,7 +56,7 @@ export const buildSelectedWorkLotRelatedSites = ({
     .map((siteBoundaryId) => {
       const feature =
         typeof findSiteBoundaryFeatureById === "function"
-          ? findSiteBoundaryFeatureById(siteBoundaryId)
+          ? findSiteBoundaryFeatureById(siteBoundaryId, scopedContract)
           : null;
       if (!feature) return null;
       return {

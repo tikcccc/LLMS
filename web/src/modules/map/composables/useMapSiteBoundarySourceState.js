@@ -357,15 +357,15 @@ export const useMapSiteBoundarySourceState = ({
   const getSiteBoundaryFeatureById = (id, contractPackage = uiStore?.activeContract || "") => {
     if (id === null || id === undefined) return null;
     const normalized = String(id);
-    const scopedPackage = String(contractPackage || "").trim()
-      ? resolveContractPackageValue(contractPackage)
-      : "";
+    const scopedPackage = resolveContractPackageValue(
+      normalizeFeatureId(contractPackage) || uiStore?.activeContract || CONTRACT_PACKAGE.C2
+    );
     const directHit =
       siteBoundarySource.getFeatureById(normalized) ||
       siteBoundarySource.getFeatureById(normalized.toUpperCase()) ||
       siteBoundarySource.getFeatureById(normalized.toLowerCase()) ||
       null;
-    if (!scopedPackage || !directHit) return directHit;
+    if (!directHit) return directHit;
     if (
       resolveContractPackageValue([
         directHit.get("contractPackage"),

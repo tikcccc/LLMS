@@ -84,7 +84,7 @@ export const useMapZoomRouteActions = ({
       }
     }
     const view = mapRef.value.getView();
-    const feature = getWorkFeatureById(id) || createWorkFeature(lot);
+    const feature = getWorkFeatureById(id, lot?.contractPackage) || createWorkFeature(lot);
     if (!feature) return;
     const extent = feature.getGeometry().getExtent();
     view.fit(extent, { padding: FIT_PADDING, duration: 500, maxZoom: 18 });

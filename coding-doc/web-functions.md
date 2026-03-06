@@ -50,6 +50,7 @@
 - Work Lots（lot 級多選白名單）
 - Layers 區提供「Contract Workspace（C1/C2）」單一切換（預設 `C1`；同一時間只顯示一個 contract）
 - `Part of Sites / Sections / Site Boundary / Work Lots` 的圖層、搜尋、Scope 結果、抽屜關聯均遵循目前 workspace 的 contract 過濾
+- 跨 contract 同名 ID（例如 `SECTION-1`）的命中規則採 `contractPackage + id`：點擊、高亮、Focus、查找 feature、面積計算都會依當前 contract 隔離
 - 跨圖層可同時勾選多個 lot，僅影響地圖可見性
 - 瀏覽工具：
 - Pan/select
@@ -94,6 +95,7 @@
 - Part of Sites map 資料載入採「group index + part 檔案」有限併發下載（避免多檔串行等待），並使用前端記憶體 TTL 快取與失敗時 stale fallback 降低重載延遲
 - Part of Sites map 載入時僅渲染 `Polygon/MultiPolygon`，非面幾何（例如 `LineString`）會在前端過濾，避免線段殘留干擾邊界顯示
 - Section 與 Part of Sites 已預留 `section (1) -> part (n)` 關聯欄位，支援由 geometry 與顯式欄位同步關聯；geometry fallback 使用「part 去重疊後有效幾何」做面積交集判斷
+- `section -> part` 與 `work lot -> site boundary` 關聯同步會做 contract 隔離：C1 只關聯 C1，C2 只關聯 C2
 - Section 聚合邊界預設會繼承 Part of Sites 幾何中的 interior holes，並清理極小洞（`--min-hole-area`，預設 `10m²`）；同時會清理 section 間微小重疊（`--overlap-sliver-area`，預設 `20m²`）以避免分叉線；`SECTION-10` 另有固定 hole 校正（強制確認 `10B` 最大 hole 存在）且 override 後會再次做 sliver 清理；輸出前另做連續重複點去重與 ring 清洗，降低 near-zero edge 尖刺；可在轉檔時以 `--drop-holes` 關閉全部 holes
 - 搜尋與定位：
 - 側欄 Part of Sites 搜尋

@@ -246,11 +246,22 @@ export const useMapLayers = ({
     refreshLayerFilters();
   };
 
-  const getWorkFeatureById = (id) => {
+  const getWorkFeatureById = (id, contractPackage = uiStore.activeContract) => {
     if (id === null || id === undefined) return null;
     const normalized = String(id);
+    const scopedPackage = normalizeContractPackageValue(
+      normalizeFeatureId(contractPackage) || uiStore.activeContract
+    );
     for (const source of workSources) {
-      const found = source.getFeatureById(normalized);
+      const found =
+        source
+          .getFeatures()
+          .find((feature) => {
+            const featureId = String(feature.getId() ?? feature.get("refId") ?? "").trim();
+            if (!featureId) return false;
+            if (featureId !== normalized) return false;
+            return normalizeContractPackageValue(feature?.get("contractPackage")) === scopedPackage;
+          }) || null;
       if (found) return found;
     }
     return null;
@@ -260,16 +271,15 @@ export const useMapLayers = ({
     const normalizedId = normalizeFeatureId(id);
     if (!normalizedId) return null;
     const lookup = normalizedId.toLowerCase();
-    const scopedPackage = normalizeFeatureId(contractPackage)
-      ? normalizeContractPackageValue(contractPackage)
-      : "";
+    const scopedPackage = normalizeContractPackageValue(
+      normalizeFeatureId(contractPackage) || uiStore.activeContract
+    );
     return (
       partOfSitesSource
         .getFeatures()
         .find((feature, index) => {
           const featureId = String(getPartOfSitesLotId(feature, index)).trim().toLowerCase();
           if (featureId !== lookup) return false;
-          if (!scopedPackage) return true;
           return normalizeContractPackageValue(feature?.get("contractPackage")) === scopedPackage;
         }) || null
     );
@@ -278,16 +288,15 @@ export const useMapLayers = ({
     const normalizedId = normalizeFeatureId(id);
     if (!normalizedId) return null;
     const lookup = normalizedId.toLowerCase();
-    const scopedPackage = normalizeFeatureId(contractPackage)
-      ? normalizeContractPackageValue(contractPackage)
-      : "";
+    const scopedPackage = normalizeContractPackageValue(
+      normalizeFeatureId(contractPackage) || uiStore.activeContract
+    );
     return (
       sectionsSource
         .getFeatures()
         .find((feature, index) => {
           const featureId = String(getSectionLotId(feature, index)).trim().toLowerCase();
           if (featureId !== lookup) return false;
-          if (!scopedPackage) return true;
           return normalizeContractPackageValue(feature?.get("contractPackage")) === scopedPackage;
         }) || null
     );
