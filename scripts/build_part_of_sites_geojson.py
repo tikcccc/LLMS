@@ -36,10 +36,10 @@ MERGE_SCRIPT_PATH = Path(__file__).with_name("merge_part_of_sites_dxf.py")
 PART10_DUPLICATE_OVERLAP_THRESHOLD = 0.95
 PART10_LINE_CLOSE_TOLERANCE = 3.0
 PART10_MIN_AREA = 1.0
-PART10_10B_VOID_DXF_FILENAMES: set[str] = set()
+PART10_10B_VOID_DXF_FILENAMES: set[str] = {"10b(hole).dxf"}
 PART10_ENABLE_LINE_VOID_CUTOUT = True
-# Keep empty by default so all 10B source DXFs (including 10b(12)) are merged.
-PART10_10B_EXCLUDED_DXF_FILENAMES: set[str] = set()
+# Exclude dedicated hole source from normal 10B merge to avoid extra pseudo-part outputs.
+PART10_10B_EXCLUDED_DXF_FILENAMES: set[str] = {"10b(hole).dxf"}
 PART10_10B_LINE_VOID_MIN_AREA = 1000.0
 DEFAULT_TOPOLOGY_CLEAN_GRID = 0.001
 DEFAULT_TOPOLOGY_CLEAN_MIN_AREA = 0.0
@@ -381,7 +381,8 @@ def discover_part_dxf_map(group_dir: Path) -> Dict[str, List[Path]]:
     for dxf_file in dxf_files:
         stem_base = normalize_part_base_name(dxf_file.stem)
         part_id = normalize_part_id(stem_base or dxf_file.stem)
-        if part_id == "10B" and dxf_file.name.lower() in PART10_10B_EXCLUDED_DXF_FILENAMES:
+        lower_name = dxf_file.name.lower()
+        if part_id.startswith("10B") and lower_name in PART10_10B_EXCLUDED_DXF_FILENAMES:
             continue
         by_part.setdefault(part_id, []).append(dxf_file)
     return by_part
@@ -695,7 +696,8 @@ def apply_part10_10b_void_cutout(
                 layers=None,
                 flatten_distance=flatten_distance,
                 include_inserts=include_inserts,
-                polygonize=False,
+                # Dedicated hole DXFs are often linework; polygonize to get cutout faces.
+                polygonize=True,
                 keep_lines=False,
                 snap=snap,
                 close_tolerance=close_tolerance,

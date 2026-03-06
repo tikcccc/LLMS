@@ -1,6 +1,6 @@
 # DXF to GeoJSON Guide
 
-最後更新：2026-03-05  
+最後更新：2026-03-06  
 範圍：`scripts/dxf_to_geojson.py`、`scripts/dxf_to_site_boundary_geojson.py`、`scripts/build_part_of_sites_geojson.py`、`scripts/build_sections_geojson.py`
 
 ## 1) 目的
@@ -166,10 +166,13 @@ python scripts/build_part_of_sites_geojson.py
 - `--variant-merge-unit-strategy`：多 DXF 合併時的單位策略，預設 `keep-values`
 - `--variant-force-suspicious-scaling`：只在 `scale-values` 需要強制縮放時使用
 
-PART 10（10B）特例口徑（2026-03-04 更新）：
+PART 10（10B）特例口徑（2026-03-06 更新）：
 
 - `10b(12).dxf` 會納入 `10B` 多檔合併來源（作為一般 polygon/block 來源）。
 - `10b(12).dxf` 不作為 void-cutout 來源。
+- `10b(hole).dxf` 為 `10B` 專用 void-cutout 來源：會從 10B 最終 polygon 幾何中扣除，作為 interior hole。
+- `10b(hole).dxf` 不會作為獨立 part 輸出（避免產生 `10B(HOLE)`），也不納入 `10B` 一般來源合併。
+- `10b(hole).dxf` 轉換 void 時會啟用 polygonize，確保 line-based 洞資料可被正確扣除。
 - 10B 的 line-based void heuristic 維持啟用，仍可由其他線資料推導內部 cutout。
 
 多檔合併規則（Part of Sites）：

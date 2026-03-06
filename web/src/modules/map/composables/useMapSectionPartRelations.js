@@ -18,6 +18,46 @@ const buildScopedKey = (id, contractPackage = "C2") => {
 const normalizeNaturalSort = (left, right) =>
   String(left || "").localeCompare(String(right || ""), undefined, { numeric: true });
 
+const buildContractIsolatedGeometryStats = ({
+  features = [],
+  resolveMeta,
+  resolveScopedId,
+}) => {
+  if (!Array.isArray(features) || features.length === 0) return new Map();
+  if (typeof resolveMeta !== "function" || typeof resolveScopedId !== "function") {
+    return new Map();
+  }
+
+  const metaByFeature = new WeakMap();
+  const byContract = new Map();
+
+  features.forEach((feature, index) => {
+    const meta = resolveMeta(feature, index) || {};
+    metaByFeature.set(feature, meta);
+    const contractPackage = normalizeContractPackage(meta.contractPackage);
+    if (!byContract.has(contractPackage)) {
+      byContract.set(contractPackage, []);
+    }
+    byContract.get(contractPackage).push(feature);
+  });
+
+  const mergedStats = new Map();
+  byContract.forEach((contractFeatures, contractPackage) => {
+    if (!Array.isArray(contractFeatures) || contractFeatures.length === 0) return;
+    const stats = buildResolvedPartGeometryStats({
+      features: contractFeatures,
+      resolvePartId: (feature, index) => {
+        const meta =
+          metaByFeature.get(feature) ||
+          resolveMeta(feature, index) || { contractPackage };
+        return resolveScopedId(meta, contractPackage);
+      },
+    });
+    stats.forEach((value, key) => mergedStats.set(key, value));
+  });
+  return mergedStats;
+};
+
 const resolveScopedGeometryStat = (statsMap, id, contractPackage = "") => {
   const normalizedId = normalizeText(id);
   if (!normalizedId || !(statsMap instanceof Map)) return null;
@@ -81,28 +121,20 @@ export const useMapSectionPartRelations = ({
     const sectionFeatures = sectionsSource.getFeatures();
     const partFeatures = partOfSitesSource.getFeatures();
 
-    const nextPartGeometryStats =
-      partFeatures.length > 0
-        ? buildResolvedPartGeometryStats({
-            features: partFeatures,
-            resolvePartId: (feature, index) => {
-              const partMeta = resolvePartOfSiteMeta(feature, index);
-              return buildScopedKey(partMeta.partId, partMeta.contractPackage);
-            },
-          })
-        : new Map();
+    const nextPartGeometryStats = buildContractIsolatedGeometryStats({
+      features: partFeatures,
+      resolveMeta: (feature, index) => resolvePartOfSiteMeta(feature, index),
+      resolveScopedId: (partMeta, contractPackage) =>
+        buildScopedKey(partMeta.partId, contractPackage),
+    });
     partGeometryStatsById.value = nextPartGeometryStats;
 
-    const nextSectionGeometryStats =
-      sectionFeatures.length > 0
-        ? buildResolvedPartGeometryStats({
-            features: sectionFeatures,
-            resolvePartId: (feature, index) => {
-              const sectionMeta = resolveSectionMeta(feature, index);
-              return buildScopedKey(sectionMeta.sectionId, sectionMeta.contractPackage);
-            },
-          })
-        : new Map();
+    const nextSectionGeometryStats = buildContractIsolatedGeometryStats({
+      features: sectionFeatures,
+      resolveMeta: (feature, index) => resolveSectionMeta(feature, index),
+      resolveScopedId: (sectionMeta, contractPackage) =>
+        buildScopedKey(sectionMeta.sectionId, contractPackage),
+    });
     sectionGeometryStatsById.value = nextSectionGeometryStats;
 
     if (!sectionFeatures.length || !partFeatures.length) {
